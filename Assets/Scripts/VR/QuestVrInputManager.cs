@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using TheBigRedButtonInstitute.Biofeedback;
 using UnityEngine;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
@@ -31,7 +32,10 @@ namespace TheBigRedButtonInstitute.VR
             CenterButton = 1,
             PressButton = 2,
             ToggleHud = 3,
-            StatusSnapshot = 4
+            StatusSnapshot = 4,
+            PolarConnect = 5,
+            PolarScan = 6,
+            PolarClearSavedDevice = 7
         }
 
         public enum VrControllerButtonId
@@ -70,6 +74,7 @@ namespace TheBigRedButtonInstitute.VR
         [SerializeField] Transform headTransform;
         [SerializeField] Transform buttonTransform;
         [SerializeField] BigRedButtonAnimationTester buttonAnimationTester;
+        [SerializeField] PolarH10RuntimeManager polarRuntimeManager;
 
         [Header("Behavior")]
         [SerializeField] bool autoResolveReferences = true;
@@ -146,15 +151,18 @@ namespace TheBigRedButtonInstitute.VR
 
         public void EnsureConfiguration()
         {
-            if (bindings == null || bindings.Count == 0)
+            if (bindings == null)
             {
-                bindings = BuildDefaultBindings();
+                bindings = new List<ActionBinding>();
             }
 
-            if (commands == null || commands.Count == 0)
+            if (commands == null)
             {
-                commands = BuildDefaultCommands();
+                commands = new List<TerminalCommand>();
             }
+
+            MergeMissingBindings();
+            MergeMissingCommands();
         }
 
         public string BuildHudText(int selectedCommandIndex, string transientMessage)
@@ -189,6 +197,33 @@ namespace TheBigRedButtonInstitute.VR
             else
             {
                 builder.AppendLine("<color=#AFC0CF>Distance:</color> <color=#EAF6FF>n/a</color>");
+            }
+
+            builder.AppendLine();
+            builder.AppendLine("<b><color=#FFB56B>[POLAR H10]</color></b>");
+
+            if (polarRuntimeManager != null)
+            {
+                builder.AppendLine(
+                    $"<color=#AFC0CF>BLE:</color> <color=#EAF6FF>{EscapeRichText(polarRuntimeManager.GetBleStateLabel())}</color>");
+                builder.AppendLine(
+                    $"<color=#AFC0CF>Polar:</color> <color=#EAF6FF>{EscapeRichText(polarRuntimeManager.GetConnectionStateLabel())}</color>");
+                builder.AppendLine(
+                    $"<color=#AFC0CF>Device:</color> <color=#EAF6FF>{EscapeRichText(polarRuntimeManager.ConnectedDeviceName)}</color>");
+                builder.AppendLine(
+                    $"<color=#AFC0CF>Heart:</color> <color=#EAF6FF>{EscapeRichText(polarRuntimeManager.GetHeartbeatLabel())}</color>");
+                builder.AppendLine(
+                    $"<color=#AFC0CF>Breath:</color> <color=#EAF6FF>{EscapeRichText(polarRuntimeManager.GetBreathingLabel())}</color>");
+                builder.AppendLine(
+                    $"<color=#AFC0CF>Coherence:</color> <color=#EAF6FF>{EscapeRichText(polarRuntimeManager.GetCoherenceLabel())}</color>");
+                builder.AppendLine(
+                    $"<color=#AFC0CF>Seen:</color> <color=#EAF6FF>{EscapeRichText(polarRuntimeManager.GetRecentDevicesLabel())}</color>");
+                builder.AppendLine(
+                    $"<color=#AFC0CF>Status:</color> <color=#EAF6FF>{EscapeRichText(polarRuntimeManager.StatusMessage)}</color>");
+            }
+            else
+            {
+                builder.AppendLine("<color=#AFC0CF>Status:</color> <color=#97A9B6>runtime unavailable</color>");
             }
 
             builder.AppendLine();
@@ -324,9 +359,39 @@ namespace TheBigRedButtonInstitute.VR
                     ExecuteAction(VrActionId.ToggleHud);
                     break;
                 case VrTerminalCommandId.StatusSnapshot:
-                    var snapshot = BuildButtonSummary();
+                    var snapshot = BuildStatusSummary();
                     Debug.Log($"[QuestVrInputManager] {snapshot}", this);
                     hud?.SetTransientMessage($"status: {snapshot}");
+                    break;
+                case VrTerminalCommandId.PolarConnect:
+                    if (polarRuntimeManager == null)
+                    {
+                        hud?.SetTransientMessage("polar_connect failed: runtime missing");
+                        break;
+                    }
+
+                    polarRuntimeManager.BeginConnectFlow(true);
+                    hud?.SetTransientMessage("polar_connect requested");
+                    break;
+                case VrTerminalCommandId.PolarScan:
+                    if (polarRuntimeManager == null)
+                    {
+                        hud?.SetTransientMessage("polar_scan failed: runtime missing");
+                        break;
+                    }
+
+                    polarRuntimeManager.BeginScanFlow(true);
+                    hud?.SetTransientMessage("polar_scan requested");
+                    break;
+                case VrTerminalCommandId.PolarClearSavedDevice:
+                    if (polarRuntimeManager == null)
+                    {
+                        hud?.SetTransientMessage("polar_clear_saved_device failed: runtime missing");
+                        break;
+                    }
+
+                    polarRuntimeManager.ClearSavedDevice();
+                    hud?.SetTransientMessage("polar device cleared");
                     break;
             }
         }
@@ -386,6 +451,16 @@ namespace TheBigRedButtonInstitute.VR
             if ((buttonAnimationTester == null || forceRefresh) && buttonTransform != null)
             {
                 buttonAnimationTester = buttonTransform.GetComponent<BigRedButtonAnimationTester>();
+            }
+
+            if ((polarRuntimeManager == null || forceRefresh) && Application.isPlaying)
+            {
+                polarRuntimeManager = PolarH10RuntimeManager.EnsureRuntimeExists();
+            }
+
+            if ((polarRuntimeManager == null || forceRefresh) && !Application.isPlaying)
+            {
+                polarRuntimeManager = FindAnyObjectByType<PolarH10RuntimeManager>();
             }
         }
 
@@ -517,16 +592,12 @@ namespace TheBigRedButtonInstitute.VR
         }
 #endif
 
-        string BuildButtonSummary()
+        string BuildStatusSummary()
         {
-            if (buttonTransform == null)
-            {
-                return "missing";
-            }
-
             var summary = new StringBuilder(96);
-            summary.Append("ready");
-            summary.Append("  presses ");
+            summary.Append("button ");
+            summary.Append(buttonTransform == null ? "missing" : "ready");
+            summary.Append(" / presses ");
             summary.Append(_buttonPressCount);
 
             if (TryGetButtonBounds(out var bounds))
@@ -536,11 +607,17 @@ namespace TheBigRedButtonInstitute.VR
                 summary.Append("m tall");
             }
 
-            if (headTransform != null)
+            if (headTransform != null && buttonTransform != null)
             {
                 summary.Append("  ");
                 summary.Append(Vector3.Distance(headTransform.position, buttonTransform.position).ToString("0.00"));
                 summary.Append("m away");
+            }
+
+            if (polarRuntimeManager != null)
+            {
+                summary.Append(" / ");
+                summary.Append(polarRuntimeManager.BuildPlainStatusSummary());
             }
 
             return summary.ToString();
@@ -627,6 +704,52 @@ namespace TheBigRedButtonInstitute.VR
             };
         }
 
+        void MergeMissingBindings()
+        {
+            var defaults = BuildDefaultBindings();
+            for (var i = 0; i < defaults.Count; i++)
+            {
+                var defaultBinding = defaults[i];
+                var exists = false;
+                for (var j = 0; j < bindings.Count; j++)
+                {
+                    if (bindings[j].action == defaultBinding.action)
+                    {
+                        exists = true;
+                        break;
+                    }
+                }
+
+                if (!exists)
+                {
+                    bindings.Add(defaultBinding);
+                }
+            }
+        }
+
+        void MergeMissingCommands()
+        {
+            var defaults = BuildDefaultCommands();
+            for (var i = 0; i < defaults.Count; i++)
+            {
+                var defaultCommand = defaults[i];
+                var exists = false;
+                for (var j = 0; j < commands.Count; j++)
+                {
+                    if (commands[j].action == defaultCommand.action)
+                    {
+                        exists = true;
+                        break;
+                    }
+                }
+
+                if (!exists)
+                {
+                    commands.Add(defaultCommand);
+                }
+            }
+        }
+
         static List<TerminalCommand> BuildDefaultCommands()
         {
             return new List<TerminalCommand>
@@ -645,6 +768,24 @@ namespace TheBigRedButtonInstitute.VR
                 },
                 new()
                 {
+                    command = "polar_connect",
+                    description = "request BLE permissions and reconnect to Polar",
+                    action = VrTerminalCommandId.PolarConnect
+                },
+                new()
+                {
+                    command = "polar_scan",
+                    description = "scan for nearby Polar H10 devices",
+                    action = VrTerminalCommandId.PolarScan
+                },
+                new()
+                {
+                    command = "polar_clear_saved_device",
+                    description = "forget the saved Polar device address",
+                    action = VrTerminalCommandId.PolarClearSavedDevice
+                },
+                new()
+                {
                     command = "toggle_hud",
                     description = "show or hide the overlay",
                     action = VrTerminalCommandId.ToggleHud
@@ -652,7 +793,7 @@ namespace TheBigRedButtonInstitute.VR
                 new()
                 {
                     command = "status",
-                    description = "log the current button placement snapshot",
+                    description = "log the button and Polar sensor status snapshot",
                     action = VrTerminalCommandId.StatusSnapshot
                 }
             };

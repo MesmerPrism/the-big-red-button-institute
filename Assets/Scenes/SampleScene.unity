@@ -622,7 +622,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.35, g: 0.74, b: 0.92, a: 0.86}
+  m_Color: {r: 0.38, g: 0.74, b: 0.94, a: 0.92}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 0
@@ -663,8 +663,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -18, y: 0}
-  m_SizeDelta: {x: 4, y: -36}
+  m_AnchoredPosition: {x: -20, y: 0}
+  m_SizeDelta: {x: 6, y: -40}
   m_Pivot: {x: 1, y: 0.5}
 --- !u!1 &699112038
 GameObject:
@@ -676,6 +676,7 @@ GameObject:
   m_Component:
   - component: {fileID: 699112040}
   - component: {fileID: 699112039}
+  - component: {fileID: 699112041}
   m_Layer: 0
   m_Name: VR Runtime
   m_TagString: Untagged
@@ -697,8 +698,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TheBigRedButtonInstitute.VR.QuestVrInputManager
   hud: {fileID: 1096924349}
   headTransform: {fileID: 2040359894}
-  buttonTransform: {fileID: 0}
-  buttonAnimationTester: {fileID: 0}
+  buttonTransform: {fileID: 700491448}
+  buttonAnimationTester: {fileID: 700491447}
+  polarRuntimeManager: {fileID: 699112041}
   autoResolveReferences: 1
   buttonDistanceFromHead: 1.35
   buttonVerticalOffset: -0.35
@@ -739,8 +741,17 @@ MonoBehaviour:
     description: show or hide the overlay
     action: 3
   - command: status
-    description: log the current button placement snapshot
+    description: log the button and Polar sensor status snapshot
     action: 4
+  - command: polar_connect
+    description: request BLE permissions and reconnect to Polar
+    action: 5
+  - command: polar_scan
+    description: scan for nearby Polar H10 devices
+    action: 6
+  - command: polar_clear_saved_device
+    description: forget the saved Polar device address
+    action: 7
 --- !u!4 &699112040
 Transform:
   m_ObjectHideFlags: 0
@@ -757,6 +768,34 @@ Transform:
   - {fileID: 1096924350}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &699112041
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 699112038}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c27a22e396dd934682a81c8d59980db, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TheBigRedButtonInstitute.Biofeedback.PolarH10RuntimeManager
+  bootstrapOnAwake: 1
+  autoConnectOnAndroidStart: 1
+  autoRequestPermissionsOnAndroidStart: 1
+  maxRecentDiscoveredDevices: 4
+  headsetForwardReference: {fileID: 0}
+  bluetoothPermissions: {fileID: 0}
+  bleAdapter: {fileID: 0}
+  bleCentral: {fileID: 0}
+  polarPmdAdapter: {fileID: 0}
+  polarUnifiedModule: {fileID: 0}
+  heartRateRouter: {fileID: 0}
+  accTransportRouter: {fileID: 0}
+  accBreathingTracker: {fileID: 0}
+  breathingModule: {fileID: 0}
+  heartbeatModule: {fileID: 0}
+  coherenceModule: {fileID: 0}
 --- !u!1001 &700491444
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -783,15 +822,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -3717114202187975224, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.9
+      value: 1.3
       objectReference: {fileID: 0}
     - target: {fileID: -3717114202187975224, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 1.4
+      value: -0.35000002
       objectReference: {fileID: 0}
     - target: {fileID: -3717114202187975224, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
       propertyPath: m_LocalRotation.w
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -3717114202187975224, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
       propertyPath: m_LocalRotation.x
@@ -799,7 +838,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -3717114202187975224, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
       propertyPath: m_LocalRotation.y
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: -3717114202187975224, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
       propertyPath: m_LocalRotation.z
@@ -859,6 +898,11 @@ MonoBehaviour:
   startDelay: 0
   pauseBetweenLoops: 0
   replayKey: 32
+--- !u!4 &700491448 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -3717114202187975224, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
+  m_PrefabInstance: {fileID: 700491444}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &701674036
 GameObject:
   m_ObjectHideFlags: 0
@@ -890,7 +934,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.35, g: 0.74, b: 0.92, a: 0.86}
+  m_Color: {r: 0.38, g: 0.74, b: 0.94, a: 0.92}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 0
@@ -931,8 +975,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 0}
-  m_AnchoredPosition: {x: 0, y: 18}
-  m_SizeDelta: {x: -36, y: 4}
+  m_AnchoredPosition: {x: 0, y: 20}
+  m_SizeDelta: {x: -40, y: 6}
   m_Pivot: {x: 0.5, y: 0}
 --- !u!1 &795546522
 GameObject:
@@ -1031,7 +1075,7 @@ RectTransform:
   m_GameObject: {fileID: 795546522}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.0011, y: 0.0011, z: 0.0011}
+  m_LocalScale: {x: 0.0012, y: 0.0012, z: 0.0012}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 887912686}
@@ -1041,7 +1085,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 1280, y: 760}
+  m_SizeDelta: {x: 1800, y: 1275}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!223 &795546527
 Canvas:
@@ -1061,7 +1105,7 @@ Canvas:
   m_OverridePixelPerfect: 0
   m_SortingBucketNormalizedSize: 0
   m_VertexColorAlwaysGammaSpace: 0
-  m_AdditionalShaderChannelsFlag: 0
+  m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
   m_SortingOrder: 0
@@ -1206,7 +1250,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.03, g: 0.04, b: 0.05, a: 0.82}
+  m_Color: {r: 0.02, g: 0.03, b: 0.04, a: 0.14}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 0
@@ -1491,7 +1535,7 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4294967295
+    rgba: 4294963931
   m_fontColor: {r: 0.86, g: 0.95, b: 1, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
@@ -1504,7 +1548,7 @@ MonoBehaviour:
   m_spriteAsset: {fileID: 0}
   m_tintAllSprites: 0
   m_StyleSheet: {fileID: 0}
-  m_TextStyleHashCode: 0
+  m_TextStyleHashCode: -1183493901
   m_overrideHtmlColors: 0
   m_faceColor:
     serializedVersion: 2
@@ -1532,13 +1576,13 @@ MonoBehaviour:
   m_linkedTextComponent: {fileID: 0}
   parentLinkedComponent: {fileID: 0}
   m_enableKerning: 0
-  m_ActiveFontFeatures: 00000000
+  m_ActiveFontFeatures: 
   m_enableExtraPadding: 0
   checkPaddingRequired: 0
   m_isRichText: 1
   m_EmojiFallbackSupport: 1
   m_parseCtrlCharacters: 1
-  m_isOrthographic: 0
+  m_isOrthographic: 1
   m_isCullingEnabled: 0
   m_horizontalMapping: 0
   m_verticalMapping: 0
@@ -1585,7 +1629,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.35, g: 0.74, b: 0.92, a: 0.86}
+  m_Color: {r: 0.38, g: 0.74, b: 0.94, a: 0.92}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 0
@@ -1626,8 +1670,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 18, y: 0}
-  m_SizeDelta: {x: 4, y: -36}
+  m_AnchoredPosition: {x: 20, y: 0}
+  m_SizeDelta: {x: 6, y: -40}
   m_Pivot: {x: 0, y: 0.5}
 --- !u!1 &1345342561
 GameObject:
@@ -1692,7 +1736,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.35, g: 0.74, b: 0.92, a: 0.86}
+  m_Color: {r: 0.38, g: 0.74, b: 0.94, a: 0.92}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 0
@@ -1733,8 +1777,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: -18}
-  m_SizeDelta: {x: -36, y: 4}
+  m_AnchoredPosition: {x: 0, y: -20}
+  m_SizeDelta: {x: -40, y: 6}
   m_Pivot: {x: 0.5, y: 1}
 --- !u!1 &1616515095
 GameObject:

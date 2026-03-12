@@ -823,9 +823,9 @@ namespace TheBigRedButtonInstitute.VR
             }
 
             var settings = Resources.Load<TMP_Settings>("TMP Settings");
-            if (settings != null && settings.defaultFontAsset != null)
+            if (settings != null && TMP_Settings.defaultFontAsset != null)
             {
-                return settings.defaultFontAsset;
+                return TMP_Settings.defaultFontAsset;
             }
 
             return Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");

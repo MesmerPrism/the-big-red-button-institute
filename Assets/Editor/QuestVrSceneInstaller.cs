@@ -2,6 +2,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using TheBigRedButtonInstitute.Biofeedback;
 using TheBigRedButtonInstitute.VR;
 
 namespace TheBigRedButtonInstitute.Editor
@@ -51,6 +52,7 @@ namespace TheBigRedButtonInstitute.Editor
             var runtimeRoot = EnsureRuntimeRoot(scene);
             var hud = EnsureHud(runtimeRoot.transform);
             var inputManager = EnsureInputManager(runtimeRoot);
+            EnsurePolarRuntimeManager(runtimeRoot);
             var headTransform = cameraRig != null ? cameraRig.centerEyeAnchor : Camera.main != null ? Camera.main.transform : null;
 
             if (headTransform == null)
@@ -204,6 +206,11 @@ namespace TheBigRedButtonInstitute.Editor
         static QuestVrInputManager EnsureInputManager(GameObject runtimeRoot)
         {
             return runtimeRoot.GetComponent<QuestVrInputManager>() ?? runtimeRoot.AddComponent<QuestVrInputManager>();
+        }
+
+        static PolarH10RuntimeManager EnsurePolarRuntimeManager(GameObject runtimeRoot)
+        {
+            return runtimeRoot.GetComponent<PolarH10RuntimeManager>() ?? runtimeRoot.AddComponent<PolarH10RuntimeManager>();
         }
     }
 }
