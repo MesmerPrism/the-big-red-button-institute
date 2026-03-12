@@ -35,6 +35,7 @@
 *.aab
 *.unitypackage
 *.stacktrace
+.utmp/
 
 # OS files
 .DS_Store
