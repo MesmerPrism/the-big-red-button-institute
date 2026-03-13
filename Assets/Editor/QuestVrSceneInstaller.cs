@@ -52,7 +52,6 @@ namespace TheBigRedButtonInstitute.Editor
             var runtimeRoot = EnsureRuntimeRoot(scene);
             var hud = EnsureHud(runtimeRoot.transform);
             var inputManager = EnsureInputManager(runtimeRoot);
-            EnsurePolarRuntimeManager(runtimeRoot);
             var headTransform = cameraRig != null ? cameraRig.centerEyeAnchor : Camera.main != null ? Camera.main.transform : null;
 
             if (headTransform == null)
@@ -61,10 +60,15 @@ namespace TheBigRedButtonInstitute.Editor
                 return;
             }
 
+            var polarRuntimeManager = PolarH10SceneInstaller.InstallIntoScene(scene, runtimeRoot, headTransform);
+            var polarHeartbeatButtonDriver = EnsurePolarHeartbeatButtonDriver(runtimeRoot);
+
             hud.ApplyAstralPresentationPreset();
             hud.ConfigureReferences(inputManager, headTransform);
             hud.EnsureSetupInEditor();
             inputManager.ConfigureReferences(hud, headTransform, button != null ? button.transform : null, tester);
+            inputManager.ConfigurePolarReferences(polarRuntimeManager, polarHeartbeatButtonDriver);
+            polarHeartbeatButtonDriver.ConfigureReferences(polarRuntimeManager, inputManager, tester);
             inputManager.CenterButtonInFrontOfHead();
 
             EditorUtility.SetDirty(runtimeRoot);
@@ -208,9 +212,9 @@ namespace TheBigRedButtonInstitute.Editor
             return runtimeRoot.GetComponent<QuestVrInputManager>() ?? runtimeRoot.AddComponent<QuestVrInputManager>();
         }
 
-        static PolarH10RuntimeManager EnsurePolarRuntimeManager(GameObject runtimeRoot)
+        static PolarHeartbeatButtonDriver EnsurePolarHeartbeatButtonDriver(GameObject runtimeRoot)
         {
-            return runtimeRoot.GetComponent<PolarH10RuntimeManager>() ?? runtimeRoot.AddComponent<PolarH10RuntimeManager>();
+            return runtimeRoot.GetComponent<PolarHeartbeatButtonDriver>() ?? runtimeRoot.AddComponent<PolarHeartbeatButtonDriver>();
         }
     }
 }

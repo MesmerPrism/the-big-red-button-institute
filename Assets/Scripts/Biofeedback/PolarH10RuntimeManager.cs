@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using AstralKarateDojo.Biofeedback.Transport.BLE;
@@ -8,6 +9,8 @@ using AstralKarateDojo.IndirectParticles.Biofeedback.Breathing;
 using AstralKarateDojo.IndirectParticles.Biofeedback.Coherence;
 using AstralKarateDojo.IndirectParticles.Biofeedback.Heartbeat;
 using UnityEngine;
+using UnityEngine.Android;
+using UnityEngine.SceneManagement;
 
 namespace TheBigRedButtonInstitute.Biofeedback
 {
@@ -16,19 +19,31 @@ namespace TheBigRedButtonInstitute.Biofeedback
     public sealed class PolarH10RuntimeManager : MonoBehaviour
     {
         const string RuntimeRootName = "Polar H10 Runtime";
-        const string BleRuntimeName = "BLE Runtime";
-        const string PermissionsName = "Bluetooth Permissions";
-        const string PolarAdapterName = "Polar PMD Adapter";
-        const string PolarRuntimeName = "Polar H10 Modules";
+        const string ConnectionHubName = "Biofeedback Connection Hub";
+        const string PolarRuntimeName = "Polar H10 Breathing Source";
+        const float PermissionPollIntervalSeconds = 0.25f;
+        const float PermissionRequestTimeoutSeconds = 30f;
 
         static readonly BindingFlags InstanceFieldFlags =
             BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
+
+        enum BleStartupIntent
+        {
+            None = 0,
+            Connect = 1,
+            Scan = 2
+        }
 
         readonly List<string> _recentDiscoveredDevices = new();
         bool _eventsSubscribed;
         bool _pendingConnectWhenReady;
         bool _pendingScanWhenReady;
+        bool _usePolarAutoConnectOnReady;
+        Coroutine _bleStartupRoutine;
+        bool _hasRequestedBlePermissionsThisSession;
         string _statusMessage = "idle";
+        PEHeartbeatSample _lastHeartbeatSample;
+        bool _hasHeartbeatSample;
 
         [Header("Startup")]
         [SerializeField] bool bootstrapOnAwake = true;
@@ -51,10 +66,14 @@ namespace TheBigRedButtonInstitute.Biofeedback
         [SerializeField] PEHeartbeatCoherenceModule coherenceModule;
 
         public static PolarH10RuntimeManager Instance { get; private set; }
+        public event Action<PEHeartbeatSample> HeartbeatSampleUpdated;
 
         public bool IsBleInitialized => bleCentral != null && bleCentral.IsInitialized;
         public bool IsBleReady => bleCentral != null && bleCentral.IsReady;
         public bool IsPolarConnected => polarUnifiedModule != null && polarUnifiedModule.IsConnected;
+        public bool HasHeartbeatSample => _hasHeartbeatSample;
+        public PEPolarHeartbeatModule HeartbeatModule => heartbeatModule;
+        public PEHeartbeatSample LastHeartbeatSample => _lastHeartbeatSample;
         public string ConnectedDeviceName => polarUnifiedModule != null && !string.IsNullOrWhiteSpace(polarUnifiedModule.ConnectedName)
             ? polarUnifiedModule.ConnectedName
             : "n/a";
@@ -91,6 +110,34 @@ namespace TheBigRedButtonInstitute.Biofeedback
             return runtimeObject.AddComponent<PolarH10RuntimeManager>();
         }
 
+        public void ConfigureRuntimeGraphReferences(
+            Transform headReference,
+            BluetoothPermissionsBootstrap permissionsBootstrap,
+            BleAdapter adapter,
+            BleCentral central,
+            PolarPmdAdapter pmdAdapter,
+            PolarUnifiedModule unifiedModule,
+            PolarHeartRateTransportRouter heartRateTransportRouter,
+            PolarAccTransportRouter accRouter,
+            PolarAccBreathingTracker breathingTracker,
+            PEPolarH10BreathingModule polarBreathingModule,
+            PEPolarHeartbeatModule polarHeartbeatModule,
+            PEHeartbeatCoherenceModule heartbeatCoherenceModule)
+        {
+            headsetForwardReference = headReference;
+            bluetoothPermissions = permissionsBootstrap;
+            bleAdapter = adapter;
+            bleCentral = central;
+            polarPmdAdapter = pmdAdapter;
+            polarUnifiedModule = unifiedModule;
+            heartRateRouter = heartRateTransportRouter;
+            accTransportRouter = accRouter;
+            accBreathingTracker = breathingTracker;
+            breathingModule = polarBreathingModule;
+            heartbeatModule = polarHeartbeatModule;
+            coherenceModule = heartbeatCoherenceModule;
+        }
+
         void Awake()
         {
             if (Instance != null && Instance != this)
@@ -122,6 +169,12 @@ namespace TheBigRedButtonInstitute.Biofeedback
             if (autoConnectOnAndroidStart)
             {
                 BeginConnectFlow(autoRequestPermissionsOnAndroidStart);
+                return;
+            }
+
+            if (autoRequestPermissionsOnAndroidStart)
+            {
+                RequestBlePermissionsOnly();
             }
         }
 
@@ -145,11 +198,14 @@ namespace TheBigRedButtonInstitute.Biofeedback
 
         void OnDisable()
         {
+            StopBleStartupRoutine();
             UnsubscribeFromRuntimeEvents();
         }
 
         void OnDestroy()
         {
+            StopBleStartupRoutine();
+
             if (Instance == this)
             {
                 Instance = null;
@@ -159,60 +215,13 @@ namespace TheBigRedButtonInstitute.Biofeedback
         public void BeginConnectFlow(bool requestPermissions)
         {
             EnsureRuntimeGraph();
-
-            if (requestPermissions && bluetoothPermissions != null)
-            {
-                bluetoothPermissions.EnsureBluetoothPermissionsNow(
-                    BluetoothPermissionsBootstrap.BluetoothPermissionProfile.BleOnly);
-                _statusMessage = "requesting BLE permissions";
-            }
-            else
-            {
-                _statusMessage = "preparing BLE runtime";
-            }
-
-            if (!PrepareBleRuntime())
-            {
-                return;
-            }
-
-            _pendingConnectWhenReady = true;
-            _pendingScanWhenReady = false;
-
-            if (bleCentral.IsReady)
-            {
-                TriggerPendingConnect();
-            }
+            StartBleStartup(BleStartupIntent.Connect, requestPermissions);
         }
 
         public void BeginScanFlow(bool requestPermissions)
         {
             EnsureRuntimeGraph();
-
-            if (requestPermissions && bluetoothPermissions != null)
-            {
-                bluetoothPermissions.EnsureBluetoothPermissionsNow(
-                    BluetoothPermissionsBootstrap.BluetoothPermissionProfile.BleOnly);
-                _statusMessage = "requesting BLE permissions";
-            }
-            else
-            {
-                _statusMessage = "preparing BLE scan";
-            }
-
-            if (!PrepareBleRuntime())
-            {
-                return;
-            }
-
-            _pendingConnectWhenReady = false;
-            _pendingScanWhenReady = true;
-            _recentDiscoveredDevices.Clear();
-
-            if (bleCentral.IsReady)
-            {
-                TriggerPendingScan();
-            }
+            StartBleStartup(BleStartupIntent.Scan, requestPermissions);
         }
 
         public void ClearSavedDevice()
@@ -221,11 +230,25 @@ namespace TheBigRedButtonInstitute.Biofeedback
             _statusMessage = "cleared saved Polar device";
         }
 
+        public void RequestBlePermissionsOnly()
+        {
+            EnsureRuntimeGraph();
+            StartBleStartup(BleStartupIntent.None, requestPermissions: true);
+        }
+
         public string GetBleStateLabel()
         {
             if (bleCentral == null)
             {
                 return "missing";
+            }
+
+            if (_bleStartupRoutine != null &&
+                !bleCentral.IsInitialized &&
+                !string.IsNullOrWhiteSpace(_statusMessage) &&
+                _statusMessage.IndexOf("permission", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return "permissions";
             }
 
             if (bleCentral.IsReady)
@@ -241,6 +264,57 @@ namespace TheBigRedButtonInstitute.Biofeedback
             return "idle";
         }
 
+        public string GetBlePermissionStatusLabel()
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            int sdkInt = GetAndroidSdkInt();
+            bool scanGranted = sdkInt < 31 || Permission.HasUserAuthorizedPermission("android.permission.BLUETOOTH_SCAN");
+            bool connectGranted = sdkInt < 31 || Permission.HasUserAuthorizedPermission("android.permission.BLUETOOTH_CONNECT");
+            bool locationGranted = Permission.HasUserAuthorizedPermission("android.permission.ACCESS_FINE_LOCATION");
+
+            if (sdkInt >= 31)
+            {
+                return $"scan={OnOff(scanGranted)} connect={OnOff(connectGranted)} location={OnOff(locationGranted)} sdk={sdkInt}";
+            }
+
+            bool locationEnabled = IsLegacyLocationEnabled();
+            return $"location={OnOff(locationGranted)} location_services={OnOff(locationEnabled)} sdk={sdkInt}";
+#else
+            return Application.isEditor ? "editor runtime" : "non-android runtime";
+#endif
+        }
+
+        public string GetBlePermissionGuidanceLabel()
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            if (AreBleRuntimeConditionsSatisfied(out var reason))
+            {
+                return _hasRequestedBlePermissionsThisSession
+                    ? "ready"
+                    : "already granted";
+            }
+
+            if (string.IsNullOrWhiteSpace(reason))
+            {
+                return _hasRequestedBlePermissionsThisSession
+                    ? "waiting for permission flow"
+                    : "request permissions";
+            }
+
+            bool blockedBySettings = _hasRequestedBlePermissionsThisSession && !ShouldShowBlePermissionRationale();
+            if (blockedBySettings)
+            {
+                return $"blocked in settings: {reason}";
+            }
+
+            return _hasRequestedBlePermissionsThisSession
+                ? $"grant required: {reason}"
+                : $"not granted: {reason}";
+#else
+            return Application.isEditor ? "android build only" : "n/a";
+#endif
+        }
+
         public string GetConnectionStateLabel()
         {
             if (polarUnifiedModule == null)
@@ -250,7 +324,17 @@ namespace TheBigRedButtonInstitute.Biofeedback
 
             if (polarUnifiedModule.IsConnected)
             {
-                return "connected";
+                if (heartbeatModule == null)
+                {
+                    return "connected";
+                }
+
+                return heartbeatModule.TrackingState switch
+                {
+                    PEHeartbeatTrackingState.Tracking => "connected / tracking",
+                    PEHeartbeatTrackingState.Stale => "connected / stale",
+                    _ => "connected / waiting"
+                };
             }
 
             if (_pendingScanWhenReady)
@@ -327,35 +411,40 @@ namespace TheBigRedButtonInstitute.Biofeedback
         void EnsureRuntimeGraph()
         {
             ResolveHeadsetReference();
+            ResolveExistingRuntimeReferences();
 
-            bluetoothPermissions = EnsureComponentOnChild<BluetoothPermissionsBootstrap>(PermissionsName);
-
-            var bleRuntime = EnsureChild(BleRuntimeName);
-            bool bleRuntimeWasActive = bleRuntime.activeSelf;
-            if (bleRuntimeWasActive)
+            var connectionHub = ResolveOrCreateRuntimeObject(
+                ConnectionHubName,
+                bluetoothPermissions,
+                bleCentral,
+                bleAdapter);
+            bool connectionHubWasActive = connectionHub.activeSelf;
+            if (connectionHubWasActive)
             {
-                bleRuntime.SetActive(false);
+                connectionHub.SetActive(false);
             }
 
-            bleAdapter = GetOrAddComponent<BleAdapter>(bleRuntime);
-            bleCentral = GetOrAddComponent<BleCentral>(bleRuntime);
+            bluetoothPermissions = GetOrAddComponent<BluetoothPermissionsBootstrap>(connectionHub);
+            bleAdapter = GetOrAddComponent<BleAdapter>(connectionHub);
+            bleCentral = GetOrAddComponent<BleCentral>(connectionHub);
             SetField(bleCentral, "adapter", bleAdapter);
             SetField(bleCentral, "initializeOnAwake", false);
             SetField(bleCentral, "beginReadyCheckOnStart", false);
             SetField(bleCentral, "persistAcrossScenes", true);
-            bleRuntime.SetActive(true);
+            connectionHub.SetActive(true);
 
-            var polarAdapterObject = EnsureChild(PolarAdapterName);
-            bool polarAdapterWasActive = polarAdapterObject.activeSelf;
-            if (polarAdapterWasActive)
-            {
-                polarAdapterObject.SetActive(false);
-            }
+            ResolveExistingRuntimeReferences();
 
-            polarPmdAdapter = GetOrAddComponent<PolarPmdAdapter>(polarAdapterObject);
-            polarAdapterObject.SetActive(true);
-
-            var polarRuntime = EnsureChild(PolarRuntimeName);
+            var polarRuntime = ResolveOrCreateRuntimeObject(
+                PolarRuntimeName,
+                polarUnifiedModule,
+                polarPmdAdapter,
+                heartRateRouter,
+                accTransportRouter,
+                accBreathingTracker,
+                breathingModule,
+                heartbeatModule,
+                coherenceModule);
             bool polarRuntimeWasActive = polarRuntime.activeSelf;
             if (polarRuntimeWasActive)
             {
@@ -363,6 +452,7 @@ namespace TheBigRedButtonInstitute.Biofeedback
             }
 
             polarUnifiedModule = GetOrAddComponent<PolarUnifiedModule>(polarRuntime);
+            polarPmdAdapter = GetOrAddComponent<PolarPmdAdapter>(polarRuntime);
             heartRateRouter = GetOrAddComponent<PolarHeartRateTransportRouter>(polarRuntime);
             accBreathingTracker = GetOrAddComponent<PolarAccBreathingTracker>(polarRuntime);
             accTransportRouter = GetOrAddComponent<PolarAccTransportRouter>(polarRuntime);
@@ -380,7 +470,7 @@ namespace TheBigRedButtonInstitute.Biofeedback
             SetField(polarUnifiedModule, "autoRescanWhenNoMatch", true);
             SetField(polarUnifiedModule, "enableEcg", false);
             SetField(polarUnifiedModule, "enableAcc", true);
-            SetField(polarUnifiedModule, "logDebug", false);
+            SetField(polarUnifiedModule, "logDebug", true);
 
             SetField(heartRateRouter, "unifiedModule", polarUnifiedModule);
             SetField(heartRateRouter, "publishToRawSignalRegistry", true);
@@ -401,6 +491,13 @@ namespace TheBigRedButtonInstitute.Biofeedback
 
             SetField(coherenceModule, "logDebug", false);
             polarRuntime.SetActive(true);
+            ResolveExistingRuntimeReferences();
+        }
+
+        void StartBleStartup(BleStartupIntent intent, bool requestPermissions)
+        {
+            StopBleStartupRoutine();
+            _bleStartupRoutine = StartCoroutine(RunBleStartup(intent, requestPermissions));
         }
 
         bool PrepareBleRuntime()
@@ -424,6 +521,200 @@ namespace TheBigRedButtonInstitute.Biofeedback
             bleCentral.BeginReadyCheck();
             return true;
         }
+
+        IEnumerator RunBleStartup(BleStartupIntent intent, bool requestPermissions)
+        {
+            _pendingConnectWhenReady = false;
+            _pendingScanWhenReady = false;
+            _usePolarAutoConnectOnReady = intent == BleStartupIntent.Connect;
+
+            if (intent == BleStartupIntent.Scan)
+            {
+                _recentDiscoveredDevices.Clear();
+            }
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+            if (requestPermissions)
+            {
+                bool permissionsGranted = false;
+                if (!TryRequestBlePermissions())
+                {
+                    _bleStartupRoutine = null;
+                    yield break;
+                }
+
+                yield return WaitForBlePermissions(result => permissionsGranted = result);
+                if (!permissionsGranted)
+                {
+                    _bleStartupRoutine = null;
+                    yield break;
+                }
+            }
+            else if (!AreBleRuntimeConditionsSatisfied(out var reasonWithoutRequest))
+            {
+                _statusMessage = $"BLE permissions missing: {reasonWithoutRequest}";
+                _bleStartupRoutine = null;
+                yield break;
+            }
+#endif
+
+            if (intent == BleStartupIntent.None)
+            {
+                _statusMessage = AreBleRuntimeConditionsSatisfied(out _)
+                    ? "BLE permissions ready"
+                    : _statusMessage;
+                _bleStartupRoutine = null;
+                yield break;
+            }
+
+            _statusMessage = intent == BleStartupIntent.Scan
+                ? "preparing BLE scan"
+                : "preparing BLE runtime";
+
+            if (polarUnifiedModule != null)
+            {
+                SetField(polarUnifiedModule, "autoConnectOnReady", _usePolarAutoConnectOnReady);
+            }
+
+            if (!PrepareBleRuntime())
+            {
+                _bleStartupRoutine = null;
+                yield break;
+            }
+
+            _pendingConnectWhenReady = intent == BleStartupIntent.Connect;
+            _pendingScanWhenReady = intent == BleStartupIntent.Scan;
+
+            if (bleCentral.IsReady)
+            {
+                if (_pendingConnectWhenReady)
+                {
+                    _pendingConnectWhenReady = false;
+                    TriggerImmediateConnect();
+                }
+                else if (_pendingScanWhenReady)
+                {
+                    TriggerPendingScan();
+                }
+            }
+
+            _bleStartupRoutine = null;
+        }
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+        IEnumerator WaitForBlePermissions(Action<bool> onComplete)
+        {
+            if (AreBleRuntimeConditionsSatisfied(out _))
+            {
+                onComplete?.Invoke(true);
+                yield break;
+            }
+
+            float elapsed = 0f;
+            string lastReason = null;
+
+            while (elapsed < PermissionRequestTimeoutSeconds)
+            {
+                if (AreBleRuntimeConditionsSatisfied(out _))
+                {
+                    onComplete?.Invoke(true);
+                    yield break;
+                }
+
+                AreBleRuntimeConditionsSatisfied(out var reason);
+                if (!string.Equals(reason, lastReason, StringComparison.Ordinal))
+                {
+                    lastReason = reason;
+                    _statusMessage = string.IsNullOrWhiteSpace(reason)
+                        ? "waiting for BLE permissions"
+                        : $"waiting for BLE permissions: {reason}";
+                }
+
+                yield return new WaitForSecondsRealtime(PermissionPollIntervalSeconds);
+                elapsed += PermissionPollIntervalSeconds;
+            }
+
+            AreBleRuntimeConditionsSatisfied(out var timeoutReason);
+            _statusMessage = string.IsNullOrWhiteSpace(timeoutReason)
+                ? "BLE permission request timed out"
+                : $"BLE permission request timed out: {timeoutReason}";
+            onComplete?.Invoke(false);
+        }
+#endif
+
+        bool TryRequestBlePermissions()
+        {
+            if (AreBleRuntimeConditionsSatisfied(out _))
+            {
+                _statusMessage = "BLE permissions already granted";
+                return true;
+            }
+
+            if (bluetoothPermissions != null)
+            {
+                _hasRequestedBlePermissionsThisSession = true;
+                bluetoothPermissions.EnsureBluetoothPermissionsNow(
+                    BluetoothPermissionsBootstrap.BluetoothPermissionProfile.BleOnly);
+                _statusMessage = "requesting BLE permissions";
+                return true;
+            }
+
+            _statusMessage = "BLE permissions bootstrap missing";
+            return false;
+        }
+
+        static bool AreBleRuntimeConditionsSatisfied(out string reason)
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            return BlePermissionHelper.AreBleRuntimeConditionsMet(out reason);
+#else
+            reason = null;
+            return true;
+#endif
+        }
+
+        void StopBleStartupRoutine()
+        {
+            if (_bleStartupRoutine == null)
+            {
+                return;
+            }
+
+            StopCoroutine(_bleStartupRoutine);
+            _bleStartupRoutine = null;
+        }
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+        static int GetAndroidSdkInt()
+        {
+            using var versionClass = new AndroidJavaClass("android.os.Build$VERSION");
+            return versionClass.GetStatic<int>("SDK_INT");
+        }
+
+        static bool IsLegacyLocationEnabled()
+        {
+            using var ctxCls = new AndroidJavaClass("com.unity3d.player.UnityPlayer");
+            using var activity = ctxCls.GetStatic<AndroidJavaObject>("currentActivity");
+            using var locationManager = activity.Call<AndroidJavaObject>("getSystemService", "location");
+            return locationManager != null && locationManager.Call<bool>("isLocationEnabled");
+        }
+
+        bool ShouldShowBlePermissionRationale()
+        {
+            int sdkInt = GetAndroidSdkInt();
+            if (sdkInt >= 31)
+            {
+                return
+                    Permission.ShouldShowRequestPermissionRationale("android.permission.BLUETOOTH_SCAN") ||
+                    Permission.ShouldShowRequestPermissionRationale("android.permission.BLUETOOTH_CONNECT") ||
+                    Permission.ShouldShowRequestPermissionRationale("android.permission.ACCESS_FINE_LOCATION");
+            }
+
+            return Permission.ShouldShowRequestPermissionRationale(Permission.FineLocation);
+        }
+#endif
+
+        static string OnOff(bool value) => value ? "on" : "off";
 
         void SubscribeToRuntimeEvents()
         {
@@ -450,6 +741,11 @@ namespace TheBigRedButtonInstitute.Biofeedback
                 polarUnifiedModule.DeviceDiscovered += HandlePolarDeviceDiscovered;
             }
 
+            if (heartbeatModule != null)
+            {
+                heartbeatModule.SampleUpdated += HandleHeartbeatSampleUpdated;
+            }
+
             _eventsSubscribed = true;
         }
 
@@ -473,6 +769,11 @@ namespace TheBigRedButtonInstitute.Biofeedback
                 polarUnifiedModule.DeviceDiscovered -= HandlePolarDeviceDiscovered;
             }
 
+            if (heartbeatModule != null)
+            {
+                heartbeatModule.SampleUpdated -= HandleHeartbeatSampleUpdated;
+            }
+
             _eventsSubscribed = false;
         }
 
@@ -482,7 +783,15 @@ namespace TheBigRedButtonInstitute.Biofeedback
 
             if (_pendingConnectWhenReady)
             {
-                TriggerPendingConnect();
+                _pendingConnectWhenReady = false;
+
+                if (_usePolarAutoConnectOnReady)
+                {
+                    _statusMessage = "BLE ready, waiting for Polar auto-connect";
+                    return;
+                }
+
+                TriggerImmediateConnect();
                 return;
             }
 
@@ -529,10 +838,21 @@ namespace TheBigRedButtonInstitute.Biofeedback
             _statusMessage = $"discovered {safeName}";
         }
 
+        void HandleHeartbeatSampleUpdated(PEHeartbeatSample sample)
+        {
+            _lastHeartbeatSample = sample;
+            _hasHeartbeatSample = true;
+            HeartbeatSampleUpdated?.Invoke(sample);
+        }
+
         void TriggerPendingConnect()
         {
             _pendingConnectWhenReady = false;
+            TriggerImmediateConnect();
+        }
 
+        void TriggerImmediateConnect()
+        {
             if (polarUnifiedModule == null)
             {
                 _statusMessage = "Polar module missing";
@@ -577,6 +897,48 @@ namespace TheBigRedButtonInstitute.Biofeedback
             {
                 SetField(accBreathingTracker, "headsetForwardReference", headsetForwardReference);
             }
+        }
+
+        void ResolveExistingRuntimeReferences()
+        {
+            bluetoothPermissions ??= FindAnyObjectByType<BluetoothPermissionsBootstrap>();
+            bleAdapter ??= FindAnyObjectByType<BleAdapter>();
+            bleCentral ??= FindAnyObjectByType<BleCentral>();
+            polarPmdAdapter ??= FindAnyObjectByType<PolarPmdAdapter>();
+            polarUnifiedModule ??= FindAnyObjectByType<PolarUnifiedModule>();
+            heartRateRouter ??= FindAnyObjectByType<PolarHeartRateTransportRouter>();
+            accTransportRouter ??= FindAnyObjectByType<PolarAccTransportRouter>();
+            accBreathingTracker ??= FindAnyObjectByType<PolarAccBreathingTracker>();
+            breathingModule ??= FindAnyObjectByType<PEPolarH10BreathingModule>();
+            heartbeatModule ??= FindAnyObjectByType<PEPolarHeartbeatModule>();
+            coherenceModule ??= FindAnyObjectByType<PEHeartbeatCoherenceModule>();
+        }
+
+        GameObject ResolveOrCreateRuntimeObject(string fallbackName, params Component[] candidates)
+        {
+            for (var i = 0; i < candidates.Length; i++)
+            {
+                if (candidates[i] != null)
+                {
+                    return candidates[i].gameObject;
+                }
+            }
+
+            var existing = GameObject.Find(fallbackName);
+            if (existing != null)
+            {
+                if (existing.scene != gameObject.scene)
+                {
+                    SceneManager.MoveGameObjectToScene(existing, gameObject.scene);
+                }
+
+                return existing;
+            }
+
+            var created = new GameObject(fallbackName);
+            SceneManager.MoveGameObjectToScene(created, gameObject.scene);
+            created.transform.SetParent(transform, false);
+            return created;
         }
 
         GameObject EnsureChild(string childName)

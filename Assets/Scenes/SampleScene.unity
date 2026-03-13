@@ -677,6 +677,7 @@ GameObject:
   - component: {fileID: 699112040}
   - component: {fileID: 699112039}
   - component: {fileID: 699112041}
+  - component: {fileID: 699112042}
   m_Layer: 0
   m_Name: VR Runtime
   m_TagString: Untagged
@@ -701,14 +702,23 @@ MonoBehaviour:
   buttonTransform: {fileID: 700491448}
   buttonAnimationTester: {fileID: 700491447}
   polarRuntimeManager: {fileID: 699112041}
+  polarHeartbeatButtonDriver: {fileID: 699112042}
   autoResolveReferences: 1
   buttonDistanceFromHead: 1.35
   buttonVerticalOffset: -0.35
   minimumButtonHeight: 0.8
   targetButtonHeight: 0.36
   buttonRotationOffsetEuler: {x: 0, y: 0, z: 0}
+  enableHudPageFlickNavigation: 1
+  hudPageFlickThreshold: 0.7
+  hudPageFlickRearmThreshold: 0.25
+  previousPageKeyboardKey: 276
+  nextPageKeyboardKey: 275
+  enableHudTerminalCursor: 1
   thumbstickPressThreshold: 0.7
   thumbstickRearmThreshold: 0.25
+  cursorUpKeyboardKey: 273
+  cursorDownKeyboardKey: 274
   bindings:
   - controllerButton: 1
     keyboardKey: 99
@@ -718,14 +728,6 @@ MonoBehaviour:
     keyboardKey: 104
     action: 1
     label: toggle_hud
-  - controllerButton: 4
-    keyboardKey: 273
-    action: 2
-    label: command_up
-  - controllerButton: 5
-    keyboardKey: 274
-    action: 3
-    label: command_down
   - controllerButton: 3
     keyboardKey: 13
     action: 4
@@ -752,6 +754,9 @@ MonoBehaviour:
   - command: polar_clear_saved_device
     description: forget the saved Polar device address
     action: 7
+  - command: polar_permissions
+    description: request or re-check BLE permissions
+    action: 8
 --- !u!4 &699112040
 Transform:
   m_ObjectHideFlags: 0
@@ -766,6 +771,8 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1096924350}
+  - {fileID: 1708686911}
+  - {fileID: 1029611146}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &699112041
@@ -784,18 +791,38 @@ MonoBehaviour:
   autoConnectOnAndroidStart: 1
   autoRequestPermissionsOnAndroidStart: 1
   maxRecentDiscoveredDevices: 4
-  headsetForwardReference: {fileID: 0}
-  bluetoothPermissions: {fileID: 0}
-  bleAdapter: {fileID: 0}
-  bleCentral: {fileID: 0}
-  polarPmdAdapter: {fileID: 0}
-  polarUnifiedModule: {fileID: 0}
-  heartRateRouter: {fileID: 0}
-  accTransportRouter: {fileID: 0}
-  accBreathingTracker: {fileID: 0}
-  breathingModule: {fileID: 0}
-  heartbeatModule: {fileID: 0}
-  coherenceModule: {fileID: 0}
+  headsetForwardReference: {fileID: 2040359894}
+  bluetoothPermissions: {fileID: 1708686913}
+  bleAdapter: {fileID: 1708686912}
+  bleCentral: {fileID: 1708686910}
+  polarPmdAdapter: {fileID: 1029611153}
+  polarUnifiedModule: {fileID: 1029611152}
+  heartRateRouter: {fileID: 1029611151}
+  accTransportRouter: {fileID: 1029611150}
+  accBreathingTracker: {fileID: 1029611149}
+  breathingModule: {fileID: 1029611148}
+  heartbeatModule: {fileID: 1029611147}
+  coherenceModule: {fileID: 1029611145}
+--- !u!114 &699112042
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 699112038}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a0f7030fb3504e83997f3636f2d1e58f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TheBigRedButtonInstitute.Biofeedback.PolarHeartbeatButtonDriver
+  polarRuntimeManager: {fileID: 699112041}
+  inputManager: {fileID: 699112039}
+  buttonAnimationTester: {fileID: 700491447}
+  autoResolveReferences: 1
+  requireTrackingState: 1
+  requireRealBeatSignal: 1
+  minimumConfidence01: 0.5
+  minimumBeatIntervalSeconds: 0.25
 --- !u!1001 &700491444
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -806,15 +833,15 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: -3717114202187975224, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
       propertyPath: m_LocalScale.x
-      value: 17.818727
+      value: 17.818716
       objectReference: {fileID: 0}
     - target: {fileID: -3717114202187975224, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
       propertyPath: m_LocalScale.y
-      value: 17.818727
+      value: 17.818716
       objectReference: {fileID: 0}
     - target: {fileID: -3717114202187975224, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
       propertyPath: m_LocalScale.z
-      value: 17.818727
+      value: 17.818716
       objectReference: {fileID: 0}
     - target: {fileID: -3717114202187975224, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
       propertyPath: m_LocalPosition.x
@@ -1339,6 +1366,277 @@ Transform:
   - {fileID: 853220154}
   m_Father: {fileID: 448229256}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1029611144
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1029611146}
+  - component: {fileID: 1029611152}
+  - component: {fileID: 1029611153}
+  - component: {fileID: 1029611151}
+  - component: {fileID: 1029611150}
+  - component: {fileID: 1029611149}
+  - component: {fileID: 1029611148}
+  - component: {fileID: 1029611147}
+  - component: {fileID: 1029611145}
+  m_Layer: 0
+  m_Name: Polar H10 Breathing Source
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1029611145
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1029611144}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3448e528eb8154548ade871df25a5273, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AstralKarateDojo.IndirectParticles.Biofeedback.Coherence.PEHeartbeatCoherenceModule
+  moduleId: 
+  publishToSignalRegistry: 1
+  coherenceSignalName: 
+  stateSignalName: 
+  trackingSignalName: 
+  confidenceSignalName: 
+  emitFallbackWhenUnavailable: 1
+  fallbackCoherence01: 0.5
+  publishedHeartbeatStateSignalName: heartbeat_polar_state
+  publishedHeartbeatRealBeatSignalName: heartbeat_polar_real_beat
+  beatThreshold01: 0.5
+  acceptStaleHeartbeatState: 1
+  minimumIbiSamples: 20
+  coherenceWindowSeconds: 64
+  coherenceSmoothingSpeed: 4
+  staleTimeoutSeconds: 3
+  logDebug: 0
+--- !u!4 &1029611146
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1029611144}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 699112040}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1029611147
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1029611144}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ac87551f5c4e6d04b966edbdb7fe9f17, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AstralKarateDojo.IndirectParticles.Biofeedback.Heartbeat.PEPolarHeartbeatModule
+  moduleId: 
+  publishToSignalRegistry: 1
+  pulseSignalName: 
+  stateSignalName: 
+  trackingSignalName: 
+  beatSignalName: 
+  realBeatSignalName: 
+  emitFallbackWhenUnavailable: 1
+  fallbackPulse01: 0.2
+  fallbackBpm: 60
+  requireConnection: 1
+  publishedConnectedSignalName: polar_hr_connected
+  publishedBpmSignalName: polar_hr_bpm
+  publishedRrIntervalSignalName: polar_hr_rr_ms
+  publishedRrBeatCountSignalName: polar_hr_rr_beat_count
+  preferRrIntervalsForBpm: 1
+  staleTimeoutSeconds: 2
+  bpmSmoothingSpeed: 6
+  pulseBaseline01: 0.1
+  pulsePeak01: 1
+  pulseDecaySeconds: 0.25
+--- !u!114 &1029611148
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1029611144}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ee78981570d010c4888b391bb551df35, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AstralKarateDojo.IndirectParticles.Biofeedback.Breathing.PEPolarH10BreathingModule
+  moduleId: 
+  publishToSignalRegistry: 1
+  volumeSignalName: 
+  stateSignalName: 
+  trackingSignalName: 
+  emitFallbackWhenUnavailable: 1
+  fallbackVolume01: 0.5
+  consumePublishedSignal: 1
+  publishedVolumeSignalName: polar_acc_breath_volume
+  publishedTrackingSignalName: polar_acc_breath_tracking
+  requireCalibration: 1
+  inputMapping: 0
+  rawMin: 0
+  rawMax: 1
+  invert01: 0
+  deltaThreshold: 0.003
+  staleTimeoutSeconds: 1
+--- !u!114 &1029611149
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1029611144}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f8450b0a8f271ad4bbe160cada7b53b3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AstralKarateDojo.IndirectParticles.Biofeedback.Breathing.PolarAccBreathingTracker
+  headsetForwardReference: {fileID: 0}
+  useHeadsetForwardDirection: 1
+  assumeInhaleMovesAlongHeadsetForward: 1
+  headsetForwardMinAbsDot: 0.1
+  autoCalibrateOnUsefulSignal: 1
+  usefulSignalWindowSeconds: 4
+  minUsefulSamples: 80
+  minUsefulSampleRateHz: 20
+  minUsefulAxisRangeG: 0.002
+  calibrationDurationSeconds: 12
+  minCalibrationSamples: 240
+  minCalibrationTravelG: 0.01
+  calibrationRetryDelaySeconds: 2
+  sampleEmaAlpha: 0.1
+  boundsLowerQuantile: 0.05
+  boundsUpperQuantile: 0.95
+  boundsEdgeEase: 0.03
+  projectionEmaAlpha: 0.1
+  invertVolume: 0
+  accBaseMode: 1
+  useAdaptiveBounds: 1
+  adaptiveBoundsWindowSeconds: 20
+  adaptiveBoundsMinInitialRangeFactor: 0.75
+  adaptiveBoundsMaxInitialRangeFactor: 1.35
+  adaptiveBoundsMinWindowCoverage: 0.85
+  adaptiveBoundsUpdateIntervalSeconds: 0.5
+  adaptiveBoundsLerpSpeed: 0.35
+  adaptiveBoundsContractSpeedMultiplier: 0.45
+  minAdaptiveBoundsSamples: 640
+  staleTimeoutSeconds: 3
+  volumeEventMinDelta: 0.001
+  loadRuntimeConfigOnEnable: 1
+  runtimeConfigRelativePath: runtime_config/breath_runtime_config.csv
+  logDebug: 1
+  logIntervalSeconds: 1
+  logActiveTuningOnEnable: 1
+  publishToSignalRegistry: 1
+  volumeSignalName: polar_acc_breath_volume
+  trackingSignalName: polar_acc_breath_tracking
+  sourceName: PolarAccTransportRouter
+--- !u!114 &1029611150
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1029611144}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a9ea7c4794cd5354cadff33d6ee2d0a3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AstralKarateDojo.Biofeedback.Transport.BLE.Polar.PolarAccTransportRouter
+  unifiedModule: {fileID: 0}
+  breathingTracker: {fileID: 0}
+  publishToRawSignalRegistry: 1
+  rawSignalPrefix: polar_acc
+  publishPerSample: 1
+  logDebug: 0
+--- !u!114 &1029611151
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1029611144}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2abcd65b60b46d4db3a54a6c9248092, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AstralKarateDojo.Biofeedback.Transport.BLE.Polar.PolarHeartRateTransportRouter
+  unifiedModule: {fileID: 0}
+  publishToRawSignalRegistry: 1
+  rawSignalPrefix: polar_hr
+  publishPerSample: 1
+  logDebug: 0
+--- !u!114 &1029611152
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1029611144}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f4bde486f219004caccb71f21dbed28, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AstralKarateDojo.Biofeedback.Transport.BLE.Polar.PolarUnifiedModule
+  central: {fileID: 0}
+  blePermissionBootstrap: {fileID: 0}
+  bluetoothPermissions: {fileID: 0}
+  pmdAdapter: {fileID: 0}
+  autoRequestPermissions: 0
+  autoConnectOnReady: 0
+  autoScanWhenNoSavedDevice: 0
+  autoRescanWhenNoMatch: 0
+  savedAddressFallbackDelaySeconds: 2
+  scanDurationMs: 60000
+  nameContainsA: Polar
+  nameContainsB: H10
+  enableHr: 1
+  decodeHr: 1
+  enableEcg: 1
+  enableAcc: 1
+  decodeEcg: 1
+  decodeAcc: 1
+  preferredEcgSampleRate: 130
+  preferredEcgResolution: 14
+  preferredAccSampleRate: 200
+  preferredAccResolution: 16
+  preferredAccRangeG: 8
+  requestMtuOnConnect: 1
+  desiredMtu: 232
+  mtuRequestDelaySeconds: 1
+  autoRetryOnInvalidMtu: 1
+  mtuRetryCandidates: e8000000f7000000b90000009e00000080000000
+  mtuRetryDelaySeconds: 0.5
+  logDebug: 1
+--- !u!114 &1029611153
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1029611144}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 75e31682cb3b32a40884e5b0f6b7ca18, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AstralKarateDojo.Biofeedback.Transport.BLE.Polar.PolarPmdAdapter
 --- !u!1 &1096924348
 GameObject:
   m_ObjectHideFlags: 0
@@ -1526,7 +1824,61 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 
+  m_text: '<b><size=118%><color=#8FE6FF>=== BIG RED BUTTON ===</color></size></b>
+
+    <size=78%><color=#7FA6B8>[
+    09:08:59 UTC ]</color></size>
+
+    <size=82%><color=#AFC0CF>Page:</color> <color=#C7FFA2>Dashboard</color></size>
+
+    <size=82%><color=#AFC0CF>Message:</color>
+    <color=#EAF6FF>center_button executed</color></size>
+
+    
+
+    <b><color=#66FFCC>[BUTTON]</color></b>
+
+    <color=#AFC0CF>Press
+    count:</color> <color=#EAF6FF>0</color>
+
+    <color=#AFC0CF>Height:</color>
+    <color=#EAF6FF>0.36 m</color>
+
+    <color=#AFC0CF>Distance:</color> <color=#EAF6FF>1.39
+    m</color>
+
+    
+
+    <b><color=#FFB56B>[POLAR SNAPSHOT]</color></b>
+
+    <color=#AFC0CF>Permissions:</color>
+    <color=#EAF6FF>editor runtime</color>
+
+    <color=#AFC0CF>Guidance:</color>
+    <color=#EAF6FF>android build only</color>
+
+    <color=#AFC0CF>Polar:</color>
+    <color=#EAF6FF>idle</color>
+
+    <color=#AFC0CF>Heart:</color> <color=#EAF6FF>waiting</color>
+
+    <color=#AFC0CF>Button
+    drive:</color> <color=#EAF6FF>idle</color>
+
+    <color=#4C5A66>--------------------</color>
+
+    <size=78%><b><color=#C7FFA2>PAGE
+    NAV</color></b> <color=#AFC0CF>Prev:</color> <color=#FFD79A>R Stick Left / Left
+    Arrow</color>  <color=#AFC0CF>Next:</color> <color=#FFD79A>R Stick Right / Right
+    Arrow</color>  <color=#AFC0CF>Move:</color> <color=#FFD79A>R Stick Up/Down /
+    Up Arrow / Down Arrow</color>  <color=#AFC0CF>Select:</color> <color=#FFD79A>R
+    Trigger / Enter</color></size>
+
+    <size=78%><color=#AFC0CF>Pages:</color>
+    <color=#C7FFA2>Dashboard<color=#FFD79A>*</color></color> <color=#7C8A95>|</color>
+    <color=#AFC0CF>Permissions</color> <color=#7C8A95>|</color> <color=#AFC0CF>Signals</color>
+    <color=#7C8A95>|</color> <color=#AFC0CF>Terminal</color> <color=#7C8A95>|</color>
+    <color=#AFC0CF>Input</color></size>'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -1811,6 +2163,90 @@ Transform:
   m_Children: []
   m_Father: {fileID: 853220154}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1708686909
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1708686911}
+  - component: {fileID: 1708686913}
+  - component: {fileID: 1708686912}
+  - component: {fileID: 1708686910}
+  m_Layer: 0
+  m_Name: Biofeedback Connection Hub
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1708686910
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1708686909}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 67805714899908e42bc1e196b23591a6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AstralKarateDojo.Biofeedback.Transport.BLE.BleCentral
+  adapter: {fileID: 0}
+  initializeOnAwake: 0
+  beginReadyCheckOnStart: 0
+  persistAcrossScenes: 1
+--- !u!4 &1708686911
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1708686909}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 699112040}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1708686912
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1708686909}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5fd52d5aa6c60284c8d10e82fb20b0cc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AstralKarateDojo.Biofeedback.Transport.BLE.BleAdapter
+--- !u!114 &1708686913
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1708686909}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5db9d692cc76d484481f1e3ea03cc52b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AstralKarateDojo.Biofeedback.Transport.Bluetooth.BluetoothPermissionsBootstrap
+  autoRequestOnStart: 0
+  autoProfile: 2
+  requestBleScan: 1
+  requestBleConnect: 1
+  requestBleAdvertise: 0
+  requestClassicConnect: 1
+  requestClassicScan: 0
+  requestLocationOn12Plus: 1
+  requestLocationOnLegacy: 1
+  promptLocationToggleOnLegacy: 1
 --- !u!1 &1825899933
 GameObject:
   m_ObjectHideFlags: 0

@@ -65,6 +65,7 @@ namespace TheBigRedButtonInstitute.VR
         [SerializeField, Range(0.05f, 1f)] float refreshIntervalSeconds = 0.1f;
 
         int _selectedCommandIndex;
+        int _activePageIndex;
         float _nextRefreshAt;
         float _transientMessageClearAt;
         string _transientMessage;
@@ -73,6 +74,7 @@ namespace TheBigRedButtonInstitute.VR
 
         public bool IsVisible => visible;
         public int SelectedCommandIndex => _selectedCommandIndex;
+        public int ActivePageIndex => _activePageIndex;
 
         void Reset()
         {
@@ -203,6 +205,16 @@ namespace TheBigRedButtonInstitute.VR
             return commands[_selectedCommandIndex];
         }
 
+        public bool SelectNextPage()
+        {
+            return SelectPageOffset(1);
+        }
+
+        public bool SelectPreviousPage()
+        {
+            return SelectPageOffset(-1);
+        }
+
         public void SetTransientMessage(string message, float duration = 2.5f)
         {
             _transientMessage = message;
@@ -217,8 +229,9 @@ namespace TheBigRedButtonInstitute.VR
                 return;
             }
 
+            ClampSelectedPageIndex();
             displayText.text = inputManager != null
-                ? inputManager.BuildHudText(_selectedCommandIndex, GetTransientMessage())
+                ? inputManager.BuildHudText(_activePageIndex, _selectedCommandIndex, GetTransientMessage())
                 : BuildFallbackText();
             displayText.ForceMeshUpdate(ignoreActiveState: true, forceTextReparsing: true);
             Canvas.ForceUpdateCanvases();
@@ -240,11 +253,34 @@ namespace TheBigRedButtonInstitute.VR
             RefreshImmediately();
         }
 
+        bool SelectPageOffset(int offset)
+        {
+            var pageCount = inputManager != null ? inputManager.GetHudPageCount() : 0;
+            if (pageCount <= 1)
+            {
+                _activePageIndex = 0;
+                return false;
+            }
+
+            ClampSelectedPageIndex();
+            _activePageIndex = (_activePageIndex + offset + pageCount) % pageCount;
+            RefreshImmediately();
+            return true;
+        }
+
         void ClampSelectedCommandIndex(int count)
         {
             _selectedCommandIndex = count <= 0
                 ? 0
                 : Mathf.Clamp(_selectedCommandIndex, 0, count - 1);
+        }
+
+        void ClampSelectedPageIndex()
+        {
+            var pageCount = inputManager != null ? inputManager.GetHudPageCount() : 0;
+            _activePageIndex = pageCount <= 0
+                ? 0
+                : Mathf.Clamp(_activePageIndex, 0, pageCount - 1);
         }
 
         string GetTransientMessage()
