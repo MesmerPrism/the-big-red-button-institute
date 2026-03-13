@@ -10,7 +10,7 @@ namespace TheBigRedButtonInstitute.Biofeedback
         [Header("References")]
         [SerializeField] PolarH10RuntimeManager polarRuntimeManager;
         [SerializeField] TheBigRedButtonInstitute.VR.QuestVrInputManager inputManager;
-        [SerializeField] BigRedButtonAnimationTester buttonAnimationTester;
+        [SerializeField] BigRedButtonBlinkController buttonBlinkController;
 
         [Header("Triggering")]
         [SerializeField] bool autoResolveReferences = true;
@@ -62,11 +62,11 @@ namespace TheBigRedButtonInstitute.Biofeedback
         public void ConfigureReferences(
             PolarH10RuntimeManager runtimeManager,
             TheBigRedButtonInstitute.VR.QuestVrInputManager manager,
-            BigRedButtonAnimationTester tester)
+            BigRedButtonBlinkController blinkController)
         {
             polarRuntimeManager = runtimeManager;
             inputManager = manager;
-            buttonAnimationTester = tester;
+            buttonBlinkController = blinkController;
         }
 
         void Subscribe()
@@ -121,14 +121,14 @@ namespace TheBigRedButtonInstitute.Biofeedback
                 }
             }
 
-            if ((buttonAnimationTester == null || forceRefresh) && inputManager != null)
+            if ((buttonBlinkController == null || forceRefresh) && inputManager != null)
             {
-                buttonAnimationTester = inputManager.ButtonAnimationTester;
+                buttonBlinkController = inputManager.ButtonBlinkController;
             }
 
-            if (buttonAnimationTester == null || forceRefresh)
+            if (buttonBlinkController == null || forceRefresh)
             {
-                buttonAnimationTester = FindAnyObjectByType<BigRedButtonAnimationTester>();
+                buttonBlinkController = FindAnyObjectByType<BigRedButtonBlinkController>();
             }
         }
 
@@ -169,7 +169,7 @@ namespace TheBigRedButtonInstitute.Biofeedback
 
             if (inputManager != null)
             {
-                if (inputManager.TriggerButtonPressFromRuntime())
+                if (inputManager.TriggerButtonBlinkFromRuntime())
                 {
                     _lastAcceptedBeatTimestamp = sample.Timestamp;
                     _triggerCount++;
@@ -179,13 +179,13 @@ namespace TheBigRedButtonInstitute.Biofeedback
                 return;
             }
 
-            if (buttonAnimationTester == null)
+            if (buttonBlinkController == null)
             {
-                _driveState = "button animation missing";
+                _driveState = "button blink missing";
                 return;
             }
 
-            buttonAnimationTester.PlayPressed();
+            buttonBlinkController.PulseOnce();
             _lastAcceptedBeatTimestamp = sample.Timestamp;
             _triggerCount++;
             _driveState = $"pulsing @ {sample.Bpm:0} bpm";

@@ -88,6 +88,7 @@ namespace TheBigRedButtonInstitute.Editor
                 tester.Configure(animator, clip);
             }
             tester.ConfigurePlayback(false, false, 0f, 0f, KeyCode.Space);
+            BigRedButtonSceneInstaller.ConfigureBlinkController(button);
             EditorUtility.SetDirty(button);
             EditorUtility.SetDirty(tester);
             EditorSceneManager.MarkSceneDirty(scene);

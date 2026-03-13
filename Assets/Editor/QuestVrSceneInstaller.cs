@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -12,6 +14,8 @@ namespace TheBigRedButtonInstitute.Editor
         const string ScenePath = "Assets/Scenes/SampleScene.unity";
         const string ModelPath = "Assets/Models/BigRedButton.glb";
         const string OvrCameraRigPrefabPath = "Packages/com.meta.xr.sdk.core/Prefabs/OVRCameraRig.prefab";
+        const string OvrControllerPrefabPath = "Packages/com.meta.xr.sdk.core/Prefabs/OVRControllerPrefab.prefab";
+        const string OvrHandPrefabPath = "Packages/com.meta.xr.sdk.core/Prefabs/OVRHandPrefab.prefab";
         const string ButtonName = "Big Red Button";
         const string RuntimeRootName = "VR Runtime";
         const string HudName = "VR Overlay HUD";
@@ -40,8 +44,11 @@ namespace TheBigRedButtonInstitute.Editor
 
             var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
             var cameraRig = EnsureCameraRig(scene);
+            ConfigureCameraRigTracking(cameraRig);
+            EnsureTrackedVisuals(cameraRig);
             var button = EnsureButton(scene);
             var tester = button != null ? button.GetComponent<BigRedButtonAnimationTester>() : null;
+            var blinkController = button != null ? button.GetComponent<BigRedButtonBlinkController>() : null;
 
             if (tester != null)
             {
@@ -50,8 +57,12 @@ namespace TheBigRedButtonInstitute.Editor
             }
 
             var runtimeRoot = EnsureRuntimeRoot(scene);
+            QuestLinkEnvironmentInstaller.InstallIntoScene(scene, runtimeRoot);
             var hud = EnsureHud(runtimeRoot.transform);
             var inputManager = EnsureInputManager(runtimeRoot);
+            ConfigureInputManagerPlacement(inputManager);
+            BigRedButtonSceneInstaller.ConfigureManualPressController(button, inputManager);
+            EnsurePressInteractors(cameraRig);
             var headTransform = cameraRig != null ? cameraRig.centerEyeAnchor : Camera.main != null ? Camera.main.transform : null;
 
             if (headTransform == null)
@@ -68,7 +79,7 @@ namespace TheBigRedButtonInstitute.Editor
             hud.EnsureSetupInEditor();
             inputManager.ConfigureReferences(hud, headTransform, button != null ? button.transform : null, tester);
             inputManager.ConfigurePolarReferences(polarRuntimeManager, polarHeartbeatButtonDriver);
-            polarHeartbeatButtonDriver.ConfigureReferences(polarRuntimeManager, inputManager, tester);
+            polarHeartbeatButtonDriver.ConfigureReferences(polarRuntimeManager, inputManager, blinkController);
             inputManager.CenterButtonInFrontOfHead();
 
             EditorUtility.SetDirty(runtimeRoot);
@@ -132,7 +143,7 @@ namespace TheBigRedButtonInstitute.Editor
                     continue;
                 }
 
-                Object.DestroyImmediate(rootObject);
+                UnityEngine.Object.DestroyImmediate(rootObject);
                 break;
             }
         }
@@ -144,6 +155,8 @@ namespace TheBigRedButtonInstitute.Editor
                 if (rootObject.name == ButtonName)
                 {
                     BigRedButtonSceneInstaller.ConfigureAnimationTest(rootObject);
+                    BigRedButtonSceneInstaller.ConfigureBlinkController(rootObject);
+                    BigRedButtonSceneInstaller.ConfigureManualPressController(rootObject);
                     BigRedButtonSceneInstaller.NormalizeButtonScale(rootObject);
                     return rootObject;
                 }
@@ -168,6 +181,8 @@ namespace TheBigRedButtonInstitute.Editor
             instance.transform.rotation = Quaternion.identity;
             instance.transform.localScale = Vector3.one;
             BigRedButtonSceneInstaller.ConfigureAnimationTest(instance);
+            BigRedButtonSceneInstaller.ConfigureBlinkController(instance);
+            BigRedButtonSceneInstaller.ConfigureManualPressController(instance);
             BigRedButtonSceneInstaller.NormalizeButtonScale(instance);
             EditorUtility.SetDirty(instance);
             return instance;
@@ -210,6 +225,424 @@ namespace TheBigRedButtonInstitute.Editor
         static QuestVrInputManager EnsureInputManager(GameObject runtimeRoot)
         {
             return runtimeRoot.GetComponent<QuestVrInputManager>() ?? runtimeRoot.AddComponent<QuestVrInputManager>();
+        }
+
+        static void ConfigureInputManagerPlacement(QuestVrInputManager inputManager)
+        {
+            if (inputManager == null)
+            {
+                return;
+            }
+
+            var serializedInputManager = new SerializedObject(inputManager);
+            serializedInputManager.FindProperty("placeButtonOnStartup").boolValue = true;
+            serializedInputManager.FindProperty("enableSimultaneousHandsAndControllers").boolValue = true;
+            serializedInputManager.FindProperty("startupPlacementDelay").floatValue = 0.2f;
+            serializedInputManager.FindProperty("buttonDistanceFromHead").floatValue = 0.48f;
+            serializedInputManager.FindProperty("buttonVerticalOffset").floatValue = -0.62f;
+            serializedInputManager.FindProperty("minimumButtonHeight").floatValue = 0.54f;
+            serializedInputManager.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(inputManager);
+        }
+
+        static void ConfigureCameraRigTracking(OVRCameraRig cameraRig)
+        {
+            if (cameraRig == null)
+            {
+                return;
+            }
+
+            var manager = cameraRig.GetComponent<OVRManager>();
+            if (manager == null)
+            {
+                return;
+            }
+
+            var serializedManager = new SerializedObject(manager);
+            serializedManager.FindProperty("launchSimultaneousHandsControllersOnStartup").boolValue = true;
+            serializedManager.FindProperty("controllerDrivenHandPosesType").enumValueIndex = (int)OVRManager.ControllerDrivenHandPosesType.ConformingToController;
+            serializedManager.FindProperty("SimultaneousHandsAndControllersEnabled").boolValue = true;
+            serializedManager.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(manager);
+        }
+
+        static void EnsureTrackedVisuals(OVRCameraRig cameraRig)
+        {
+            if (cameraRig == null)
+            {
+                return;
+            }
+
+            var leftControllerAnchor = ResolveAnchor(cameraRig.leftControllerAnchor, cameraRig.transform, "LeftControllerAnchor");
+            var rightControllerAnchor = ResolveAnchor(cameraRig.rightControllerAnchor, cameraRig.transform, "RightControllerAnchor");
+            var leftHandAnchor = ResolveAnchor(cameraRig.leftHandAnchor, cameraRig.transform, "LeftHandAnchor");
+            var rightHandAnchor = ResolveAnchor(cameraRig.rightHandAnchor, cameraRig.transform, "RightHandAnchor");
+            var leftControllerInHandAnchor = ResolveAnchor(cameraRig.leftControllerInHandAnchor, cameraRig.transform, "LeftControllerInHandAnchor");
+            var rightControllerInHandAnchor = ResolveAnchor(cameraRig.rightControllerInHandAnchor, cameraRig.transform, "RightControllerInHandAnchor");
+            var leftHandOnControllerAnchor = ResolveAnchor(cameraRig.leftHandOnControllerAnchor, cameraRig.transform, "LeftHandOnControllerAnchor");
+            var rightHandOnControllerAnchor = ResolveAnchor(cameraRig.rightHandOnControllerAnchor, cameraRig.transform, "RightHandOnControllerAnchor");
+
+            RemoveDeprecatedTrackedChildren(leftControllerAnchor, typeof(OVRControllerHelper), "Left Controller Visual");
+            RemoveDeprecatedTrackedChildren(rightControllerAnchor, typeof(OVRControllerHelper), "Right Controller Visual");
+            RemoveDeprecatedTrackedChildren(leftHandAnchor, typeof(OVRHand), "Left Hand Visual");
+            RemoveDeprecatedTrackedChildren(rightHandAnchor, typeof(OVRHand), "Right Hand Visual");
+
+            var leftController = EnsureControllerVisual(
+                leftControllerInHandAnchor,
+                OVRInput.Controller.LTouch,
+                "Left Controller Visual");
+            var rightController = EnsureControllerVisual(
+                rightControllerInHandAnchor,
+                OVRInput.Controller.RTouch,
+                "Right Controller Visual");
+            var leftHand = EnsureHandVisual(
+                leftHandOnControllerAnchor,
+                OVRHand.Hand.HandLeft,
+                "Left Hand Visual");
+            var rightHand = EnsureHandVisual(
+                rightHandOnControllerAnchor,
+                OVRHand.Hand.HandRight,
+                "Right Hand Visual");
+
+            SetDirtyIfNotNull(leftController);
+            SetDirtyIfNotNull(rightController);
+            SetDirtyIfNotNull(leftHand);
+            SetDirtyIfNotNull(rightHand);
+        }
+
+        static OVRControllerHelper EnsureControllerVisual(Transform anchor, OVRInput.Controller controllerType, string objectName)
+        {
+            if (anchor == null)
+            {
+                return null;
+            }
+
+            var helper = FindDirectChildComponent<OVRControllerHelper>(anchor);
+            if (helper == null)
+            {
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(OvrControllerPrefabPath);
+                if (prefab == null)
+                {
+                    Debug.LogError($"Could not load controller prefab from {OvrControllerPrefabPath}");
+                    return null;
+                }
+
+                var instance = PrefabUtility.InstantiatePrefab(prefab, anchor.gameObject.scene) as GameObject;
+                if (instance == null)
+                {
+                    Debug.LogError($"Failed to instantiate controller prefab from {OvrControllerPrefabPath}");
+                    return null;
+                }
+
+                instance.transform.SetParent(anchor, false);
+                helper = instance.GetComponent<OVRControllerHelper>();
+            }
+
+            if (helper == null)
+            {
+                return null;
+            }
+
+            var controllerObject = helper.gameObject;
+            controllerObject.name = objectName;
+            controllerObject.transform.SetParent(anchor, false);
+            controllerObject.transform.localPosition = Vector3.zero;
+            controllerObject.transform.localRotation = Quaternion.identity;
+            controllerObject.transform.localScale = Vector3.one;
+            helper.m_controller = controllerType;
+            helper.m_showState = OVRInput.InputDeviceShowState.ControllerInHand;
+            helper.showWhenHandsArePoweredByNaturalControllerPoses = false;
+            EditorUtility.SetDirty(helper);
+            EditorUtility.SetDirty(controllerObject);
+            return helper;
+        }
+
+        static OVRHand EnsureHandVisual(Transform anchor, OVRHand.Hand handType, string objectName)
+        {
+            if (anchor == null)
+            {
+                return null;
+            }
+
+            var hand = FindDirectChildComponent<OVRHand>(anchor);
+            if (hand == null)
+            {
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(OvrHandPrefabPath);
+                if (prefab == null)
+                {
+                    Debug.LogError($"Could not load hand prefab from {OvrHandPrefabPath}");
+                    return null;
+                }
+
+                var instance = PrefabUtility.InstantiatePrefab(prefab, anchor.gameObject.scene) as GameObject;
+                if (instance == null)
+                {
+                    Debug.LogError($"Failed to instantiate hand prefab from {OvrHandPrefabPath}");
+                    return null;
+                }
+
+                instance.transform.SetParent(anchor, false);
+                hand = instance.GetComponent<OVRHand>();
+            }
+
+            if (hand == null)
+            {
+                return null;
+            }
+
+            var handObject = hand.gameObject;
+            handObject.name = objectName;
+            handObject.transform.SetParent(anchor, false);
+            handObject.transform.localPosition = Vector3.zero;
+            handObject.transform.localRotation = Quaternion.identity;
+            handObject.transform.localScale = Vector3.one;
+
+            var skeleton = handObject.GetComponent<OVRSkeleton>();
+            var mesh = handObject.GetComponent<OVRMesh>();
+            var skeletonVersion = OVRRuntimeSettings.Instance != null
+                ? OVRRuntimeSettings.Instance.HandSkeletonVersion
+                : OVRHandSkeletonVersion.OpenXR;
+            var handSerializedObject = new SerializedObject(hand);
+            handSerializedObject.FindProperty("HandType").intValue = (int)handType;
+            handSerializedObject.FindProperty("m_showState").intValue = (int)OVRInput.InputDeviceShowState.ControllerInHand;
+            handSerializedObject.ApplyModifiedPropertiesWithoutUndo();
+
+            if (skeleton != null)
+            {
+                var skeletonSerializedObject = new SerializedObject(skeleton);
+                skeletonSerializedObject.FindProperty("_skeletonType").intValue = (int)handType.AsSkeletonType(skeletonVersion);
+                skeletonSerializedObject.FindProperty("_enablePhysicsCapsules").boolValue = true;
+                skeletonSerializedObject.ApplyModifiedPropertiesWithoutUndo();
+            }
+
+            if (mesh != null)
+            {
+                var meshSerializedObject = new SerializedObject(mesh);
+                meshSerializedObject.FindProperty("_meshType").intValue = (int)handType.AsMeshType(skeletonVersion);
+                meshSerializedObject.ApplyModifiedPropertiesWithoutUndo();
+            }
+
+            EditorUtility.SetDirty(hand);
+            if (skeleton != null)
+            {
+                EditorUtility.SetDirty(skeleton);
+            }
+
+            if (mesh != null)
+            {
+                EditorUtility.SetDirty(mesh);
+            }
+
+            EditorUtility.SetDirty(handObject);
+            return hand;
+        }
+
+        static void EnsurePressInteractors(OVRCameraRig cameraRig)
+        {
+            if (cameraRig == null)
+            {
+                return;
+            }
+
+            var leftHandAnchor = ResolveAnchor(cameraRig.leftHandOnControllerAnchor, cameraRig.transform, "LeftHandOnControllerAnchor");
+            var rightHandAnchor = ResolveAnchor(cameraRig.rightHandOnControllerAnchor, cameraRig.transform, "RightHandOnControllerAnchor");
+            var leftControllerAnchor = ResolveAnchor(cameraRig.leftControllerInHandAnchor, cameraRig.transform, "LeftControllerInHandAnchor");
+            var rightControllerAnchor = ResolveAnchor(cameraRig.rightControllerInHandAnchor, cameraRig.transform, "RightControllerInHandAnchor");
+            var deprecatedLeftHandAnchor = ResolveAnchor(cameraRig.leftHandAnchor, cameraRig.transform, "LeftHandAnchor");
+            var deprecatedRightHandAnchor = ResolveAnchor(cameraRig.rightHandAnchor, cameraRig.transform, "RightHandAnchor");
+            var deprecatedLeftControllerAnchor = ResolveAnchor(cameraRig.leftControllerAnchor, cameraRig.transform, "LeftControllerAnchor");
+            var deprecatedRightControllerAnchor = ResolveAnchor(cameraRig.rightControllerAnchor, cameraRig.transform, "RightControllerAnchor");
+
+            RemovePressInteractor(leftHandAnchor, "Left Hand Press Interactor");
+            RemovePressInteractor(rightHandAnchor, "Right Hand Press Interactor");
+            RemovePressInteractor(leftControllerAnchor, "Left Controller Press Interactor");
+            RemovePressInteractor(rightControllerAnchor, "Right Controller Press Interactor");
+            RemovePressInteractor(deprecatedLeftHandAnchor, "Left Hand Press Interactor");
+            RemovePressInteractor(deprecatedRightHandAnchor, "Right Hand Press Interactor");
+            RemovePressInteractor(deprecatedLeftControllerAnchor, "Left Controller Press Interactor");
+            RemovePressInteractor(deprecatedRightControllerAnchor, "Right Controller Press Interactor");
+
+            var leftHand = FindDirectChildComponent<OVRHand>(leftHandAnchor);
+            var rightHand = FindDirectChildComponent<OVRHand>(rightHandAnchor);
+            var leftController = FindDirectChildComponent<OVRControllerHelper>(leftControllerAnchor);
+            var rightController = FindDirectChildComponent<OVRControllerHelper>(rightControllerAnchor);
+
+            EnsureBodyPressInteractor(
+                leftControllerAnchor,
+                "Left Input Body Interactor",
+                0.01f,
+                leftController != null ? leftController.gameObject : null,
+                leftHand != null ? leftHand.gameObject : null);
+            EnsureBodyPressInteractor(
+                rightControllerAnchor,
+                "Right Input Body Interactor",
+                0.01f,
+                rightController != null ? rightController.gameObject : null,
+                rightHand != null ? rightHand.gameObject : null);
+        }
+
+        static GameObject EnsureBodyPressInteractor(Transform anchor, string interactorName, float padding, params GameObject[] bodyRoots)
+        {
+            if (anchor == null)
+            {
+                return null;
+            }
+
+            var interactorTransform = anchor.Find(interactorName);
+            GameObject interactorObject;
+            if (interactorTransform == null)
+            {
+                interactorObject = new GameObject(interactorName);
+                interactorObject.transform.SetParent(anchor, false);
+            }
+            else
+            {
+                interactorObject = interactorTransform.gameObject;
+            }
+
+            interactorObject.transform.localPosition = Vector3.zero;
+            interactorObject.transform.localRotation = Quaternion.identity;
+            interactorObject.transform.localScale = Vector3.one;
+
+            var interactor = interactorObject.GetComponent<BigRedButtonPressInteractor>();
+            if (interactor == null)
+            {
+                interactor = interactorObject.AddComponent<BigRedButtonPressInteractor>();
+            }
+
+            var renderers = CollectRenderers(bodyRoots);
+            interactor.ConfigureBody(renderers, padding);
+            interactor.SetTrackingValid(renderers.Length > 0);
+
+            EditorUtility.SetDirty(interactor);
+            EditorUtility.SetDirty(interactorObject);
+            return interactorObject;
+        }
+
+        static Renderer[] CollectRenderers(params GameObject[] bodyRoots)
+        {
+            if (bodyRoots == null || bodyRoots.Length == 0)
+            {
+                return Array.Empty<Renderer>();
+            }
+
+            var renderers = new List<Renderer>();
+            for (var i = 0; i < bodyRoots.Length; i++)
+            {
+                var bodyRoot = bodyRoots[i];
+                if (bodyRoot == null)
+                {
+                    continue;
+                }
+
+                var bodyRenderers = bodyRoot.GetComponentsInChildren<Renderer>(true);
+                for (var j = 0; j < bodyRenderers.Length; j++)
+                {
+                    var renderer = bodyRenderers[j];
+                    if (renderer == null || renderers.Contains(renderer))
+                    {
+                        continue;
+                    }
+
+                    renderers.Add(renderer);
+                }
+            }
+
+            return renderers.ToArray();
+        }
+
+        static void RemoveDeprecatedTrackedChildren(Transform anchor, Type componentType, string expectedName)
+        {
+            if (anchor == null)
+            {
+                return;
+            }
+
+            for (var index = anchor.childCount - 1; index >= 0; index--)
+            {
+                var child = anchor.GetChild(index);
+                if (child == null)
+                {
+                    continue;
+                }
+
+                if (!string.Equals(child.name, expectedName, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (child.GetComponent(componentType) == null)
+                {
+                    continue;
+                }
+
+                UnityEngine.Object.DestroyImmediate(child.gameObject);
+            }
+        }
+
+        static void RemovePressInteractor(Transform anchor, string interactorName)
+        {
+            if (anchor == null)
+            {
+                return;
+            }
+
+            var interactor = anchor.Find(interactorName);
+            if (interactor != null)
+            {
+                UnityEngine.Object.DestroyImmediate(interactor.gameObject);
+            }
+        }
+
+        static void SetDirtyIfNotNull(UnityEngine.Object target)
+        {
+            if (target != null)
+            {
+                EditorUtility.SetDirty(target);
+            }
+        }
+
+        static Transform ResolveAnchor(Transform directAnchor, Transform rigRoot, string anchorName)
+        {
+            if (directAnchor != null)
+            {
+                return directAnchor;
+            }
+
+            if (rigRoot == null)
+            {
+                return null;
+            }
+
+            var transforms = rigRoot.GetComponentsInChildren<Transform>(true);
+            for (var i = 0; i < transforms.Length; i++)
+            {
+                if (transforms[i] != null && transforms[i].name == anchorName)
+                {
+                    return transforms[i];
+                }
+            }
+
+            return null;
+        }
+
+        static T FindDirectChildComponent<T>(Transform parent) where T : Component
+        {
+            if (parent == null)
+            {
+                return null;
+            }
+
+            var components = parent.GetComponentsInChildren<T>(true);
+            for (var i = 0; i < components.Length; i++)
+            {
+                if (components[i] != null && components[i].transform.parent == parent)
+                {
+                    return components[i];
+                }
+            }
+
+            return null;
         }
 
         static PolarHeartbeatButtonDriver EnsurePolarHeartbeatButtonDriver(GameObject runtimeRoot)

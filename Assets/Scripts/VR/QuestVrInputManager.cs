@@ -109,14 +109,18 @@ namespace TheBigRedButtonInstitute.VR
         [SerializeField] Transform headTransform;
         [SerializeField] Transform buttonTransform;
         [SerializeField] BigRedButtonAnimationTester buttonAnimationTester;
+        [SerializeField] BigRedButtonBlinkController buttonBlinkController;
         [SerializeField] PolarH10RuntimeManager polarRuntimeManager;
         [SerializeField] PolarHeartbeatButtonDriver polarHeartbeatButtonDriver;
 
         [Header("Behavior")]
         [SerializeField] bool autoResolveReferences = true;
-        [SerializeField, Min(0.6f)] float buttonDistanceFromHead = 1.35f;
-        [SerializeField] float buttonVerticalOffset = -0.35f;
-        [SerializeField, Min(0.4f)] float minimumButtonHeight = 0.8f;
+        [SerializeField] bool placeButtonOnStartup = true;
+        [SerializeField] bool enableSimultaneousHandsAndControllers = true;
+        [SerializeField, Min(0f)] float startupPlacementDelay = 0.2f;
+        [SerializeField, Min(0.2f)] float buttonDistanceFromHead = 0.48f;
+        [SerializeField] float buttonVerticalOffset = -0.62f;
+        [SerializeField, Min(0.4f)] float minimumButtonHeight = 0.54f;
         [SerializeField, Min(0.1f)] float targetButtonHeight = 0.36f;
         [SerializeField] Vector3 buttonRotationOffsetEuler;
 
@@ -141,11 +145,15 @@ namespace TheBigRedButtonInstitute.VR
         bool _rightThumbstickVerticalArmed = true;
         bool _rightThumbstickHorizontalArmed = true;
         int _buttonPressCount;
+        bool _hasPlacedButtonOnStartup;
+        bool _hasConfiguredSimultaneousHandsAndControllers;
+        float _startupPlacementTime;
 
         public IReadOnlyList<ActionBinding> Bindings => bindings;
         public IReadOnlyList<TerminalCommand> Commands => commands;
         public int ButtonPressCount => _buttonPressCount;
         public BigRedButtonAnimationTester ButtonAnimationTester => buttonAnimationTester;
+        public BigRedButtonBlinkController ButtonBlinkController => buttonBlinkController;
 
         void Reset()
         {
@@ -159,6 +167,7 @@ namespace TheBigRedButtonInstitute.VR
             ResolveReferences(forceRefresh: true);
             hud?.ConfigureReferences(this, headTransform);
             EnsureReasonableButtonScale();
+            TryConfigureSimultaneousHandsAndControllers();
         }
 
         void OnEnable()
@@ -166,11 +175,15 @@ namespace TheBigRedButtonInstitute.VR
             ResolveReferences(forceRefresh: false);
             hud?.ConfigureReferences(this, headTransform);
             hud?.RefreshImmediately();
+            ArmStartupPlacement();
+            TryConfigureSimultaneousHandsAndControllers();
         }
 
         void Update()
         {
             ResolveReferences(forceRefresh: false);
+            TryConfigureSimultaneousHandsAndControllers();
+            TryPlaceButtonOnStartup();
             ProcessHudNavigation();
             ProcessBindings();
         }
@@ -181,8 +194,10 @@ namespace TheBigRedButtonInstitute.VR
             headTransform = head;
             buttonTransform = button;
             buttonAnimationTester = tester;
+            buttonBlinkController = button != null ? button.GetComponent<BigRedButtonBlinkController>() : null;
             EnsureConfiguration();
             hud?.ConfigureReferences(this, headTransform);
+            ArmStartupPlacement();
         }
 
         public void ConfigurePolarReferences(PolarH10RuntimeManager runtimeManager, PolarHeartbeatButtonDriver heartbeatButtonDriver)
@@ -257,11 +272,20 @@ namespace TheBigRedButtonInstitute.VR
 
         public void CenterButtonInFrontOfHead()
         {
+            CenterButtonInFrontOfHead(reportToHud: true);
+        }
+
+        bool CenterButtonInFrontOfHead(bool reportToHud)
+        {
             ResolveReferences(forceRefresh: false);
             if (buttonTransform == null || headTransform == null)
             {
-                hud?.SetTransientMessage("center_button failed: missing references");
-                return;
+                if (reportToHud)
+                {
+                    hud?.SetTransientMessage("center_button failed: missing references");
+                }
+
+                return false;
             }
 
             EnsureReasonableButtonScale();
@@ -280,20 +304,53 @@ namespace TheBigRedButtonInstitute.VR
             buttonTransform.position = targetPosition;
             buttonTransform.rotation = Quaternion.LookRotation(-horizontalForward, Vector3.up) * Quaternion.Euler(buttonRotationOffsetEuler);
 
-            hud?.SetTransientMessage("center_button executed");
+            _hasPlacedButtonOnStartup = true;
+            if (reportToHud)
+            {
+                hud?.SetTransientMessage("center_button executed");
+            }
+
             hud?.RefreshImmediately();
+            return true;
         }
 
         public bool TriggerButtonPressFromRuntime()
         {
             ResolveReferences(forceRefresh: false);
-            if (buttonAnimationTester == null)
+            var triggered = false;
+
+            if (buttonAnimationTester != null)
+            {
+                buttonAnimationTester.PlayPressed();
+                triggered = true;
+            }
+
+            if (buttonBlinkController != null)
+            {
+                buttonBlinkController.PulseOnce();
+                triggered = true;
+            }
+
+            if (!triggered)
             {
                 return false;
             }
 
-            buttonAnimationTester.PlayPressed();
             _buttonPressCount++;
+            hud?.RefreshImmediately();
+            return true;
+        }
+
+        public bool TriggerButtonBlinkFromRuntime()
+        {
+            ResolveReferences(forceRefresh: false);
+            if (buttonBlinkController == null)
+            {
+                return false;
+            }
+
+            buttonAnimationTester?.StopAndReset();
+            buttonBlinkController.PulseOnce();
             hud?.RefreshImmediately();
             return true;
         }
@@ -539,7 +596,7 @@ namespace TheBigRedButtonInstitute.VR
         {
             if (!TriggerButtonPressFromRuntime())
             {
-                hud?.SetTransientMessage("press_button failed: no animation tester");
+                hud?.SetTransientMessage("press_button failed: no button visual");
                 return;
             }
 
@@ -766,15 +823,34 @@ namespace TheBigRedButtonInstitute.VR
             }
 
             var renderers = buttonTransform.GetComponentsInChildren<Renderer>(true);
-            if (renderers.Length == 0)
+            Renderer rootRenderer = null;
+            for (var i = 0; i < renderers.Length; i++)
+            {
+                var renderer = renderers[i];
+                if (renderer == null || renderer.GetComponentInParent<BigRedButtonColliderDebugVisual>() != null)
+                {
+                    continue;
+                }
+
+                rootRenderer = renderer;
+                break;
+            }
+
+            if (rootRenderer == null)
             {
                 return false;
             }
 
-            bounds = renderers[0].bounds;
-            for (var i = 1; i < renderers.Length; i++)
+            bounds = rootRenderer.bounds;
+            for (var i = 0; i < renderers.Length; i++)
             {
-                bounds.Encapsulate(renderers[i].bounds);
+                var renderer = renderers[i];
+                if (renderer == null || renderer == rootRenderer || renderer.GetComponentInParent<BigRedButtonColliderDebugVisual>() != null)
+                {
+                    continue;
+                }
+
+                bounds.Encapsulate(renderer.bounds);
             }
 
             return true;
@@ -974,6 +1050,33 @@ namespace TheBigRedButtonInstitute.VR
             return value.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
         }
 
+        void ArmStartupPlacement()
+        {
+            if (!Application.isPlaying || !placeButtonOnStartup)
+            {
+                _hasPlacedButtonOnStartup = true;
+                return;
+            }
+
+            _hasPlacedButtonOnStartup = false;
+            _startupPlacementTime = Time.unscaledTime + startupPlacementDelay;
+        }
+
+        void TryPlaceButtonOnStartup()
+        {
+            if (_hasPlacedButtonOnStartup || !placeButtonOnStartup || !Application.isPlaying)
+            {
+                return;
+            }
+
+            if (Time.unscaledTime < _startupPlacementTime)
+            {
+                return;
+            }
+
+            CenterButtonInFrontOfHead(reportToHud: false);
+        }
+
         void ResolveReferences(bool forceRefresh)
         {
             if (!autoResolveReferences && !forceRefresh)
@@ -1014,6 +1117,11 @@ namespace TheBigRedButtonInstitute.VR
                 buttonAnimationTester = buttonTransform.GetComponent<BigRedButtonAnimationTester>();
             }
 
+            if ((buttonBlinkController == null || forceRefresh) && buttonTransform != null)
+            {
+                buttonBlinkController = buttonTransform.GetComponent<BigRedButtonBlinkController>();
+            }
+
             if ((polarRuntimeManager == null || forceRefresh) && Application.isPlaying)
             {
                 polarRuntimeManager = PolarH10RuntimeManager.EnsureRuntimeExists();
@@ -1032,6 +1140,26 @@ namespace TheBigRedButtonInstitute.VR
                     polarHeartbeatButtonDriver = FindAnyObjectByType<PolarHeartbeatButtonDriver>();
                 }
             }
+        }
+
+        void TryConfigureSimultaneousHandsAndControllers()
+        {
+            if (!enableSimultaneousHandsAndControllers || _hasConfiguredSimultaneousHandsAndControllers)
+            {
+                return;
+            }
+
+            var manager = OVRManager.instance;
+            if (manager == null)
+            {
+                return;
+            }
+
+            manager.launchSimultaneousHandsControllersOnStartup = true;
+            manager.controllerDrivenHandPosesType = OVRManager.ControllerDrivenHandPosesType.ConformingToController;
+            manager.SimultaneousHandsAndControllersEnabled = true;
+            OVRInput.EnableSimultaneousHandsAndControllers();
+            _hasConfiguredSimultaneousHandsAndControllers = true;
         }
     }
 }

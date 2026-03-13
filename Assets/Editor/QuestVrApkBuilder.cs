@@ -56,7 +56,7 @@ namespace TheBigRedButtonInstitute.Editor
                 locationPathName = outputPath,
                 targetGroup = BuildTargetGroup.Android,
                 target = BuildTarget.Android,
-                options = BuildOptions.CleanBuildCache
+                options = BuildOptions.None
             };
 
             BuildReport report = null;
@@ -90,6 +90,11 @@ namespace TheBigRedButtonInstitute.Editor
 
                 throw new InvalidOperationException(
                     $"Android build failed with result {report.summary.result} after {report.summary.totalErrors} errors and {report.summary.totalWarnings} warnings.");
+            }
+
+            if (!File.Exists(outputPath))
+            {
+                throw new FileNotFoundException($"Unity reported a successful Android build, but the APK was not found at {outputPath}.", outputPath);
             }
 
             Debug.Log($"Built Quest APK at {outputPath}");
