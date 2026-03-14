@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using TheBigRedButtonInstitute.VR;
@@ -8,74 +9,136 @@ namespace TheBigRedButtonInstitute
     [RequireComponent(typeof(Rigidbody))]
     public sealed class BigRedButtonManualPressController : MonoBehaviour
     {
-        const string PressZoneObjectName = "Button Press Surface";
+        const string LegacyPressZoneObjectName = "Button Press Surface";
+        const string TriggerSurfaceObjectName = "Button Trigger Surface";
 
         [Header("References")]
         [SerializeField] Renderer targetRenderer;
+        [SerializeField] Renderer pressTriggerRenderer;
         [SerializeField] QuestVrInputManager inputManager;
         [SerializeField] bool autoResolveReferences = true;
 
-        [Header("Press Zone")]
-        [SerializeField, Range(0.3f, 1.2f)] float pressZoneRadiusScale = 0.6f;
-        [SerializeField, Min(0.015f)] float minimumPressZoneRadius = 0.03f;
-        [SerializeField, Min(0.004f)] float minimumPressZoneThickness = 0.012f;
+        [Header("Timing")]
         [SerializeField, Min(0.05f)] float pressCooldownSeconds = 0.25f;
-        [SerializeField, Min(0f)] float exitHysteresis = 0.015f;
+        [SerializeField, Min(0f)] float startupContactSuppressionSeconds = 0.35f;
         [SerializeField, Min(0.1f)] float interactorRefreshIntervalSeconds = 0.5f;
+
+        [Header("Press Mesh")]
+        [SerializeField] bool usePressMeshCollider = true;
+        [SerializeField] bool preferConvexPressMeshCollider = true;
+        [SerializeField, Min(0f)] float minimumPressPenetration = 0.0015f;
+        [SerializeField, Min(0f)] float pressMeshContactTolerance = 0.001f;
 
         readonly HashSet<int> _activeInteractorIds = new();
         readonly HashSet<int> _frameInteractorIds = new();
-        readonly Collider[] _overlapResults = new Collider[128];
-        BoxCollider _pressZone;
-        Transform _pressZoneTransform;
-        Rigidbody _pressZoneBody;
-        BigRedButtonColliderDebugVisual _pressZoneDebugVisual;
-        BigRedButtonPressInteractor[] _interactors = System.Array.Empty<BigRedButtonPressInteractor>();
+        BigRedButtonGeneratedBodyCollider _baseColliderGenerator;
+        BigRedButtonGeneratedBodyCollider _triggerColliderGenerator;
+        MeshCollider _baseCollider;
+        MeshCollider _pressTriggerCollider;
+        BoxCollider _pressTriggerSurfaceCollider;
+        BigRedButtonColliderDebugVisual _baseDebugVisual;
+        BigRedButtonColliderDebugVisual _pressTriggerDebugVisual;
+        BigRedButtonColliderDebugVisual _pressTriggerSurfaceDebugVisual;
+        BigRedButtonRendererMeshDebug _pressTriggerRendererShell;
+        BigRedButtonPressInteractor[] _interactors = Array.Empty<BigRedButtonPressInteractor>();
+        Rigidbody _body;
+        Mesh _triggerSurfaceFitMesh;
         float _nextAllowedPressTime;
         float _nextInteractorRefreshTime;
+        float _entrySuppressionEndTime;
+        bool _pressArmed;
 
         public Renderer TargetRenderer => targetRenderer;
+        public Renderer PressTriggerRenderer => pressTriggerRenderer != null ? pressTriggerRenderer : targetRenderer;
 
         void Reset()
         {
-            targetRenderer = FindPreferredRenderer();
-            ConfigurePressZoneBody();
-            ConfigurePressZone();
+            ResolveReferences(forceRefresh: true);
+            ConfigureBody();
+            RebuildConfiguredPressGeometryInEditor();
         }
 
         void Awake()
         {
             ResolveReferences(forceRefresh: true);
-            ConfigurePressZoneBody();
-            ConfigurePressZone();
+            ConfigureBody();
+            ResolveConfiguredColliders();
         }
 
         void OnEnable()
         {
+            _activeInteractorIds.Clear();
+            _frameInteractorIds.Clear();
             ResolveReferences(forceRefresh: false);
-            ConfigurePressZoneBody();
-            ConfigurePressZone();
+            ConfigureBody();
+            ResolveConfiguredColliders();
+            _entrySuppressionEndTime = Time.unscaledTime + startupContactSuppressionSeconds;
+            _pressArmed = false;
         }
 
         void OnDisable()
         {
             _activeInteractorIds.Clear();
             _frameInteractorIds.Clear();
+            _pressArmed = false;
+        }
+
+        void OnDestroy()
+        {
+            if (_triggerSurfaceFitMesh == null)
+            {
+                return;
+            }
+
+            if (Application.isPlaying)
+            {
+                Destroy(_triggerSurfaceFitMesh);
+            }
+            else
+            {
+                DestroyImmediate(_triggerSurfaceFitMesh);
+            }
         }
 
         public void ConfigureReferences(Renderer renderer, QuestVrInputManager manager = null)
         {
+            ConfigureReferences(renderer, null, manager);
+        }
+
+        public void ConfigureReferences(Renderer renderer, Renderer triggerRenderer, QuestVrInputManager manager = null)
+        {
             targetRenderer = renderer;
+            pressTriggerRenderer = triggerRenderer;
             inputManager = manager;
-            ConfigurePressZoneBody();
-            ConfigurePressZone();
+            ConfigureBody();
+            if (Application.isPlaying)
+            {
+                ResolveConfiguredColliders();
+                return;
+            }
+
+            RebuildConfiguredPressGeometryInEditor();
+        }
+
+        public void RebuildConfiguredPressGeometryInEditor()
+        {
+            if (Application.isPlaying)
+            {
+                ResolveConfiguredColliders();
+                return;
+            }
+
+            ResolveReferences(forceRefresh: false);
+            RemoveLegacyPressGeometry();
+            RefreshColliders();
         }
 
         void LateUpdate()
         {
             ResolveReferences(forceRefresh: false);
-            ConfigurePressZoneBody();
-            ConfigurePressZone();
+            ConfigureBody();
+            ResolveConfiguredColliders();
+            SyncAnimatedPressGeometry();
             EvaluatePressInteractors();
         }
 
@@ -87,12 +150,17 @@ namespace TheBigRedButtonInstitute
                 _nextInteractorRefreshTime = Time.unscaledTime + interactorRefreshIntervalSeconds;
             }
 
-            if (_interactors == null || _interactors.Length == 0 || _pressZone == null || !_pressZone.enabled)
+            var hasPressTriggerMesh = HasUsablePressTriggerMesh();
+            var hasTriggerSurface = IsColliderUsable(_pressTriggerSurfaceCollider);
+            if (_interactors == null ||
+                _interactors.Length == 0 ||
+                (!hasPressTriggerMesh && !hasTriggerSurface))
             {
                 return;
             }
 
             _frameInteractorIds.Clear();
+            _pressArmed |= Time.unscaledTime >= _entrySuppressionEndTime;
 
             for (var i = 0; i < _interactors.Length; i++)
             {
@@ -102,44 +170,64 @@ namespace TheBigRedButtonInstitute
                     continue;
                 }
 
-                _ = interactor.TrackingValid;
+                interactor.PrepareForQueries();
             }
 
             Physics.SyncTransforms();
 
-            var zoneWorldCenter = _pressZone.transform.TransformPoint(_pressZone.center);
-            var zoneRotation = _pressZone.transform.rotation;
-            var zoneHalfExtents = GetWorldHalfExtents(_pressZone, exitHysteresis);
-            var overlapCount = Physics.OverlapBoxNonAlloc(
-                zoneWorldCenter,
-                zoneHalfExtents,
-                _overlapResults,
-                zoneRotation,
-                ~0,
-                QueryTriggerInteraction.Ignore);
-
-            for (var overlapIndex = 0; overlapIndex < overlapCount; overlapIndex++)
+            for (var i = 0; i < _interactors.Length; i++)
             {
-                var overlapCollider = _overlapResults[overlapIndex];
-                if (overlapCollider == null || overlapCollider == _pressZone)
+                var interactor = _interactors[i];
+                if (interactor == null || !interactor.UsesBodyInteraction || !interactor.TrackingValid)
                 {
                     continue;
                 }
 
-                var proxy = overlapCollider.GetComponent<BigRedButtonPressColliderProxy>();
-                var interactor = proxy != null ? proxy.Owner : null;
-                if (interactor == null || !interactor.TrackingValid)
+                var interactorColliders = interactor.GetInteractionColliders();
+                var hasUsableCollider = false;
+                var interactorHit = false;
+                for (var colliderIndex = 0; colliderIndex < interactorColliders.Length; colliderIndex++)
+                {
+                    var interactorCollider = interactorColliders[colliderIndex];
+                    if (!IsColliderUsable(interactorCollider))
+                    {
+                        continue;
+                    }
+
+                    hasUsableCollider = true;
+                    if (!IsPressTriggerHit(interactorCollider))
+                    {
+                        continue;
+                    }
+
+                    MarkColliderOverlap(interactorCollider);
+                    interactorHit = true;
+                }
+
+                if (!hasUsableCollider)
                 {
                     continue;
                 }
-
-                proxy.MarkOverlap();
-                _pressZoneDebugVisual?.MarkHighlighted();
 
                 var interactorId = interactor.GetInstanceID();
+                if (!interactorHit)
+                {
+                    continue;
+                }
+
+                _pressTriggerDebugVisual?.MarkHighlighted();
+                _pressTriggerSurfaceDebugVisual?.MarkHighlighted();
+                _pressTriggerRendererShell?.MarkHighlighted();
+
                 _frameInteractorIds.Add(interactorId);
                 if (!_activeInteractorIds.Contains(interactorId))
                 {
+                    if (!_pressArmed)
+                    {
+                        _activeInteractorIds.Add(interactorId);
+                        continue;
+                    }
+
                     TryHandleInteractor(interactor);
                 }
             }
@@ -161,18 +249,13 @@ namespace TheBigRedButtonInstitute
             }
 
             _activeInteractorIds.Add(interactorId);
-            if (Time.unscaledTime < _nextAllowedPressTime)
+            if (Time.unscaledTime < _entrySuppressionEndTime || Time.unscaledTime < _nextAllowedPressTime)
             {
                 return;
             }
 
             ResolveReferences(forceRefresh: false);
-            if (inputManager == null)
-            {
-                return;
-            }
-
-            if (!inputManager.TriggerButtonPressFromRuntime())
+            if (inputManager == null || !inputManager.TriggerButtonPressFromRuntime())
             {
                 return;
             }
@@ -182,10 +265,18 @@ namespace TheBigRedButtonInstitute
 
         void ResolveReferences(bool forceRefresh)
         {
-            if (targetRenderer == null || forceRefresh)
+            if ((pressTriggerRenderer == null || forceRefresh) && autoResolveReferences)
             {
-                targetRenderer = FindPreferredRenderer();
+                pressTriggerRenderer = FindTriggerRenderer();
             }
+
+            if ((targetRenderer == null || forceRefresh || ReferenceEquals(targetRenderer, pressTriggerRenderer)) && autoResolveReferences)
+            {
+                targetRenderer = FindPassiveRenderer(pressTriggerRenderer);
+            }
+
+            targetRenderer ??= pressTriggerRenderer;
+            pressTriggerRenderer ??= targetRenderer;
 
             if ((inputManager == null || forceRefresh) && autoResolveReferences)
             {
@@ -193,114 +284,314 @@ namespace TheBigRedButtonInstitute
             }
         }
 
-        void ConfigurePressZone()
+        void RefreshColliders()
         {
-            DisableLegacyRootPressZone();
-
-            if (targetRenderer == null)
+            if (!usePressMeshCollider)
             {
-                targetRenderer = FindPreferredRenderer();
-            }
-
-            if (targetRenderer == null)
-            {
-                DisablePressZone();
+                DisableColliderSurface(ref _baseColliderGenerator, ref _baseDebugVisual);
+                DisableColliderSurface(ref _triggerColliderGenerator, ref _pressTriggerDebugVisual);
+                DisableTriggerSurface();
+                DisableRendererShell(PressTriggerRenderer);
+                _pressTriggerRendererShell = null;
+                _baseCollider = null;
+                _pressTriggerCollider = null;
+                _pressTriggerSurfaceCollider = null;
                 return;
             }
 
-            EnsurePressZoneObject();
-            if (_pressZone == null)
+            var resolvedTriggerRenderer = PressTriggerRenderer;
+            if (ReferenceEquals(targetRenderer, resolvedTriggerRenderer))
+            {
+                _baseCollider = RefreshColliderSurface(
+                    resolvedTriggerRenderer,
+                    ref _baseColliderGenerator,
+                    ref _baseDebugVisual,
+                    BigRedButtonColliderDebugVisual.VisualRole.PressTrigger);
+                _pressTriggerCollider = _baseCollider;
+                _triggerColliderGenerator = _baseColliderGenerator;
+                _pressTriggerDebugVisual = _baseDebugVisual;
+                DisableTriggerSurface();
+                _pressTriggerRendererShell = RefreshRendererShell(resolvedTriggerRenderer, _pressTriggerCollider);
+                return;
+            }
+
+            _baseCollider = RefreshColliderSurface(
+                targetRenderer,
+                ref _baseColliderGenerator,
+                ref _baseDebugVisual,
+                BigRedButtonColliderDebugVisual.VisualRole.PressZone);
+            _pressTriggerCollider = RefreshColliderSurface(
+                resolvedTriggerRenderer,
+                ref _triggerColliderGenerator,
+                ref _pressTriggerDebugVisual,
+                BigRedButtonColliderDebugVisual.VisualRole.PressTrigger);
+            _pressTriggerSurfaceCollider = RefreshTriggerSurface(resolvedTriggerRenderer, ref _pressTriggerSurfaceDebugVisual);
+            _pressTriggerRendererShell = RefreshRendererShell(resolvedTriggerRenderer, _pressTriggerCollider);
+        }
+
+        void ResolveConfiguredColliders()
+        {
+            if (!usePressMeshCollider)
+            {
+                _baseColliderGenerator = null;
+                _triggerColliderGenerator = null;
+                _baseCollider = null;
+                _pressTriggerCollider = null;
+                _pressTriggerSurfaceCollider = null;
+                _baseDebugVisual = null;
+                _pressTriggerDebugVisual = null;
+                _pressTriggerSurfaceDebugVisual = null;
+                _pressTriggerRendererShell = null;
+                return;
+            }
+
+            var resolvedTriggerRenderer = PressTriggerRenderer;
+            if (ReferenceEquals(targetRenderer, resolvedTriggerRenderer))
+            {
+                _baseCollider = ResolveConfiguredColliderSurface(
+                    resolvedTriggerRenderer,
+                    ref _baseColliderGenerator,
+                    ref _baseDebugVisual);
+                _pressTriggerCollider = _baseCollider;
+                _triggerColliderGenerator = _baseColliderGenerator;
+                _pressTriggerDebugVisual = _baseDebugVisual;
+                _pressTriggerSurfaceCollider = null;
+                _pressTriggerSurfaceDebugVisual = null;
+                _pressTriggerRendererShell = ResolveConfiguredRendererShell(resolvedTriggerRenderer, _pressTriggerCollider);
+                return;
+            }
+
+            _baseCollider = ResolveConfiguredColliderSurface(
+                targetRenderer,
+                ref _baseColliderGenerator,
+                ref _baseDebugVisual);
+            _pressTriggerCollider = ResolveConfiguredColliderSurface(
+                resolvedTriggerRenderer,
+                ref _triggerColliderGenerator,
+                ref _pressTriggerDebugVisual);
+            _pressTriggerSurfaceCollider = ResolveConfiguredTriggerSurface(ref _pressTriggerSurfaceDebugVisual);
+            _pressTriggerRendererShell = ResolveConfiguredRendererShell(resolvedTriggerRenderer, _pressTriggerCollider);
+        }
+
+        void SyncAnimatedPressGeometry()
+        {
+            if (!Application.isPlaying || !usePressMeshCollider)
             {
                 return;
             }
 
-            var rootLossyScale = transform.lossyScale;
-            var scaleX = Mathf.Max(0.0001f, Mathf.Abs(rootLossyScale.x));
-            var scaleY = Mathf.Max(0.0001f, Mathf.Abs(rootLossyScale.y));
-            var scaleZ = Mathf.Max(0.0001f, Mathf.Abs(rootLossyScale.z));
-            var targetBounds = targetRenderer.bounds;
-            var worldRadius = Mathf.Max(
-                minimumPressZoneRadius,
-                Mathf.Max(targetBounds.extents.x, targetBounds.extents.z) * pressZoneRadiusScale);
-            var worldThickness = Mathf.Max(
-                minimumPressZoneThickness,
-                targetBounds.size.y * 0.14f);
+            var resolvedTriggerRenderer = PressTriggerRenderer;
+            if (ReferenceEquals(targetRenderer, resolvedTriggerRenderer))
+            {
+                SyncAnimatedCollider(
+                    resolvedTriggerRenderer,
+                    _baseColliderGenerator,
+                    ref _baseCollider,
+                    ref _baseDebugVisual);
+                _pressTriggerCollider = _baseCollider;
+                _triggerColliderGenerator = _baseColliderGenerator;
+                _pressTriggerDebugVisual = _baseDebugVisual;
+                return;
+            }
 
-            var worldCenter = new Vector3(
-                targetBounds.center.x,
-                targetBounds.max.y - (worldThickness * 0.5f),
-                targetBounds.center.z);
+            SyncAnimatedCollider(
+                targetRenderer,
+                _baseColliderGenerator,
+                ref _baseCollider,
+                ref _baseDebugVisual);
+            SyncAnimatedCollider(
+                resolvedTriggerRenderer,
+                _triggerColliderGenerator,
+                ref _pressTriggerCollider,
+                ref _pressTriggerDebugVisual);
 
-            _pressZoneTransform.localPosition = transform.InverseTransformPoint(worldCenter);
-            // TODO: Rotate the press surface to match the button cap's visible tilt instead of assuming the cap is upright.
-            _pressZoneTransform.localRotation = Quaternion.identity;
-            _pressZone.center = Vector3.zero;
-            _pressZone.size = new Vector3(
-                (worldRadius * 2f) / scaleX,
-                worldThickness / scaleY,
-                (worldRadius * 2f) / scaleZ);
-            _pressZone.enabled = true;
-            _pressZone.isTrigger = true;
-
-            EnsurePressZoneDebugVisual();
+            if (IsRendererUsable(resolvedTriggerRenderer) && IsColliderUsable(_pressTriggerSurfaceCollider))
+            {
+                UpdateTriggerSurfaceBounds(
+                    resolvedTriggerRenderer,
+                    _pressTriggerSurfaceCollider.transform,
+                    _pressTriggerSurfaceCollider);
+            }
         }
 
-        void ConfigurePressZoneBody()
+        static void SyncAnimatedCollider(
+            Renderer renderer,
+            BigRedButtonGeneratedBodyCollider colliderGenerator,
+            ref MeshCollider collider,
+            ref BigRedButtonColliderDebugVisual debugVisual)
         {
-            _pressZoneBody ??= GetComponent<Rigidbody>();
-            if (_pressZoneBody == null)
+            if (renderer is not SkinnedMeshRenderer || colliderGenerator == null)
             {
                 return;
             }
 
-            _pressZoneBody.isKinematic = true;
-            _pressZoneBody.useGravity = false;
-            _pressZoneBody.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
-        }
+            collider = colliderGenerator.RefreshCollider();
+            if (collider == null)
+            {
+                if (debugVisual != null)
+                {
+                    debugVisual.enabled = false;
+                }
 
-        void EnsurePressZoneObject()
-        {
-            _pressZoneTransform ??= transform.Find(PressZoneObjectName);
-            if (_pressZoneTransform == null)
-            {
-                var zoneObject = new GameObject(PressZoneObjectName);
-                _pressZoneTransform = zoneObject.transform;
-                _pressZoneTransform.SetParent(transform, false);
-            }
-            else if (_pressZoneTransform.parent != transform)
-            {
-                _pressZoneTransform.SetParent(transform, false);
+                return;
             }
 
-            _pressZoneTransform.localPosition = Vector3.zero;
-            _pressZoneTransform.localRotation = Quaternion.identity;
-            _pressZoneTransform.localScale = Vector3.one;
-
-            _pressZone = _pressZoneTransform.GetComponent<BoxCollider>();
-            if (_pressZone == null)
+            debugVisual ??= collider.GetComponent<BigRedButtonColliderDebugVisual>();
+            if (debugVisual != null)
             {
-                _pressZone = _pressZoneTransform.gameObject.AddComponent<BoxCollider>();
+                debugVisual.enabled = true;
             }
         }
 
-        void EnsurePressZoneDebugVisual()
+        MeshCollider RefreshColliderSurface(
+            Renderer renderer,
+            ref BigRedButtonGeneratedBodyCollider colliderGenerator,
+            ref BigRedButtonColliderDebugVisual debugVisual,
+            BigRedButtonColliderDebugVisual.VisualRole visualRole)
         {
-            if (_pressZone == null)
+            if (!IsRendererUsable(renderer))
+            {
+                DisableColliderSurface(ref colliderGenerator, ref debugVisual);
+                return null;
+            }
+
+            if (colliderGenerator == null || colliderGenerator.SourceRenderer != renderer)
+            {
+                colliderGenerator = renderer.GetComponent<BigRedButtonGeneratedBodyCollider>();
+                if (colliderGenerator == null)
+                {
+                    colliderGenerator = renderer.gameObject.AddComponent<BigRedButtonGeneratedBodyCollider>();
+                }
+            }
+
+            colliderGenerator.Configure(
+                renderer,
+                targetPreferConvex: preferConvexPressMeshCollider,
+                targetIsTrigger: false);
+
+            if (!Application.isPlaying && renderer is SkinnedMeshRenderer)
+            {
+                colliderGenerator.CaptureEditorSnapshot();
+            }
+
+            var collider = colliderGenerator.RefreshCollider();
+            if (collider == null)
+            {
+                DisableColliderSurface(ref colliderGenerator, ref debugVisual);
+                return null;
+            }
+
+            debugVisual ??= collider.GetComponent<BigRedButtonColliderDebugVisual>();
+            if (debugVisual == null)
+            {
+                debugVisual = collider.gameObject.AddComponent<BigRedButtonColliderDebugVisual>();
+            }
+
+            debugVisual.enabled = true;
+            debugVisual.Configure(visualRole);
+            return collider;
+        }
+
+        static MeshCollider ResolveConfiguredColliderSurface(
+            Renderer renderer,
+            ref BigRedButtonGeneratedBodyCollider colliderGenerator,
+            ref BigRedButtonColliderDebugVisual debugVisual)
+        {
+            if (renderer == null)
+            {
+                colliderGenerator = null;
+                debugVisual = null;
+                return null;
+            }
+
+            colliderGenerator = renderer.GetComponent<BigRedButtonGeneratedBodyCollider>();
+            debugVisual = renderer.GetComponent<BigRedButtonColliderDebugVisual>();
+
+            var collider = renderer.GetComponent<MeshCollider>();
+            return IsColliderUsable(collider) && collider.sharedMesh != null ? collider : null;
+        }
+
+        bool IsPressTriggerHit(Collider interactorCollider)
+        {
+            if (!IsColliderUsable(interactorCollider))
+            {
+                return false;
+            }
+
+            return IsMeshTriggerHit(interactorCollider) || IsTriggerSurfaceHit(interactorCollider);
+        }
+
+        bool HasUsablePressTriggerMesh()
+        {
+            return IsColliderUsable(_pressTriggerCollider) && _pressTriggerCollider.sharedMesh != null;
+        }
+
+        bool IsMeshTriggerHit(Collider interactorCollider)
+        {
+            if (!IsColliderUsable(interactorCollider) || !HasUsablePressTriggerMesh())
+            {
+                return false;
+            }
+
+            if (_pressTriggerCollider.convex)
+            {
+                return Physics.ComputePenetration(
+                        _pressTriggerCollider,
+                        _pressTriggerCollider.transform.position,
+                        _pressTriggerCollider.transform.rotation,
+                        interactorCollider,
+                        interactorCollider.transform.position,
+                        interactorCollider.transform.rotation,
+                        out _,
+                        out var penetrationDistance) &&
+                    penetrationDistance >= minimumPressPenetration;
+            }
+
+            return AreCollidersWithinTolerance(_pressTriggerCollider, interactorCollider, pressMeshContactTolerance);
+        }
+
+        bool IsTriggerSurfaceHit(Collider interactorCollider)
+        {
+            if (!IsColliderUsable(interactorCollider) || !IsColliderUsable(_pressTriggerSurfaceCollider))
+            {
+                return false;
+            }
+
+            return AreCollidersWithinTolerance(
+                _pressTriggerSurfaceCollider,
+                interactorCollider,
+                Mathf.Max(pressMeshContactTolerance, minimumPressPenetration));
+        }
+
+        void ConfigureBody()
+        {
+            _body ??= GetComponent<Rigidbody>();
+            if (_body == null)
             {
                 return;
             }
 
-            _pressZoneDebugVisual ??= _pressZone.GetComponent<BigRedButtonColliderDebugVisual>();
-            if (_pressZoneDebugVisual == null)
-            {
-                _pressZoneDebugVisual = _pressZone.gameObject.AddComponent<BigRedButtonColliderDebugVisual>();
-            }
-
-            _pressZoneDebugVisual.enabled = true;
-            _pressZoneDebugVisual.Configure(BigRedButtonColliderDebugVisual.VisualRole.PressZone);
+            _body.isKinematic = true;
+            _body.useGravity = false;
+            _body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
         }
 
-        void DisableLegacyRootPressZone()
+        void MarkColliderOverlap(Collider interactorCollider)
+        {
+            var proxy = interactorCollider != null ? interactorCollider.GetComponent<BigRedButtonPressColliderProxy>() : null;
+            proxy?.MarkOverlap();
+
+            var debugVisual = interactorCollider != null ? interactorCollider.GetComponent<BigRedButtonColliderDebugVisual>() : null;
+            debugVisual?.MarkHighlighted();
+        }
+
+        void RemoveLegacyPressGeometry()
+        {
+            RemoveLegacyRootPressZone();
+            RemoveLegacyPressZoneObject();
+        }
+
+        void RemoveLegacyRootPressZone()
         {
             var legacySphere = GetComponent<SphereCollider>();
             if (legacySphere != null)
@@ -329,48 +620,721 @@ namespace TheBigRedButtonInstitute
             }
         }
 
-        void DisablePressZone()
+        void RemoveLegacyPressZoneObject()
         {
-            if (_pressZone != null)
+            var legacyPressZone = transform.Find(LegacyPressZoneObjectName);
+            if (legacyPressZone == null)
             {
-                _pressZone.enabled = false;
+                return;
+            }
+
+            if (Application.isPlaying)
+            {
+                Destroy(legacyPressZone.gameObject);
+            }
+            else
+            {
+                DestroyImmediate(legacyPressZone.gameObject);
             }
         }
 
-        Renderer FindPreferredRenderer()
+        Renderer FindTriggerRenderer()
+        {
+            var blinkController = GetComponent<BigRedButtonBlinkController>();
+            if (blinkController != null && IsRendererCandidate(blinkController.TargetRenderer, null))
+            {
+                return blinkController.TargetRenderer;
+            }
+
+            var namedTriggerRenderer = FindRendererOnNamedChild("button");
+            if (IsRendererCandidate(namedTriggerRenderer, null))
+            {
+                return namedTriggerRenderer;
+            }
+
+            return FindNamedRenderer("button", preferSkinnedRenderer: true);
+        }
+
+        Renderer FindPassiveRenderer(Renderer excludedRenderer)
+        {
+            var namedPassiveRenderer = FindRendererOnNamedChild("stand1") ??
+                FindRendererOnNamedChild("stand") ??
+                FindRendererOnNamedChild("base");
+            if (IsRendererCandidate(namedPassiveRenderer, excludedRenderer))
+            {
+                return namedPassiveRenderer;
+            }
+
+            return FindNamedRenderer("stand", preferSkinnedRenderer: false, excludedRenderer) ??
+                FindNamedRenderer("base", preferSkinnedRenderer: false, excludedRenderer) ??
+                FindFirstRenderer(preferSkinnedRenderer: false, excludedRenderer) ??
+                FindFirstRenderer(preferSkinnedRenderer: true, excludedRenderer);
+        }
+
+        Renderer FindNamedRenderer(string token, bool preferSkinnedRenderer, Renderer excludedRenderer = null)
         {
             Renderer fallback = null;
             var renderers = GetComponentsInChildren<Renderer>(true);
             for (var i = 0; i < renderers.Length; i++)
             {
                 var renderer = renderers[i];
-                if (renderer == null || renderer.GetComponentInParent<BigRedButtonColliderDebugVisual>() != null)
+                if (!IsRendererCandidate(renderer, excludedRenderer))
                 {
                     continue;
                 }
 
-                if (fallback == null)
+                if (fallback == null && IsRendererTypeMatch(renderer, preferSkinnedRenderer))
                 {
                     fallback = renderer;
                 }
 
-                if (renderer.gameObject.name == "button")
+                var objectName = renderer.gameObject.name;
+                if (string.Equals(objectName, token, StringComparison.OrdinalIgnoreCase) ||
+                    objectName.IndexOf(token, StringComparison.OrdinalIgnoreCase) >= 0)
                 {
-                    return renderer;
+                    if (IsRendererTypeMatch(renderer, preferSkinnedRenderer))
+                    {
+                        return renderer;
+                    }
+
+                    fallback ??= renderer;
                 }
             }
 
             return fallback;
         }
 
-        static Vector3 GetWorldHalfExtents(BoxCollider collider, float padding)
+        Renderer FindFirstRenderer(bool preferSkinnedRenderer, Renderer excludedRenderer)
         {
-            var lossyScale = collider.transform.lossyScale;
-            var halfSize = collider.size * 0.5f;
+            var renderers = GetComponentsInChildren<Renderer>(true);
+            for (var i = 0; i < renderers.Length; i++)
+            {
+                var renderer = renderers[i];
+                if (IsRendererCandidate(renderer, excludedRenderer) && IsRendererTypeMatch(renderer, preferSkinnedRenderer))
+                {
+                    return renderer;
+                }
+            }
+
+            return null;
+        }
+
+        Renderer FindRendererOnNamedChild(string childName)
+        {
+            var childTransform = FindDescendantByName(transform, childName);
+            return childTransform != null ? childTransform.GetComponent<Renderer>() : null;
+        }
+
+        static bool AreCollidersWithinTolerance(Collider a, Collider b, float tolerance)
+        {
+            if (a == null || b == null)
+            {
+                return false;
+            }
+
+            if (TryComputeColliderPenetration(a, b, out var penetrationDistance))
+            {
+                return penetrationDistance > 0f || penetrationDistance >= tolerance;
+            }
+
+            return AreBoundsWithinTolerance(a.bounds, b.bounds, tolerance);
+        }
+
+        static bool TryComputeColliderPenetration(Collider a, Collider b, out float penetrationDistance)
+        {
+            penetrationDistance = 0f;
+            if (!CanUseComputePenetration(a) && !CanUseComputePenetration(b))
+            {
+                return false;
+            }
+
+            return Physics.ComputePenetration(
+                a,
+                a.transform.position,
+                a.transform.rotation,
+                b,
+                b.transform.position,
+                b.transform.rotation,
+                out _,
+                out penetrationDistance);
+        }
+
+        static bool CanUseComputePenetration(Collider collider)
+        {
+            return collider switch
+            {
+                BoxCollider => true,
+                SphereCollider => true,
+                CapsuleCollider => true,
+                MeshCollider meshCollider => meshCollider.convex,
+                _ => false
+            };
+        }
+
+        static bool AreBoundsWithinTolerance(Bounds aBounds, Bounds bBounds, float tolerance)
+        {
+            if (aBounds.Intersects(bBounds))
+            {
+                return true;
+            }
+
+            var expandedBounds = aBounds;
+            expandedBounds.Expand(Mathf.Max(0f, tolerance) * 2f);
+            return expandedBounds.Intersects(bBounds);
+        }
+
+        static void DisableColliderSurface(
+            ref BigRedButtonGeneratedBodyCollider colliderGenerator,
+            ref BigRedButtonColliderDebugVisual debugVisual)
+        {
+            colliderGenerator?.DisableCollider();
+            if (debugVisual != null)
+            {
+                debugVisual.enabled = false;
+            }
+        }
+
+        BoxCollider ResolveConfiguredTriggerSurface(ref BigRedButtonColliderDebugVisual debugVisual)
+        {
+            var surfaceTransform = transform.Find(TriggerSurfaceObjectName);
+            if (surfaceTransform == null)
+            {
+                debugVisual = null;
+                return null;
+            }
+
+            debugVisual = surfaceTransform.GetComponent<BigRedButtonColliderDebugVisual>();
+            var boxCollider = surfaceTransform.GetComponent<BoxCollider>();
+            if (debugVisual != null)
+            {
+                debugVisual.enabled = true;
+                debugVisual.Configure(BigRedButtonColliderDebugVisual.VisualRole.PressTrigger);
+            }
+
+            return IsColliderUsable(boxCollider) ? boxCollider : null;
+        }
+
+        BoxCollider RefreshTriggerSurface(
+            Renderer renderer,
+            ref BigRedButtonColliderDebugVisual debugVisual)
+        {
+            if (!IsRendererUsable(renderer))
+            {
+                DisableTriggerSurface();
+                return null;
+            }
+
+            var surfaceTransform = transform.Find(TriggerSurfaceObjectName);
+            if (surfaceTransform == null)
+            {
+                var surfaceObject = new GameObject(TriggerSurfaceObjectName);
+                surfaceObject.layer = gameObject.layer;
+                surfaceTransform = surfaceObject.transform;
+                surfaceTransform.SetParent(transform, false);
+            }
+
+            _pressTriggerSurfaceCollider = surfaceTransform.GetComponent<BoxCollider>();
+            if (_pressTriggerSurfaceCollider == null)
+            {
+                _pressTriggerSurfaceCollider = surfaceTransform.gameObject.AddComponent<BoxCollider>();
+            }
+
+            _pressTriggerSurfaceCollider.enabled = true;
+            _pressTriggerSurfaceCollider.isTrigger = true;
+            UpdateTriggerSurfaceBounds(renderer, surfaceTransform, _pressTriggerSurfaceCollider);
+
+            debugVisual ??= _pressTriggerSurfaceCollider.GetComponent<BigRedButtonColliderDebugVisual>();
+            if (debugVisual == null)
+            {
+                debugVisual = _pressTriggerSurfaceCollider.gameObject.AddComponent<BigRedButtonColliderDebugVisual>();
+            }
+
+            debugVisual.enabled = true;
+            debugVisual.Configure(BigRedButtonColliderDebugVisual.VisualRole.PressTrigger);
+            return _pressTriggerSurfaceCollider;
+        }
+
+        void UpdateTriggerSurfaceBounds(Renderer renderer, Transform surfaceTransform, BoxCollider boxCollider)
+        {
+            if (renderer == null || surfaceTransform == null || boxCollider == null)
+            {
+                return;
+            }
+
+            var worldBounds = renderer.bounds;
+            var thicknessWorld = Mathf.Clamp(worldBounds.size.y * 0.14f, 0.012f, 0.028f);
+            var centerFallback = new Vector3(
+                worldBounds.center.x,
+                worldBounds.max.y - (thicknessWorld * 0.25f),
+                worldBounds.center.z);
+            var sizeFallback = new Vector3(
+                Mathf.Max(0.012f, worldBounds.size.x * 0.68f),
+                thicknessWorld,
+                Mathf.Max(0.012f, worldBounds.size.z * 0.68f));
+
+            surfaceTransform.SetPositionAndRotation(centerFallback, Quaternion.identity);
+            surfaceTransform.localScale = Vector3.one;
+            boxCollider.center = Vector3.zero;
+            boxCollider.size = WorldSizeToLocal(sizeFallback, surfaceTransform);
+        }
+
+        bool TryGetTriggerSurfacePose(
+            Renderer renderer,
+            float thicknessWorld,
+            out Vector3 centerWorld,
+            out Quaternion surfaceRotation,
+            out Vector3 sizeWorld)
+        {
+            centerWorld = default;
+            surfaceRotation = Quaternion.identity;
+            sizeWorld = Vector3.zero;
+
+            if (renderer == null)
+            {
+                return false;
+            }
+
+            if (!TryResolveTriggerSurfaceMesh(renderer, out var mesh, out var localToWorld))
+            {
+                return false;
+            }
+
+            var triangleCount = mesh.triangles.Length / 3;
+            if (triangleCount == 0)
+            {
+                return false;
+            }
+
+            var expectedNormal = GetExpectedPressNormal(renderer);
+            var indices = mesh.triangles;
+            var vertices = mesh.vertices;
+            var maxProjectedHeight = float.NegativeInfinity;
+            const float TopFaceAlignmentThreshold = 0.75f;
+
+            for (var triangleIndex = 0; triangleIndex < indices.Length; triangleIndex += 3)
+            {
+                if (!TryGetWorldTriangle(vertices, indices, triangleIndex, localToWorld, out var a, out var b, out var c, out var normal, out _, out var centroid))
+                {
+                    continue;
+                }
+
+                if (Vector3.Dot(normal, expectedNormal) <= TopFaceAlignmentThreshold)
+                {
+                    continue;
+                }
+
+                var projectedHeight = Vector3.Dot(centroid, expectedNormal);
+                if (projectedHeight > maxProjectedHeight)
+                {
+                    maxProjectedHeight = projectedHeight;
+                }
+            }
+
+            if (!float.IsFinite(maxProjectedHeight))
+            {
+                return false;
+            }
+
+            var topBandThickness = Mathf.Max(thicknessWorld * 0.5f, renderer.bounds.size.magnitude * 0.01f);
+            var weightedNormal = Vector3.zero;
+            var weightedCentroid = Vector3.zero;
+            var totalWeight = 0f;
+
+            for (var triangleIndex = 0; triangleIndex < indices.Length; triangleIndex += 3)
+            {
+                if (!TryGetWorldTriangle(vertices, indices, triangleIndex, localToWorld, out var a, out var b, out var c, out var normal, out var area, out var centroid))
+                {
+                    continue;
+                }
+
+                var alignment = Vector3.Dot(normal, expectedNormal);
+                if (alignment <= TopFaceAlignmentThreshold)
+                {
+                    continue;
+                }
+
+                var projectedHeight = Vector3.Dot(centroid, expectedNormal);
+                if (projectedHeight < maxProjectedHeight - topBandThickness)
+                {
+                    continue;
+                }
+
+                var weight = area * alignment;
+                weightedNormal += normal * weight;
+                weightedCentroid += centroid * weight;
+                totalWeight += weight;
+            }
+
+            if (totalWeight <= 0.000001f)
+            {
+                return false;
+            }
+
+            var surfaceNormal = weightedNormal.normalized;
+            if (Vector3.Dot(surfaceNormal, expectedNormal) < 0f)
+            {
+                surfaceNormal = -surfaceNormal;
+            }
+
+            var tangentRight = Vector3.ProjectOnPlane(renderer.transform.right, surfaceNormal);
+            if (tangentRight.sqrMagnitude <= 0.000001f)
+            {
+                tangentRight = Vector3.ProjectOnPlane(renderer.transform.forward, surfaceNormal);
+            }
+
+            if (tangentRight.sqrMagnitude <= 0.000001f)
+            {
+                tangentRight = Vector3.Cross(surfaceNormal, Vector3.up);
+            }
+
+            if (tangentRight.sqrMagnitude <= 0.000001f)
+            {
+                tangentRight = Vector3.right;
+            }
+
+            tangentRight.Normalize();
+            var tangentForward = Vector3.Cross(surfaceNormal, tangentRight).normalized;
+            var surfaceCenter = weightedCentroid / totalWeight;
+            var minRight = float.PositiveInfinity;
+            var maxRight = float.NegativeInfinity;
+            var minForward = float.PositiveInfinity;
+            var maxForward = float.NegativeInfinity;
+            AccumulateTopBandExtents(
+                vertices,
+                indices,
+                localToWorld,
+                expectedNormal,
+                maxProjectedHeight,
+                topBandThickness,
+                surfaceCenter,
+                tangentRight,
+                tangentForward,
+                ref minRight,
+                ref maxRight,
+                ref minForward,
+                ref maxForward);
+
+            var hasTopBandExtents = float.IsFinite(minRight) &&
+                float.IsFinite(maxRight) &&
+                float.IsFinite(minForward) &&
+                float.IsFinite(maxForward) &&
+                maxRight > minRight &&
+                maxForward > minForward;
+            var sizeRight = hasTopBandExtents ? (maxRight - minRight) * 0.94f : 0f;
+            var sizeForward = hasTopBandExtents ? (maxForward - minForward) * 0.94f : 0f;
+            if (!hasTopBandExtents)
+            {
+                var bounds = renderer.bounds;
+                sizeRight = ProjectBoundsExtent(bounds.extents, tangentRight) * 2f * 0.72f;
+                sizeForward = ProjectBoundsExtent(bounds.extents, tangentForward) * 2f * 0.72f;
+            }
+
+            centerWorld = surfaceCenter - (surfaceNormal * (thicknessWorld * 0.18f));
+            surfaceRotation = Quaternion.LookRotation(tangentForward, surfaceNormal);
+            sizeWorld = new Vector3(
+                Mathf.Max(0.01f, sizeRight),
+                thicknessWorld,
+                Mathf.Max(0.01f, sizeForward));
+            return true;
+        }
+
+        Vector3 GetExpectedPressNormal(Renderer renderer)
+        {
+            if (renderer != null && targetRenderer != null)
+            {
+                var centerDelta = renderer.bounds.center - targetRenderer.bounds.center;
+                if (centerDelta.sqrMagnitude > 0.000001f)
+                {
+                    return centerDelta.normalized;
+                }
+            }
+
+            return renderer != null ? renderer.transform.up : Vector3.up;
+        }
+
+        bool TryResolveTriggerSurfaceMesh(Renderer renderer, out Mesh mesh, out Matrix4x4 localToWorld)
+        {
+            mesh = null;
+            localToWorld = Matrix4x4.identity;
+            if (renderer == null)
+            {
+                return false;
+            }
+
+            if (renderer is SkinnedMeshRenderer skinnedRenderer)
+            {
+                _triggerSurfaceFitMesh ??= CreateTriggerSurfaceFitMesh();
+                skinnedRenderer.BakeMesh(_triggerSurfaceFitMesh);
+                if (IsUsableSurfaceMesh(_triggerSurfaceFitMesh))
+                {
+                    mesh = _triggerSurfaceFitMesh;
+                    localToWorld = renderer.localToWorldMatrix;
+                    return true;
+                }
+            }
+
+            var meshCollider = renderer.GetComponent<MeshCollider>();
+            if (meshCollider != null && IsUsableSurfaceMesh(meshCollider.sharedMesh))
+            {
+                mesh = meshCollider.sharedMesh;
+                localToWorld = renderer.localToWorldMatrix;
+                return true;
+            }
+
+            var meshFilter = renderer.GetComponent<MeshFilter>();
+            if (meshFilter != null && IsUsableSurfaceMesh(meshFilter.sharedMesh))
+            {
+                mesh = meshFilter.sharedMesh;
+                localToWorld = renderer.localToWorldMatrix;
+                return true;
+            }
+
+            return false;
+        }
+
+        static void AccumulateTopBandExtents(
+            Vector3[] vertices,
+            int[] indices,
+            Matrix4x4 localToWorld,
+            Vector3 expectedNormal,
+            float maxProjectedHeight,
+            float topBandThickness,
+            Vector3 surfaceCenter,
+            Vector3 tangentRight,
+            Vector3 tangentForward,
+            ref float minRight,
+            ref float maxRight,
+            ref float minForward,
+            ref float maxForward)
+        {
+            for (var triangleIndex = 0; triangleIndex < indices.Length; triangleIndex += 3)
+            {
+                if (!TryGetWorldTriangle(vertices, indices, triangleIndex, localToWorld, out var a, out var b, out var c, out var normal, out _, out var centroid))
+                {
+                    continue;
+                }
+
+                if (Vector3.Dot(normal, expectedNormal) <= 0.75f)
+                {
+                    continue;
+                }
+
+                var projectedHeight = Vector3.Dot(centroid, expectedNormal);
+                if (projectedHeight < maxProjectedHeight - topBandThickness)
+                {
+                    continue;
+                }
+
+                AccumulateProjectedPoint(a, surfaceCenter, tangentRight, tangentForward, ref minRight, ref maxRight, ref minForward, ref maxForward);
+                AccumulateProjectedPoint(b, surfaceCenter, tangentRight, tangentForward, ref minRight, ref maxRight, ref minForward, ref maxForward);
+                AccumulateProjectedPoint(c, surfaceCenter, tangentRight, tangentForward, ref minRight, ref maxRight, ref minForward, ref maxForward);
+            }
+        }
+
+        static void AccumulateProjectedPoint(
+            Vector3 point,
+            Vector3 origin,
+            Vector3 tangentRight,
+            Vector3 tangentForward,
+            ref float minRight,
+            ref float maxRight,
+            ref float minForward,
+            ref float maxForward)
+        {
+            var delta = point - origin;
+            var right = Vector3.Dot(delta, tangentRight);
+            var forward = Vector3.Dot(delta, tangentForward);
+            minRight = Mathf.Min(minRight, right);
+            maxRight = Mathf.Max(maxRight, right);
+            minForward = Mathf.Min(minForward, forward);
+            maxForward = Mathf.Max(maxForward, forward);
+        }
+
+        static bool TryGetWorldTriangle(
+            Vector3[] vertices,
+            int[] indices,
+            int triangleIndex,
+            Matrix4x4 localToWorld,
+            out Vector3 a,
+            out Vector3 b,
+            out Vector3 c,
+            out Vector3 normal,
+            out float area,
+            out Vector3 centroid)
+        {
+            a = default;
+            b = default;
+            c = default;
+            normal = default;
+            area = 0f;
+            centroid = default;
+
+            if (vertices == null ||
+                indices == null ||
+                triangleIndex < 0 ||
+                triangleIndex + 2 >= indices.Length)
+            {
+                return false;
+            }
+
+            a = localToWorld.MultiplyPoint3x4(vertices[indices[triangleIndex]]);
+            b = localToWorld.MultiplyPoint3x4(vertices[indices[triangleIndex + 1]]);
+            c = localToWorld.MultiplyPoint3x4(vertices[indices[triangleIndex + 2]]);
+
+            var cross = Vector3.Cross(b - a, c - a);
+            var magnitude = cross.magnitude;
+            if (magnitude <= 0.000001f)
+            {
+                return false;
+            }
+
+            normal = cross / magnitude;
+            area = magnitude * 0.5f;
+            centroid = (a + b + c) / 3f;
+            return true;
+        }
+
+        Mesh CreateTriggerSurfaceFitMesh()
+        {
+            var mesh = new Mesh
+            {
+                name = $"{name} Trigger Surface Fit Mesh"
+            };
+            mesh.MarkDynamic();
+            return mesh;
+        }
+
+        static bool IsUsableSurfaceMesh(Mesh mesh)
+        {
+            return mesh != null && mesh.vertexCount > 0 && mesh.triangles != null && mesh.triangles.Length >= 3;
+        }
+
+        static float ProjectBoundsExtent(Vector3 extents, Vector3 worldAxis)
+        {
+            var normalizedAxis = worldAxis.sqrMagnitude > 0.000001f ? worldAxis.normalized : Vector3.up;
+            return Mathf.Abs(normalizedAxis.x) * extents.x +
+                Mathf.Abs(normalizedAxis.y) * extents.y +
+                Mathf.Abs(normalizedAxis.z) * extents.z;
+        }
+
+        void DisableTriggerSurface()
+        {
+            if (_pressTriggerSurfaceCollider != null)
+            {
+                _pressTriggerSurfaceCollider.enabled = false;
+            }
+
+            if (_pressTriggerSurfaceDebugVisual != null)
+            {
+                _pressTriggerSurfaceDebugVisual.enabled = false;
+            }
+        }
+
+        static BigRedButtonRendererMeshDebug RefreshRendererShell(Renderer renderer, MeshCollider meshCollider)
+        {
+            DisableRendererShell(renderer);
+            return null;
+        }
+
+        static BigRedButtonRendererMeshDebug ResolveConfiguredRendererShell(Renderer renderer, MeshCollider meshCollider)
+        {
+            DisableRendererShell(renderer);
+            return null;
+        }
+
+        static void DisableRendererShell(Renderer renderer)
+        {
+            if (renderer == null)
+            {
+                return;
+            }
+
+            var rendererShell = renderer.GetComponent<BigRedButtonRendererMeshDebug>();
+            if (rendererShell != null)
+            {
+                rendererShell.enabled = false;
+            }
+        }
+
+        static Vector3 WorldSizeToLocal(Vector3 worldSize, Transform targetTransform)
+        {
+            if (targetTransform == null)
+            {
+                return worldSize;
+            }
+
+            var scale = targetTransform.lossyScale;
             return new Vector3(
-                Mathf.Abs(lossyScale.x) * halfSize.x + padding,
-                Mathf.Abs(lossyScale.y) * halfSize.y + padding,
-                Mathf.Abs(lossyScale.z) * halfSize.z + padding);
+                worldSize.x / Mathf.Max(Mathf.Abs(scale.x), 0.0001f),
+                worldSize.y / Mathf.Max(Mathf.Abs(scale.y), 0.0001f),
+                worldSize.z / Mathf.Max(Mathf.Abs(scale.z), 0.0001f));
+        }
+
+        static bool IsRendererCandidate(Renderer renderer, Renderer excludedRenderer)
+        {
+            return renderer != null &&
+                renderer != excludedRenderer &&
+                !IsDebugVisualRenderer(renderer);
+        }
+
+        static bool IsRendererTypeMatch(Renderer renderer, bool preferSkinnedRenderer)
+        {
+            var isSkinnedRenderer = renderer is SkinnedMeshRenderer;
+            return preferSkinnedRenderer ? isSkinnedRenderer : !isSkinnedRenderer;
+        }
+
+        static bool IsRendererUsable(Renderer renderer)
+        {
+            return renderer != null &&
+                renderer.enabled &&
+                renderer.gameObject.activeInHierarchy &&
+                !IsDebugVisualRenderer(renderer);
+        }
+
+        static bool IsColliderUsable(Collider collider)
+        {
+            return collider != null && collider.enabled && collider.gameObject.activeInHierarchy;
+        }
+
+        static bool IsDebugVisualRenderer(Renderer renderer)
+        {
+            if (renderer == null)
+            {
+                return false;
+            }
+
+            var debugVisual = renderer.GetComponentInParent<BigRedButtonColliderDebugVisual>();
+            return debugVisual != null && debugVisual.gameObject != renderer.gameObject;
+        }
+
+        static Transform FindDescendantByName(Transform root, string childName)
+        {
+            if (root == null || string.IsNullOrWhiteSpace(childName))
+            {
+                return null;
+            }
+
+            for (var childIndex = 0; childIndex < root.childCount; childIndex++)
+            {
+                var child = root.GetChild(childIndex);
+                if (child == null)
+                {
+                    continue;
+                }
+
+                if (string.Equals(child.name, childName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return child;
+                }
+
+                var descendant = FindDescendantByName(child, childName);
+                if (descendant != null)
+                {
+                    return descendant;
+                }
+            }
+
+            return null;
         }
     }
 }

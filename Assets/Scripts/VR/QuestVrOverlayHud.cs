@@ -42,7 +42,7 @@ namespace TheBigRedButtonInstitute.VR
         [SerializeField] Image borderRight;
 
         [Header("Presentation")]
-        [SerializeField] bool visible = true;
+        [SerializeField] bool visible = false;
         [SerializeField] bool useOverlayCanvas = true;
         [SerializeField] Color backgroundColor = new(0.025f, 0.03f, 0.035f, 0.98f);
         [SerializeField] Color textColor = new(0.93f, 0.97f, 1f, 1f);

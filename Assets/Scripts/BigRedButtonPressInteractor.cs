@@ -19,14 +19,13 @@ namespace TheBigRedButtonInstitute
         [SerializeField] Renderer[] bodyRenderers = System.Array.Empty<Renderer>();
         [SerializeField] Collider[] bodyColliders = System.Array.Empty<Collider>();
         [SerializeField] bool trackingValid = true;
+        [SerializeField] bool generatedMeshCollidersOnly = true;
+        [SerializeField] bool disableLegacyHandPhysicsCapsules = true;
 
         const float BodySourceRefreshIntervalSeconds = 0.25f;
 
         static readonly FieldInfo EnablePhysicsCapsulesField = typeof(OVRSkeleton).GetField(
             "_enablePhysicsCapsules",
-            BindingFlags.Instance | BindingFlags.NonPublic);
-        static readonly MethodInfo InitializeCapsulesMethod = typeof(OVRSkeleton).GetMethod(
-            "InitializeCapsules",
             BindingFlags.Instance | BindingFlags.NonPublic);
 
         float _nextBodySourceRefreshTime;
@@ -70,6 +69,34 @@ namespace TheBigRedButtonInstitute
             trackingValid = isValid;
         }
 
+        public Collider[] GetInteractionColliders()
+        {
+            if (interactionMode != InteractionMode.RendererBody)
+            {
+                return System.Array.Empty<Collider>();
+            }
+
+            PrepareForQueries();
+            return bodyColliders ?? System.Array.Empty<Collider>();
+        }
+
+        public void PrepareForQueries()
+        {
+            if (interactionMode != InteractionMode.RendererBody)
+            {
+                return;
+            }
+
+            var forceRendererRefresh = bodyRenderers == null ||
+                bodyRenderers.Length == 0 ||
+                Time.unscaledTime >= _nextBodySourceRefreshTime;
+            RefreshBodyCollisionSources(forceRendererRefresh);
+            if (forceRendererRefresh)
+            {
+                _nextBodySourceRefreshTime = Time.unscaledTime + BodySourceRefreshIntervalSeconds;
+            }
+        }
+
         public bool OverlapsSphere(Vector3 worldCenter, float worldRadius)
         {
             if (!TrackingValid)
@@ -79,9 +106,9 @@ namespace TheBigRedButtonInstitute
 
             if (interactionMode == InteractionMode.RendererBody)
             {
+                var colliders = GetInteractionColliders();
                 var combinedRadius = Mathf.Max(0f, worldRadius + bodyPadding);
                 var combinedRadiusSquared = combinedRadius * combinedRadius;
-                var colliders = GetBodyColliders();
                 for (var i = 0; i < colliders.Length; i++)
                 {
                     var collider = colliders[i];
@@ -91,22 +118,6 @@ namespace TheBigRedButtonInstitute
                     }
 
                     var closestPoint = collider.ClosestPoint(worldCenter);
-                    if ((closestPoint - worldCenter).sqrMagnitude <= combinedRadiusSquared)
-                    {
-                        return true;
-                    }
-                }
-
-                var renderers = GetBodyRenderers();
-                for (var i = 0; i < renderers.Length; i++)
-                {
-                    var renderer = renderers[i];
-                    if (!IsRendererUsable(renderer))
-                    {
-                        continue;
-                    }
-
-                    var closestPoint = renderer.bounds.ClosestPoint(worldCenter);
                     if ((closestPoint - worldCenter).sqrMagnitude <= combinedRadiusSquared)
                     {
                         return true;
@@ -124,19 +135,10 @@ namespace TheBigRedButtonInstitute
         {
             if (interactionMode == InteractionMode.RendererBody)
             {
-                var colliders = GetBodyColliders();
+                var colliders = GetInteractionColliders();
                 for (var i = 0; i < colliders.Length; i++)
                 {
                     if (IsColliderUsable(colliders[i]))
-                    {
-                        return true;
-                    }
-                }
-
-                var renderers = GetBodyRenderers();
-                for (var i = 0; i < renderers.Length; i++)
-                {
-                    if (IsRendererUsable(renderers[i]))
                     {
                         return true;
                     }
@@ -155,13 +157,9 @@ namespace TheBigRedButtonInstitute
                 return System.Array.Empty<Collider>();
             }
 
-            if (Application.isPlaying &&
-                (bodyColliders == null ||
-                 bodyColliders.Length == 0 ||
-                 Time.unscaledTime >= _nextBodySourceRefreshTime))
+            if (bodyColliders == null || bodyColliders.Length == 0)
             {
-                RefreshBodyCollisionSources();
-                _nextBodySourceRefreshTime = Time.unscaledTime + BodySourceRefreshIntervalSeconds;
+                PrepareForQueries();
             }
 
             return bodyColliders ?? System.Array.Empty<Collider>();
@@ -176,18 +174,23 @@ namespace TheBigRedButtonInstitute
 
             if (bodyRenderers == null || bodyRenderers.Length == 0)
             {
-                bodyRenderers = GetComponentsInChildren<Renderer>(true);
+                bodyRenderers = SanitizeRenderers(GetComponentsInChildren<Renderer>(true));
             }
 
             return bodyRenderers;
         }
 
-        void RefreshBodyCollisionSources()
+        void RefreshBodyCollisionSources(bool forceRendererRefresh)
         {
-            EnsureGeneratedRendererColliders();
+            if (forceRendererRefresh)
+            {
+                bodyRenderers = SanitizeRenderers(bodyRenderers);
+            }
 
             var colliders = new List<Collider>();
+            var handSkeletons = new HashSet<OVRSkeleton>();
             var renderers = GetBodyRenderers();
+
             for (var i = 0; i < renderers.Length; i++)
             {
                 var renderer = renderers[i];
@@ -196,113 +199,83 @@ namespace TheBigRedButtonInstitute
                     continue;
                 }
 
-                var collider = renderer.GetComponent<Collider>();
-                if (collider != null && !colliders.Contains(collider))
+                var handSkeleton = GetHandSkeleton(renderer);
+                if (handSkeleton != null)
                 {
-                    EnsureColliderProxy(collider);
-                    colliders.Add(collider);
+                    handSkeletons.Add(handSkeleton);
+                }
+
+                if (TryResolveRendererCollider(renderer, out var generatedCollider))
+                {
+                    AppendCollider(colliders, generatedCollider);
+                    continue;
+                }
+
+                if (!generatedMeshCollidersOnly)
+                {
+                    AppendExistingRendererColliders(renderer, colliders);
                 }
             }
 
-            AppendHandCapsules(colliders);
+            if (disableLegacyHandPhysicsCapsules)
+            {
+                foreach (var handSkeleton in handSkeletons)
+                {
+                    DisableHandPhysicsCapsules(handSkeleton);
+                }
+            }
+
             bodyColliders = colliders.ToArray();
         }
 
-        void EnsureGeneratedRendererColliders()
+        bool TryResolveRendererCollider(Renderer renderer, out Collider collider)
         {
-            var renderers = GetBodyRenderers();
-            for (var i = 0; i < renderers.Length; i++)
+            collider = null;
+            if (renderer == null)
             {
-                var renderer = renderers[i];
-                if (renderer == null || IsHandRenderer(renderer))
-                {
-                    continue;
-                }
-
-                var marker = renderer.GetComponent<BigRedButtonGeneratedBodyCollider>();
-                var existingCollider = renderer.GetComponent<Collider>();
-                if (existingCollider != null && marker == null)
-                {
-                    continue;
-                }
-
-                if (!TryGetRendererLocalBounds(renderer, out var localBounds))
-                {
-                    continue;
-                }
-
-                var boxCollider = renderer.GetComponent<BoxCollider>();
-                if (boxCollider == null)
-                {
-                    boxCollider = renderer.gameObject.AddComponent<BoxCollider>();
-                }
-
-                if (marker == null)
-                {
-                    renderer.gameObject.AddComponent<BigRedButtonGeneratedBodyCollider>();
-                }
-
-                boxCollider.center = localBounds.center;
-                boxCollider.size = localBounds.size;
-                boxCollider.isTrigger = false;
-                EnsureColliderProxy(boxCollider);
+                return false;
             }
+
+            var generatedCollider = renderer.GetComponent<BigRedButtonGeneratedBodyCollider>();
+            if (generatedCollider == null)
+            {
+                generatedCollider = renderer.gameObject.AddComponent<BigRedButtonGeneratedBodyCollider>();
+            }
+
+            generatedCollider.Configure(renderer, targetPreferConvex: false, targetIsTrigger: false);
+            if (!IsRendererUsable(renderer))
+            {
+                generatedCollider.DisableCollider();
+                return false;
+            }
+
+            collider = generatedCollider.RefreshCollider();
+            return IsColliderUsable(collider);
         }
 
-        void AppendHandCapsules(List<Collider> colliders)
+        void AppendExistingRendererColliders(Renderer renderer, List<Collider> colliders)
         {
-            if (colliders == null)
+            if (renderer == null || colliders == null)
             {
                 return;
             }
 
-            var handSkeletons = new List<OVRSkeleton>();
-            var renderers = GetBodyRenderers();
-            for (var i = 0; i < renderers.Length; i++)
+            var existingColliders = renderer.GetComponents<Collider>();
+            for (var i = 0; i < existingColliders.Length; i++)
             {
-                var renderer = renderers[i];
-                if (renderer == null)
-                {
-                    continue;
-                }
+                AppendCollider(colliders, existingColliders[i]);
+            }
+        }
 
-                var skeleton = renderer.GetComponentInParent<OVRSkeleton>();
-                if (skeleton == null || handSkeletons.Contains(skeleton))
-                {
-                    continue;
-                }
-
-                handSkeletons.Add(skeleton);
+        void AppendCollider(List<Collider> colliders, Collider collider)
+        {
+            if (colliders == null || !IsColliderUsable(collider) || colliders.Contains(collider))
+            {
+                return;
             }
 
-            for (var i = 0; i < handSkeletons.Count; i++)
-            {
-                var skeleton = handSkeletons[i];
-                if (!IsHandSkeleton(skeleton))
-                {
-                    continue;
-                }
-
-                EnsureHandPhysicsCapsules(skeleton);
-                var capsules = skeleton.Capsules;
-                if (capsules == null)
-                {
-                    continue;
-                }
-
-                for (var capsuleIndex = 0; capsuleIndex < capsules.Count; capsuleIndex++)
-                {
-                    var capsule = capsules[capsuleIndex];
-                    var collider = capsule?.CapsuleCollider;
-                    if (collider == null || colliders.Contains(collider))
-                    {
-                        continue;
-                    }
-
-                    EnsureColliderProxy(collider);
-                    colliders.Add(collider);
-                }
-            }
+            EnsureColliderProxy(collider);
+            colliders.Add(collider);
         }
 
         void EnsureColliderProxy(Collider collider)
@@ -329,23 +302,58 @@ namespace TheBigRedButtonInstitute
             debugVisual.Configure(BigRedButtonColliderDebugVisual.VisualRole.Interactor);
         }
 
-        static void EnsureHandPhysicsCapsules(OVRSkeleton skeleton)
+        static void DisableHandPhysicsCapsules(OVRSkeleton skeleton)
         {
             if (skeleton == null)
             {
                 return;
             }
 
-            var physicsCapsulesEnabled = EnablePhysicsCapsulesField != null &&
-                EnablePhysicsCapsulesField.GetValue(skeleton) is bool isEnabled &&
-                isEnabled;
-
-            if (!physicsCapsulesEnabled && EnablePhysicsCapsulesField != null)
+            if (EnablePhysicsCapsulesField != null)
             {
-                EnablePhysicsCapsulesField.SetValue(skeleton, true);
-                if (skeleton.IsInitialized)
+                EnablePhysicsCapsulesField.SetValue(skeleton, false);
+            }
+
+            var capsules = skeleton.Capsules;
+            if (capsules == null)
+            {
+                return;
+            }
+
+            for (var capsuleIndex = 0; capsuleIndex < capsules.Count; capsuleIndex++)
+            {
+                var capsuleCollider = capsules[capsuleIndex]?.CapsuleCollider;
+                if (capsuleCollider == null)
                 {
-                    InitializeCapsulesMethod?.Invoke(skeleton, null);
+                    continue;
+                }
+
+                capsuleCollider.enabled = false;
+
+                var proxy = capsuleCollider.GetComponent<BigRedButtonPressColliderProxy>();
+                if (proxy != null)
+                {
+                    if (Application.isPlaying)
+                    {
+                        Destroy(proxy);
+                    }
+                    else
+                    {
+                        DestroyImmediate(proxy);
+                    }
+                }
+
+                var debugVisual = capsuleCollider.GetComponent<BigRedButtonColliderDebugVisual>();
+                if (debugVisual != null)
+                {
+                    if (Application.isPlaying)
+                    {
+                        Destroy(debugVisual);
+                    }
+                    else
+                    {
+                        DestroyImmediate(debugVisual);
+                    }
                 }
             }
         }
@@ -367,6 +375,17 @@ namespace TheBigRedButtonInstitute
             };
         }
 
+        static OVRSkeleton GetHandSkeleton(Renderer renderer)
+        {
+            if (renderer == null)
+            {
+                return null;
+            }
+
+            var skeleton = renderer.GetComponentInParent<OVRSkeleton>();
+            return IsHandSkeleton(skeleton) ? skeleton : null;
+        }
+
         static Renderer[] SanitizeRenderers(Renderer[] renderers)
         {
             if (renderers == null || renderers.Length == 0)
@@ -374,38 +393,30 @@ namespace TheBigRedButtonInstitute
                 return System.Array.Empty<Renderer>();
             }
 
-            var validCount = 0;
+            var sanitized = new List<Renderer>(renderers.Length);
             for (var i = 0; i < renderers.Length; i++)
             {
-                if (renderers[i] != null)
-                {
-                    validCount++;
-                }
-            }
-
-            if (validCount == 0)
-            {
-                return System.Array.Empty<Renderer>();
-            }
-
-            var sanitized = new Renderer[validCount];
-            var writeIndex = 0;
-            for (var i = 0; i < renderers.Length; i++)
-            {
-                if (renderers[i] == null)
+                var renderer = renderers[i];
+                if (renderer == null || IsDebugVisualRenderer(renderer))
                 {
                     continue;
                 }
 
-                sanitized[writeIndex++] = renderers[i];
+                if (!sanitized.Contains(renderer))
+                {
+                    sanitized.Add(renderer);
+                }
             }
 
-            return sanitized;
+            return sanitized.ToArray();
         }
 
         static bool IsRendererUsable(Renderer renderer)
         {
-            return renderer != null && renderer.enabled && renderer.gameObject.activeInHierarchy;
+            return renderer != null &&
+                renderer.enabled &&
+                renderer.gameObject.activeInHierarchy &&
+                !IsDebugVisualRenderer(renderer);
         }
 
         static bool IsColliderUsable(Collider collider)
@@ -413,56 +424,15 @@ namespace TheBigRedButtonInstitute
             return collider != null && collider.enabled && collider.gameObject.activeInHierarchy;
         }
 
-        static bool TryGetRendererLocalBounds(Renderer renderer, out Bounds localBounds)
-        {
-            localBounds = default;
-            if (renderer == null)
-            {
-                return false;
-            }
-
-            if (renderer is SkinnedMeshRenderer skinnedRenderer)
-            {
-                localBounds = skinnedRenderer.localBounds;
-                if (localBounds.size.sqrMagnitude > 0.000001f)
-                {
-                    return true;
-                }
-
-                if (skinnedRenderer.sharedMesh != null)
-                {
-                    localBounds = skinnedRenderer.sharedMesh.bounds;
-                    return localBounds.size.sqrMagnitude > 0.000001f;
-                }
-
-                return false;
-            }
-
-            var meshFilter = renderer.GetComponent<MeshFilter>();
-            if (meshFilter == null || meshFilter.sharedMesh == null)
-            {
-                return false;
-            }
-
-            localBounds = meshFilter.sharedMesh.bounds;
-            return localBounds.size.sqrMagnitude > 0.000001f;
-        }
-
-        static bool IsHandRenderer(Renderer renderer)
+        static bool IsDebugVisualRenderer(Renderer renderer)
         {
             if (renderer == null)
             {
                 return false;
             }
 
-            var hand = renderer.GetComponentInParent<OVRHand>();
-            if (hand != null)
-            {
-                return true;
-            }
-
-            var skeleton = renderer.GetComponentInParent<OVRSkeleton>();
-            return IsHandSkeleton(skeleton);
+            var debugVisual = renderer.GetComponentInParent<BigRedButtonColliderDebugVisual>();
+            return debugVisual != null && debugVisual.gameObject != renderer.gameObject;
         }
     }
 }

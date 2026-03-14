@@ -54,7 +54,8 @@ namespace TheBigRedButtonInstitute.VR
             RightThumbstickClick = 6,
             LeftPrimaryButtonX = 7,
             LeftSecondaryButtonY = 8,
-            LeftIndexTrigger = 9
+            LeftIndexTrigger = 9,
+            RightGripTrigger = 10
         }
 
         enum HudPageId
@@ -210,6 +211,7 @@ namespace TheBigRedButtonInstitute.VR
         {
             bindings ??= new List<ActionBinding>();
             commands ??= new List<TerminalCommand>();
+            MigrateLegacyBindings();
             RemoveLegacyCommandCursorBindings();
             MergeMissingBindings();
             MergeMissingCommands();
@@ -861,9 +863,30 @@ namespace TheBigRedButtonInstitute.VR
             return new List<ActionBinding>
             {
                 new() { controllerButton = VrControllerButtonId.RightPrimaryButtonA, keyboardKey = KeyCode.C, action = VrActionId.CenterButton, label = "center_button" },
-                new() { controllerButton = VrControllerButtonId.RightSecondaryButtonB, keyboardKey = KeyCode.H, action = VrActionId.ToggleHud, label = "toggle_hud" },
+                new() { controllerButton = VrControllerButtonId.RightGripTrigger, keyboardKey = KeyCode.H, action = VrActionId.ToggleHud, label = "toggle_hud" },
                 new() { controllerButton = VrControllerButtonId.RightIndexTrigger, keyboardKey = KeyCode.Return, action = VrActionId.ExecuteSelectedCommand, label = "execute_command" }
             };
+        }
+
+        void MigrateLegacyBindings()
+        {
+            for (var i = 0; i < bindings.Count; i++)
+            {
+                if (bindings[i].action != VrActionId.ToggleHud)
+                {
+                    continue;
+                }
+
+                var binding = bindings[i];
+                binding.controllerButton = VrControllerButtonId.RightGripTrigger;
+                binding.label = "toggle_hud";
+                if (binding.keyboardKey == KeyCode.None)
+                {
+                    binding.keyboardKey = KeyCode.H;
+                }
+
+                bindings[i] = binding;
+            }
         }
 
         void RemoveLegacyCommandCursorBindings()
@@ -948,6 +971,7 @@ namespace TheBigRedButtonInstitute.VR
                 VrControllerButtonId.RightPrimaryButtonA => OVRInput.GetDown(OVRInput.RawButton.A),
                 VrControllerButtonId.RightSecondaryButtonB => OVRInput.GetDown(OVRInput.RawButton.B),
                 VrControllerButtonId.RightIndexTrigger => OVRInput.GetDown(OVRInput.RawButton.RIndexTrigger),
+                VrControllerButtonId.RightGripTrigger => OVRInput.GetDown(OVRInput.RawButton.RHandTrigger),
                 VrControllerButtonId.RightThumbstickClick => OVRInput.GetDown(OVRInput.RawButton.RThumbstick),
                 VrControllerButtonId.LeftPrimaryButtonX => OVRInput.GetDown(OVRInput.RawButton.X),
                 VrControllerButtonId.LeftSecondaryButtonY => OVRInput.GetDown(OVRInput.RawButton.Y),
@@ -1015,6 +1039,7 @@ namespace TheBigRedButtonInstitute.VR
                 VrControllerButtonId.RightPrimaryButtonA => "A",
                 VrControllerButtonId.RightSecondaryButtonB => "B",
                 VrControllerButtonId.RightIndexTrigger => "R Trigger",
+                VrControllerButtonId.RightGripTrigger => "R Grip",
                 VrControllerButtonId.RightThumbstickUp => "R Stick Up",
                 VrControllerButtonId.RightThumbstickDown => "R Stick Down",
                 VrControllerButtonId.RightThumbstickClick => "R Stick Click",

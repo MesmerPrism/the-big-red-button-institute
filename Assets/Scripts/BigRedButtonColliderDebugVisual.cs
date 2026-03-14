@@ -6,17 +6,31 @@ namespace TheBigRedButtonInstitute
     [DisallowMultipleComponent]
     public sealed class BigRedButtonColliderDebugVisual : MonoBehaviour
     {
+        enum VisualGeometryType
+        {
+            None = 0,
+            Box = 1,
+            Sphere = 2,
+            Capsule = 3,
+            PressZone = 4,
+            Mesh = 5
+        }
+
         public enum VisualRole
         {
             Interactor = 0,
-            PressZone = 1
+            PressZone = 1,
+            PressTrigger = 2
         }
 
         const float HighlightHoldSeconds = 0.12f;
         const float BoxOversize = 1.08f;
         const float CapsuleOversize = 1.02f;
         const float SphereOversize = 1.03f;
+        const float MeshOversize = 1.01f;
         const float PressZoneOversize = 1.01f;
+        const float PressTriggerOversize = 1.22f;
+        const float PressTriggerMeshOversize = 1.16f;
 
         [SerializeField] VisualRole role = VisualRole.Interactor;
 
@@ -24,8 +38,9 @@ namespace TheBigRedButtonInstitute
         BigRedButtonPressColliderProxy _proxy;
         Transform _visualTransform;
         MeshRenderer _visualRenderer;
+        MeshFilter _visualMeshFilter;
         Material _runtimeMaterial;
-        PrimitiveType _currentPrimitiveType = (PrimitiveType)(-1);
+        VisualGeometryType _currentGeometry = VisualGeometryType.None;
         float _lastHighlightTime = float.NegativeInfinity;
 
         public void Configure(VisualRole targetRole)
@@ -37,6 +52,7 @@ namespace TheBigRedButtonInstitute
             }
 
             EnsureVisual();
+            ApplyMaterialPresentation();
             UpdateVisual(forceHighlight: false);
         }
 
@@ -118,10 +134,10 @@ namespace TheBigRedButtonInstitute
                 return;
             }
 
-            var primitiveType = GetPrimitiveType();
-            if (_visualTransform == null || primitiveType != _currentPrimitiveType)
+            var geometryType = GetGeometryType();
+            if (_visualTransform == null || geometryType != _currentGeometry)
             {
-                RebuildVisual(primitiveType);
+                RebuildVisual(geometryType);
             }
 
             if (_runtimeMaterial == null)
@@ -132,26 +148,43 @@ namespace TheBigRedButtonInstitute
                     _visualRenderer.sharedMaterial = _runtimeMaterial;
                 }
             }
+
+            ApplyMaterialPresentation();
         }
 
-        void RebuildVisual(PrimitiveType primitiveType)
+        void RebuildVisual(VisualGeometryType geometryType)
         {
             DestroyVisual();
 
-            var primitive = GameObject.CreatePrimitive(primitiveType);
-            primitive.name = "Collider Debug Visual";
-            primitive.layer = gameObject.layer;
-            primitive.transform.SetParent(transform, false);
-
-            var primitiveCollider = primitive.GetComponent<Collider>();
-            if (primitiveCollider != null)
+            GameObject visualObject;
+            if (geometryType == VisualGeometryType.Mesh)
             {
-                primitiveCollider.enabled = false;
+                visualObject = new GameObject("Collider Debug Visual");
+                visualObject.layer = gameObject.layer;
+                visualObject.transform.SetParent(transform, false);
+                _visualMeshFilter = visualObject.AddComponent<MeshFilter>();
+                _visualRenderer = visualObject.AddComponent<MeshRenderer>();
+            }
+            else
+            {
+                var primitiveType = GetPrimitiveType(geometryType);
+                visualObject = GameObject.CreatePrimitive(primitiveType);
+                visualObject.name = "Collider Debug Visual";
+                visualObject.layer = gameObject.layer;
+                visualObject.transform.SetParent(transform, false);
+
+                var primitiveCollider = visualObject.GetComponent<Collider>();
+                if (primitiveCollider != null)
+                {
+                    primitiveCollider.enabled = false;
+                }
+
+                _visualRenderer = visualObject.GetComponent<MeshRenderer>();
+                _visualMeshFilter = visualObject.GetComponent<MeshFilter>();
             }
 
-            _visualTransform = primitive.transform;
-            _visualRenderer = primitive.GetComponent<MeshRenderer>();
-            _currentPrimitiveType = primitiveType;
+            _visualTransform = visualObject.transform;
+            _currentGeometry = geometryType;
 
             if (_visualRenderer == null)
             {
@@ -189,7 +222,8 @@ namespace TheBigRedButtonInstitute
 
             _visualTransform = null;
             _visualRenderer = null;
-            _currentPrimitiveType = (PrimitiveType)(-1);
+            _visualMeshFilter = null;
+            _currentGeometry = VisualGeometryType.None;
         }
 
         void UpdateVisual(bool forceHighlight)
@@ -207,7 +241,9 @@ namespace TheBigRedButtonInstitute
             var highlighted = forceHighlight || Time.unscaledTime - _lastHighlightTime <= HighlightHoldSeconds;
             ApplyVisualTransform(highlighted);
             ApplyVisualColor(highlighted);
-            _visualRenderer.enabled = _targetCollider.enabled && gameObject.activeInHierarchy;
+            _visualRenderer.enabled = _targetCollider.enabled &&
+                gameObject.activeInHierarchy &&
+                (_currentGeometry != VisualGeometryType.Mesh || (_visualMeshFilter != null && _visualMeshFilter.sharedMesh != null));
         }
 
         void ApplyVisualTransform(bool highlighted)
@@ -221,8 +257,11 @@ namespace TheBigRedButtonInstitute
                 case BoxCollider boxCollider:
                     _visualTransform.localPosition = boxCollider.center;
                     _visualTransform.localRotation = Quaternion.identity;
-                    _visualTransform.localScale = role == VisualRole.PressZone
-                        ? new Vector3(boxCollider.size.x * oversize, boxCollider.size.y * 0.5f * oversize, boxCollider.size.z * oversize)
+                    _visualTransform.localScale = UsesDiscVisual(role)
+                        ? new Vector3(
+                            boxCollider.size.x * oversize,
+                            boxCollider.size.y * GetDiscHeightFactor(role) * oversize,
+                            boxCollider.size.z * oversize)
                         : boxCollider.size * oversize;
                     break;
                 case SphereCollider sphereCollider:
@@ -238,6 +277,16 @@ namespace TheBigRedButtonInstitute
                     _visualTransform.localRotation = GetCapsuleRotation(capsuleCollider.direction);
                     _visualTransform.localScale = new Vector3(diameter, totalHeight * 0.5f, diameter);
                     break;
+                case MeshCollider meshCollider:
+                    if (_visualMeshFilter != null && _visualMeshFilter.sharedMesh != meshCollider.sharedMesh)
+                    {
+                        _visualMeshFilter.sharedMesh = meshCollider.sharedMesh;
+                    }
+
+                    _visualTransform.localPosition = Vector3.zero;
+                    _visualTransform.localRotation = Quaternion.identity;
+                    _visualTransform.localScale = Vector3.one * oversize;
+                    break;
             }
         }
 
@@ -248,13 +297,7 @@ namespace TheBigRedButtonInstitute
                 return;
             }
 
-            var color = GetBaseColor();
-            if (highlighted)
-            {
-                color = role == VisualRole.PressZone
-                    ? new Color(1f, 0.95f, 0.15f, 0.8f)
-                    : new Color(0.2f, 1f, 0.25f, 0.8f);
-            }
+            var color = highlighted ? GetHighlightColor() : GetBaseColor();
 
             SetMaterialColor(_runtimeMaterial, color);
             SetMaterialEmission(_runtimeMaterial, color, highlighted ? 1.8f : 0.8f);
@@ -267,26 +310,46 @@ namespace TheBigRedButtonInstitute
                 return new Color(1f, 0.1f, 0.1f, 0.35f);
             }
 
-            return _targetCollider switch
+            if (role == VisualRole.PressTrigger)
             {
-                CapsuleCollider => new Color(1f, 0.15f, 0.85f, 0.45f),
-                SphereCollider => new Color(1f, 0.45f, 0.1f, 0.45f),
-                _ => new Color(0.1f, 0.95f, 1f, 0.45f)
-            };
-        }
-
-        PrimitiveType GetPrimitiveType()
-        {
-            if (role == VisualRole.PressZone)
-            {
-                return PrimitiveType.Cylinder;
+                return _targetCollider is MeshCollider
+                    ? new Color(0.18f, 0.86f, 1f, 0.5f)
+                    : new Color(1f, 0.18f, 0.84f, 0.72f);
             }
 
             return _targetCollider switch
             {
-                CapsuleCollider => PrimitiveType.Capsule,
-                SphereCollider => PrimitiveType.Sphere,
-                _ => PrimitiveType.Cube
+                CapsuleCollider => new Color(1f, 0.15f, 0.85f, 0.45f),
+                SphereCollider => new Color(1f, 0.45f, 0.1f, 0.45f),
+                MeshCollider => new Color(0.1f, 0.95f, 1f, 0.35f),
+                _ => new Color(0.1f, 0.95f, 1f, 0.45f)
+            };
+        }
+
+        Color GetHighlightColor()
+        {
+            return role switch
+            {
+                VisualRole.PressZone => new Color(1f, 0.4f, 0.18f, 0.78f),
+                VisualRole.PressTrigger when _targetCollider is MeshCollider => new Color(0.72f, 0.96f, 1f, 0.94f),
+                VisualRole.PressTrigger => new Color(1f, 0.78f, 0.2f, 0.92f),
+                _ => new Color(0.2f, 1f, 0.25f, 0.8f)
+            };
+        }
+
+        VisualGeometryType GetGeometryType()
+        {
+            if (UsesDiscVisual(role) && _targetCollider is BoxCollider)
+            {
+                return VisualGeometryType.PressZone;
+            }
+
+            return _targetCollider switch
+            {
+                CapsuleCollider => VisualGeometryType.Capsule,
+                SphereCollider => VisualGeometryType.Sphere,
+                MeshCollider => VisualGeometryType.Mesh,
+                _ => VisualGeometryType.Box
             };
         }
 
@@ -297,11 +360,28 @@ namespace TheBigRedButtonInstitute
                 return PressZoneOversize;
             }
 
+            if (role == VisualRole.PressTrigger)
+            {
+                return _targetCollider is MeshCollider ? PressTriggerMeshOversize : PressTriggerOversize;
+            }
+
             return _targetCollider switch
             {
                 CapsuleCollider => CapsuleOversize,
                 SphereCollider => SphereOversize,
+                MeshCollider => MeshOversize,
                 _ => BoxOversize
+            };
+        }
+
+        static PrimitiveType GetPrimitiveType(VisualGeometryType geometryType)
+        {
+            return geometryType switch
+            {
+                VisualGeometryType.Capsule => PrimitiveType.Capsule,
+                VisualGeometryType.Sphere => PrimitiveType.Sphere,
+                VisualGeometryType.PressZone => PrimitiveType.Cylinder,
+                _ => PrimitiveType.Cube
             };
         }
 
@@ -377,6 +457,43 @@ namespace TheBigRedButtonInstitute
             material.EnableKeyword("_ALPHABLEND_ON");
             material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
             material.EnableKeyword("_EMISSION");
+        }
+
+        void ApplyMaterialPresentation()
+        {
+            if (_runtimeMaterial == null)
+            {
+                return;
+            }
+
+            var isPressTrigger = role == VisualRole.PressTrigger;
+            var isPressTriggerMesh = isPressTrigger && _currentGeometry == VisualGeometryType.Mesh;
+            _runtimeMaterial.renderQueue = isPressTrigger ? (int)RenderQueue.Overlay : (int)RenderQueue.Transparent;
+
+            if (_runtimeMaterial.HasProperty("_Cull"))
+            {
+                _runtimeMaterial.SetFloat("_Cull", (float)CullMode.Off);
+            }
+
+            if (_runtimeMaterial.HasProperty("_QueueOffset"))
+            {
+                _runtimeMaterial.SetFloat("_QueueOffset", isPressTriggerMesh ? 80f : isPressTrigger ? 48f : 0f);
+            }
+
+            if (_runtimeMaterial.HasProperty("_ZTest"))
+            {
+                _runtimeMaterial.SetFloat("_ZTest", isPressTrigger ? (float)CompareFunction.Always : (float)CompareFunction.LessEqual);
+            }
+        }
+
+        static bool UsesDiscVisual(VisualRole visualRole)
+        {
+            return visualRole == VisualRole.PressZone || visualRole == VisualRole.PressTrigger;
+        }
+
+        static float GetDiscHeightFactor(VisualRole visualRole)
+        {
+            return visualRole == VisualRole.PressTrigger ? 0.35f : 0.5f;
         }
 
         static void SetMaterialColor(Material material, Color color)

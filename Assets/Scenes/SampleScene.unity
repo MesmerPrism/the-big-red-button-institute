@@ -735,7 +735,7 @@ MonoBehaviour:
     keyboardKey: 99
     action: 5
     label: center_button
-  - controllerButton: 2
+  - controllerButton: 10
     keyboardKey: 104
     action: 1
     label: toggle_hud
@@ -883,15 +883,15 @@ PrefabInstance:
       objectReference: {fileID: 2100000, guid: 0dec82d1f40d9d94eb0a8e7d8fcee889, type: 2}
     - target: {fileID: -3717114202187975224, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
       propertyPath: m_LocalScale.x
-      value: 17.818737
+      value: 22.45589
       objectReference: {fileID: 0}
     - target: {fileID: -3717114202187975224, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
       propertyPath: m_LocalScale.y
-      value: 17.818737
+      value: 22.45589
       objectReference: {fileID: 0}
     - target: {fileID: -3717114202187975224, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
       propertyPath: m_LocalScale.z
-      value: 17.818737
+      value: 22.45589
       objectReference: {fileID: 0}
     - target: {fileID: -3717114202187975224, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
       propertyPath: m_LocalPosition.x
@@ -933,6 +933,14 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -1381789280324619678, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
+      propertyPath: m_WrapMode
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -1381789280324619678, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
+      propertyPath: m_PlayAutomatically
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 2242888416370347441, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
       propertyPath: m_Name
       value: Big Red Button
@@ -942,7 +950,7 @@ PrefabInstance:
     m_AddedGameObjects:
     - targetCorrespondingSourceObject: {fileID: -3717114202187975224, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 730874330}
+      addedObject: {fileID: 1657561393}
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 2242888416370347441, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
       insertIndex: -1
@@ -956,6 +964,27 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 2242888416370347441, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
       insertIndex: -1
       addedObject: {fileID: 700491454}
+    - targetCorrespondingSourceObject: {fileID: 6271673422060998382, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1577415116}
+    - targetCorrespondingSourceObject: {fileID: 6271673422060998382, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1577415115}
+    - targetCorrespondingSourceObject: {fileID: 6271673422060998382, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1577415117}
+    - targetCorrespondingSourceObject: {fileID: 6271673422060998382, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1577415118}
+    - targetCorrespondingSourceObject: {fileID: 862798684849510564, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 768581630}
+    - targetCorrespondingSourceObject: {fileID: 862798684849510564, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 768581629}
+    - targetCorrespondingSourceObject: {fileID: 862798684849510564, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 768581631}
   m_SourcePrefab: {fileID: -3199799093341109342, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
 --- !u!1 &700491445 stripped
 GameObject:
@@ -1009,7 +1038,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7d37b08f1d71491f85d14bc89ee36219, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TheBigRedButtonInstitute.BigRedButtonBlinkController
-  targetRenderer: {fileID: 0}
+  targetRenderer: {fileID: 256577513}
   blinkAnchor: {fileID: 700491449}
   pulseLight: {fileID: 0}
   autoResolveReferences: 1
@@ -1062,15 +1091,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6c85ca510dc74b30ab1ff753281744dd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TheBigRedButtonInstitute.BigRedButtonManualPressController
-  targetRenderer: {fileID: 256577513}
+  targetRenderer: {fileID: 768581627}
+  pressTriggerRenderer: {fileID: 256577513}
   inputManager: {fileID: 699112039}
   autoResolveReferences: 1
-  pressZoneRadiusScale: 0.78
-  minimumPressZoneRadius: 0.05
-  minimumPressZoneThickness: 0.012
   pressCooldownSeconds: 0.18
-  exitHysteresis: 0.03
+  startupContactSuppressionSeconds: 0.35
   interactorRefreshIntervalSeconds: 0.2
+  usePressMeshCollider: 1
+  preferConvexPressMeshCollider: 1
+  minimumPressPenetration: 0.0015
+  pressMeshContactTolerance: 0.001
 --- !u!54 &700491454
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -1173,59 +1204,23 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 20}
   m_SizeDelta: {x: -40, y: 6}
   m_Pivot: {x: 0.5, y: 0}
---- !u!1 &730874329
+--- !u!23 &768581627 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: 6113932410341141363, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
+  m_PrefabInstance: {fileID: 700491444}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &768581628 stripped
 GameObject:
+  m_CorrespondingSourceObject: {fileID: 862798684849510564, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
+  m_PrefabInstance: {fileID: 700491444}
+  m_PrefabAsset: {fileID: 0}
+--- !u!64 &768581629
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 730874330}
-  - component: {fileID: 730874332}
-  - component: {fileID: 730874331}
-  m_Layer: 0
-  m_Name: Button Press Surface
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &730874330
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 730874329}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.019604877, z: 0.0028860853}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 700491448}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &730874331
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 730874329}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8c34f1000ed442b989d4384541813fe7, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::TheBigRedButtonInstitute.BigRedButtonColliderDebugVisual
-  role: 1
---- !u!65 &730874332
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 730874329}
+  m_GameObject: {fileID: 768581628}
   m_Material: {fileID: 0}
   m_IncludeLayers:
     serializedVersion: 2
@@ -1234,12 +1229,44 @@ BoxCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 1
+  m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.009520834, y: 0.0015942954, z: 0.009520834}
-  m_Center: {x: 0, y: 0, z: 0}
+  serializedVersion: 5
+  m_Convex: 1
+  m_CookingOptions: 18
+  m_Mesh: {fileID: 9025475138035225198, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
+--- !u!114 &768581630
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 768581628}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7857f5b2e6d54daf8d2eb12c997fa7ab, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TheBigRedButtonInstitute.BigRedButtonGeneratedBodyCollider
+  sourceRenderer: {fileID: 768581627}
+  autoResolveSource: 1
+  preferConvex: 1
+  isTrigger: 0
+  cookingOptions: 18
+  serializedSnapshotMesh: {fileID: 0}
+--- !u!114 &768581631
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 768581628}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8c34f1000ed442b989d4384541813fe7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TheBigRedButtonInstitute.BigRedButtonColliderDebugVisual
+  role: 1
 --- !u!1 &795546522
 GameObject:
   m_ObjectHideFlags: 0
@@ -1356,7 +1383,7 @@ Canvas:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 795546522}
-  m_Enabled: 1
+  m_Enabled: 0
   serializedVersion: 3
   m_RenderMode: 2
   m_Camera: {fileID: 0}
@@ -1367,7 +1394,7 @@ Canvas:
   m_OverridePixelPerfect: 0
   m_SortingBucketNormalizedSize: 0
   m_VertexColorAlwaysGammaSpace: 0
-  m_AdditionalShaderChannelsFlag: 25
+  m_AdditionalShaderChannelsFlag: 0
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
   m_SortingOrder: 0
@@ -1508,7 +1535,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 887912685}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_Name: 
@@ -1546,7 +1573,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &893368901
 RectTransform:
   m_ObjectHideFlags: 0
@@ -2029,7 +2056,7 @@ MonoBehaviour:
   borderBottom: {fileID: 701674037}
   borderLeft: {fileID: 1277823279}
   borderRight: {fileID: 694695359}
-  visible: 1
+  visible: 0
   useOverlayCanvas: 1
   backgroundColor: {r: 0.02, g: 0.03, b: 0.04, a: 0.14}
   textColor: {r: 0.86, g: 0.95, b: 1, a: 1}
@@ -2161,7 +2188,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1200498635}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
   m_Name: 
@@ -2177,7 +2204,7 @@ MonoBehaviour:
   m_text: '<b><size=118%><color=#8FE6FF>=== BIG RED BUTTON ===</color></size></b>
 
     <size=78%><color=#7FA6B8>[
-    21:01:12 UTC ]</color></size>
+    14:20:32 UTC ]</color></size>
 
     <size=82%><color=#AFC0CF>Page:</color> <color=#C7FFA2>Dashboard</color></size>
 
@@ -2192,7 +2219,7 @@ MonoBehaviour:
     count:</color> <color=#EAF6FF>0</color>
 
     <color=#AFC0CF>Height:</color>
-    <color=#EAF6FF>0.36 m</color>
+    <color=#EAF6FF>n/a</color>
 
     <color=#AFC0CF>Distance:</color> <color=#EAF6FF>0.78
     m</color>
@@ -2300,6 +2327,184 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!43 &1219363364
+Mesh:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: button Collider Snapshot
+  serializedVersion: 12
+  m_SubMeshes:
+  - serializedVersion: 2
+    firstByte: 0
+    indexCount: 360
+    topology: 0
+    baseVertex: 0
+    firstVertex: 0
+    vertexCount: 87
+    localAABB:
+      m_Center: {x: 0, y: 0.014592329, z: 0.00275505}
+      m_Extent: {x: 0.0049236896, y: 0.0055780797, z: 0.00597202}
+  m_Shapes:
+    vertices: []
+    shapes: []
+    channels: []
+    fullWeights: []
+  m_BindPose: []
+  m_BoneNameHashes: 
+  m_RootBoneNameHash: 0
+  m_BonesAABB: []
+  m_VariableBoneCountWeights:
+    m_Data: 
+  m_MeshCompression: 0
+  m_IsReadable: 1
+  m_KeepVertices: 1
+  m_KeepIndices: 1
+  m_IndexFormat: 0
+  m_IndexBuffer: 00000200010000000100030004000600050004000800070005000800040005000a00090006000a0005000b000d000c000b000e000d000c000f000b000c00110010000f00130012000f000c00100012000e000b0012000b000f0013000f00100013001500140014001500160014000e00120014001200130015001300170015001900180016001a0014001600150018001a0016001b001a000e0014001c001a001b001c000e001a001b00160018001d001c001b001d001e001c001e000e001c001f002100200020000a002200200022001f0021002400230021001f00250021002700260023002000210023000a00200024002900280028002300240028000a00230029002400260029002a00280029002c002b002a00090028002a002b00070009000a002800070008002a0007002d0004002b002a0029002b002f002e002d0007002e00100017001300110030001000110031003000170010003000170019001500190017003200180034003300180035003400180033001b00180019003600330037001b0037001d001b0025002700210027002500380026002400210026003a00390026002c002900260027003b002c0039002f002e0007002b002e003c002d002f002b002c003000320017003200360019003600350018003d00370033003d003300340038003b0027003b003a00260039002c0026003e0040003f003e0042004100410043003e0042003e003f00430041004400430040003e003f00460045003f00470042003f0040004600450047003f0046004000480046004800490049004500460048004b004a00480040004b004a004b004c004a00490048004a004c004d004b0040004c004d004c004e004c0040004e004e0040004f004e004f0050004e0051004d00500053005200500051004e004f0040005300530050004f00530055005400530040005500540052005300550040005600550056004400440054005500440056004300560040004300
+  m_VertexData:
+    serializedVersion: 3
+    m_VertexCount: 87
+    m_Channels:
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 3
+    - stream: 0
+      offset: 12
+      format: 0
+      dimension: 3
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 1
+      offset: 0
+      format: 0
+      dimension: 2
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    m_DataSize: 2792
+    _typelessdata: 3a7062bd5c9e9f3eda7074bda3390337835998c160653ec10d1a44bd89238d3ea729fbbaa3390337835998c160653ec13a70e2bc02a1923efb459cbca3390337835998c160653ec10d1ac4bd71a3943e7abacfbca2390337835998c15f653ec13d3157a33ba3a33e8ef293bdac2b82a6ca44e2403e82aac13a70e2bc02a1923efb459cbc6b2f38377d5998c174653ec1a9d639a371a3943e7abacfbca2f6cb34835998c160653ec13a7062bd7369dd3e48ec803c9ba533c178e3244142f083c13a7062bd5c9e9f3eda7074bd6f5632c1eeeffd40f8728ec10d1a44bd89238d3ea729fbba208b8936695998c1b6653ec11e7c1ca3a0a3853e4455b03cae24d8b36d5998c1a9653ec13a70e23c02a1923efb459cbcdc661fb77f5998c16d653ec13d3157a33ba3a33e8ef293bdac2b82a6ca44e2403e82aac1a9d639a371a3943e7abacfbca2f6cb34835998c160653ec11e7c1ca3a0a3853e4455b03cae24d8b36d5998c1a9653ec13a70623d5c9e9f3eda7074bd4f932e4134b1b04091ac96c13a70623d7369dd3e48ec803c9da5334177e3244142f083c124bd9da2536ee13e421a503b004e3aa68d653e41755998c10d1a443d89238d3ea729fbba67f1c1b6725998c197653ec10d1ac43d71a3943e7abacfbcd62f97416afda43f1ff840c13a70623da0a3853e4455b03c2fce34b66a5998c1b1653ec15770e23da0a3853e4455b03c6093ae4175c68fc07cae33c00d1ac43d9c476d3e40198c3dd92f9741176624c1b741ce400d1ac43d816ed23e84094d3d2f949b41c265be40865918c10d1ac43de66eb43e6046133e32949b41b065bec0825918415770e23db76ec33ed088c63daaa5b34121fd33b60e3211370d1a443d70477c3e922e383db9e664b76f5998c1a1653ec13a70623db851573e0e63d23d69932e41151f68c1d18153413a70e23c7d4c713e80787e3db46107b7725998c198653ec1ec8dc3a2fa474f3e4f1dec3d9a7fcb25687480c14d2d7b412243fea29c476d3e40198c3dcd0ca8a6705998c19c653ec1ec8dc3a2fa474f3e4f1dec3d9a7fcb25687480c14d2d7b413a70e2bc7d4c713e80787e3d35d7fd36715998c19a653ec13a7062bdb851573e0e63d23d69932ec1151f68c1d18153412243fea29c476d3e40198c3dcd0ca8a6705998c19c653ec10d1a44bd70477c3e922e383da0705c376d5998c1a6653ec10d1ac4bd9c476d3e40198c3dd92f97c11a6624c1b641ce40d02e1a22136fa53e5848433ef31cd63390653ec1745998410d1ac4bde66eb43e6046133e31949bc1b465bec0835918413a7062bdf373a93e466b363eb1a533c16fe324c13df083413a7062bda0a3853e4455b03c31ce34366a5998c1b0653ec15770e2bda0a3853e4455b03c6093aec178c68fc07aae33c00d1ac4bd71a3943e7abacfbcee719ac1702567400c2f2ec10d1ac4bd816ed23e84094d3d2f949bc1c465be40865918c15770e2bdb76ec33ed088c63daaa5b3c1b08791b6e3bb1b3724bd9da2536ee13e421a503b004e3aa68d653e41755998c13a7062bd8dbae13edc14ac3ca70025c1f1f88741fe1127c10d1ac4bd9cbfd63e0a9e623d73e58ec191ef4f41fb4481c03a70623d8dbae13edc14ac3caa002541f3f88741f51127c136b18aa26dbfe53ebb570a3c04ce18a5d6af93418c904cc10d1ac43d9cbfd63e0a9e623d73e58e4194ef4f41ec4481c03a70623df373a93e466b363eb2a533416ee324c13df083413a70623d0ec5ad3e59d03b3e87002541be95f7bfadd49e410d1ac43d00c0b83e73ab183e6be58e41233e0440c73957415770e23dcbbfc73ef552d13d9e00a54102fff0403f979640d02e1a22136fa53e5848433ef31cd63390653ec174599841b04640222fc0a93e6aad483e569ee734e08159c0e993b1415770e2bdcbbfc73ef552d13d9e00a5c1fbfef0403f9796400d1ac4bd00c0b83e73ab183e6ae58ec1073e0440c83957413a7062bd0ec5ad3e59d03b3e800025c10096f7bfafd49e4136b18aa26dbfe53ebb570a3c04ce18a5d6af93418c904cc1b04640222fc0a93e6aad483e569ee734e08159c0e993b14182574ebdc43ee43e64aa0b3d930829c0be77a74138f7f54038fd55a255e8e73e728eb93c276c8d26c677aa41d7c2e240000000994992cc3e8360dd3d20751fab7259984195653e410d1ac4bd9cbfd63e0a9e623d73e58ec191ef4f41fb4481c03a7062bd8dbae13edc14ac3ca70025c1f1f88741fe1127c18bb2b2bd4b3dda3e11e2853dd96292c072459f41943715415770e2bdcbbfc73ef552d13d9e00a5c1fbfef0403f9796403a70623d8dbae13edc14ac3caa002541f3f88741f51127c182574e3dc43ee43e64aa0b3d93082940bc77a74146f7f54036b18aa26dbfe53ebb570a3c04ce18a5d6af93418c904cc18bb2b23d4b3dda3e11e2853dd762924070459f419b3715410d1ac43d9cbfd63e0a9e623d73e58e4194ef4f41ec4481c05770e23dcbbfc73ef552d13d9e00a54102fff0403f979640a057ce3d4992cc3e8360dd3d5308a94013139441e30d39418bb2b23d3fe7be3e7c6f1a3e9b629240b8e0884137e45c410d1ac43d00c0b83e73ab183e6be58e41233e0440c739574182574e3dc7e5b43edc753a3e5f08294071ae804117207741f8fc55223c3cb13eb62e463e185943b4dd5c7b41245d8041b04640222fc0a93e6aad483e569ee734e08159c0e993b1413a70623d0ec5ad3e59d03b3e87002541be95f7bfadd49e413a7062bd0ec5ad3e59d03b3e800025c10096f7bfafd49e4182574ebdc7e5b43edc753a3e4f0829c071ae8041172077410d1ac4bd00c0b83e73ab183e6ae58ec1073e0440c83957418bb2b2bd3fe7be3e7c6f1a3e956292c0b8e0884137e45c41a057cebd4992cc3e8360dd3d5708a9c013139441e40d3941000000000000000076fa353fe8133d3f3baa323fb01d4c3f0a642e3ffbca473f21223d3fa390443f61fa2a3f7f34383f0a642e3ffbca473f276b283f14cb453fbe69523f8d252c3f76fa353fe8133d3f3baa323fb01d4c3f276b283fa015543fa9fb443f8426793ee76e4b3f8066983ec500413f8815863edb183b3f6c49573ecfbc503ffc59843e6841703f7a72853eff3c6d3fa8fd9e3e4243473f8054633e0ea4533faca8613ed36b473f706e4c3e4755533f7c773b3e8c9e4f3fac31183e6135723ff805543e03606c3ff0b0c93df418713f38261b3ea33e453f38e9363e7c5f483fe832f53df2ea403fa8d4253e33503d3f004ecf3dd5eb3a3f88201e3e6c7a383f93a96a3f1633323fe7ab5c3fc9e73d3f39b4603f52292e3f7460613fca8b343fab3e573fa2ed403fb5fa563f813d5a3f855f6e3f1e895f3f5ef2533f056a5d3fb1a3613f71c6343fbe85513ff1bc403fa06d4d3f21223d3fa390443f700b5a3f3c15383f85995e3f39b7453f7b15493f960a223fa29c543f20982b3f20425c3f7cf3373f917b723f8815863e137c6f3fa8ca9f3e925a743f7464553ec498643f00ec553de2c9663f10a74c3d3e966e3fe06bc83d0745733f84de1b3ed9245b3fc059583c467b5c3f18cd6e3f00c5603f1cec453f32ad613fbe50543f12a35f3f3bfc613f50534b3f9e3f213f20605d3f00d7233c1286513fc4601e3f13ba473f2bbf183f1822573f0248093f399c5d3f3f74213ff8a7503f3f74213fd4d25c3f315b1e3f24d4683f1efa1a3fedf53e3f22c20f3fe90e423fcff80e3ffc6f453f1efa1a3f6809423f0cac033fedf53e3fe2cd023f0d70453fec2bef3eefaa473f1ac0f33e5c71513fc669e83ef8a7503fac37e23e1fbe5c3fa25ee83e1e8a663fd4a1f33e35d4683fec2bef3e499c5d3fac37e23e554e6f3ff2cd023f48356c3f4697033f554e6f3f33c20f3fda3a6c3f08e40e3f4299663f08b0183f
+  m_CompressedMesh:
+    m_Vertices:
+      m_NumItems: 0
+      m_Range: 0
+      m_Start: 0
+      m_Data: 
+      m_BitSize: 0
+    m_UV:
+      m_NumItems: 0
+      m_Range: 0
+      m_Start: 0
+      m_Data: 
+      m_BitSize: 0
+    m_Normals:
+      m_NumItems: 0
+      m_Range: 0
+      m_Start: 0
+      m_Data: 
+      m_BitSize: 0
+    m_Tangents:
+      m_NumItems: 0
+      m_Range: 0
+      m_Start: 0
+      m_Data: 
+      m_BitSize: 0
+    m_Weights:
+      m_NumItems: 0
+      m_Data: 
+      m_BitSize: 0
+    m_NormalSigns:
+      m_NumItems: 0
+      m_Data: 
+      m_BitSize: 0
+    m_TangentSigns:
+      m_NumItems: 0
+      m_Data: 
+      m_BitSize: 0
+    m_FloatColors:
+      m_NumItems: 0
+      m_Range: 0
+      m_Start: 0
+      m_Data: 
+      m_BitSize: 0
+    m_BoneIndices:
+      m_NumItems: 0
+      m_Data: 
+      m_BitSize: 0
+    m_Triangles:
+      m_NumItems: 0
+      m_Data: 
+      m_BitSize: 0
+    m_UVInfo: 0
+  m_LocalAABB:
+    m_Center: {x: 0, y: 0.33028373, z: 0.064809605}
+    m_Extent: {x: 0.110565834, y: 0.12786183, z: 0.13705052}
+  m_MeshUsageFlags: 0
+  m_CookingOptions: 18
+  m_BakedConvexCollisionMesh: 
+  m_BakedTriangleCollisionMesh: 
+  'm_MeshMetrics[0]': 1
+  'm_MeshMetrics[1]': 1
+  m_MeshOptimizationFlags: 1
+  m_StreamData:
+    serializedVersion: 2
+    offset: 0
+    size: 0
+    path: 
+  m_MeshLodInfo:
+    serializedVersion: 2
+    m_LodSelectionCurve:
+      serializedVersion: 1
+      m_LodSlope: 0
+      m_LodBias: 0
+    m_NumLevels: 1
+    m_SubMeshes:
+    - serializedVersion: 2
+      m_Levels:
+      - serializedVersion: 1
+        m_IndexStart: 0
+        m_IndexCount: 0
 --- !u!1 &1259467890
 GameObject:
   m_ObjectHideFlags: 0
@@ -2346,7 +2551,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TheBigRedButtonInstitute.BigRedButtonPressInteractor
   interactionMode: 1
   interactionRadius: 0.05
-  bodyPadding: 0.01
+  bodyPadding: 0
   bodyRenderers:
   - {fileID: 1574726484}
   - {fileID: 1574726483}
@@ -2367,6 +2572,8 @@ MonoBehaviour:
   - {fileID: 1735088353}
   bodyColliders: []
   trackingValid: 1
+  generatedMeshCollidersOnly: 1
+  disableLegacyHandPhysicsCapsules: 1
 --- !u!1 &1277823278
 GameObject:
   m_ObjectHideFlags: 0
@@ -2701,6 +2908,82 @@ SkinnedMeshRenderer:
   m_CorrespondingSourceObject: {fileID: 2774251407681467588, guid: d9809c5e8418bb047bf2c8ba1d1a2cec, type: 3}
   m_PrefabInstance: {fileID: 1574726467}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1577415114 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 6271673422060998382, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
+  m_PrefabInstance: {fileID: 700491444}
+  m_PrefabAsset: {fileID: 0}
+--- !u!64 &1577415115
+MeshCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1577415114}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 5
+  m_Convex: 1
+  m_CookingOptions: 18
+  m_Mesh: {fileID: 1219363364}
+--- !u!114 &1577415116
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1577415114}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7857f5b2e6d54daf8d2eb12c997fa7ab, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TheBigRedButtonInstitute.BigRedButtonGeneratedBodyCollider
+  sourceRenderer: {fileID: 256577513}
+  autoResolveSource: 1
+  preferConvex: 1
+  isTrigger: 0
+  cookingOptions: 18
+  serializedSnapshotMesh: {fileID: 1219363364}
+--- !u!114 &1577415117
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1577415114}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8c34f1000ed442b989d4384541813fe7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TheBigRedButtonInstitute.BigRedButtonColliderDebugVisual
+  role: 2
+--- !u!114 &1577415118
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1577415114}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d74f31ce14b129644a08f7ab9b53b155, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TheBigRedButtonInstitute.BigRedButtonRendererMeshDebug
+  sourceRenderer: {fileID: 256577513}
+  autoResolveSource: 1
+  oversize: 1.08
+  verticalLiftFactor: 0
+  baseColor: {r: 0.08, g: 1, b: 0.82, a: 0.72}
+  highlightColor: {r: 1, g: 0.95, b: 0.18, a: 0.92}
 --- !u!1 &1616515095
 GameObject:
   m_ObjectHideFlags: 0
@@ -2733,6 +3016,73 @@ Transform:
   - {fileID: 2130166578}
   m_Father: {fileID: 853220154}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1657561392
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1657561393}
+  - component: {fileID: 1657561395}
+  - component: {fileID: 1657561394}
+  m_Layer: 0
+  m_Name: Button Trigger Surface
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1657561393
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1657561392}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -1, z: -0, w: 0}
+  m_LocalPosition: {x: 0, y: 0.020090297, z: 0.0028860827}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 700491448}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1657561394
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1657561392}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8c34f1000ed442b989d4384541813fe7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TheBigRedButtonInstitute.BigRedButtonColliderDebugVisual
+  role: 2
+--- !u!65 &1657561395
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1657561392}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.006696218, y: 0.0012468889, z: 0.008300215}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1 &1708686909
 GameObject:
   m_ObjectHideFlags: 0
@@ -2883,7 +3233,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 114567484643301796, guid: 835e735ca71bf78459fb2cababd74112, type: 3}
       propertyPath: _enablePhysicsCapsules
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 114925265787909616, guid: 835e735ca71bf78459fb2cababd74112, type: 3}
       propertyPath: _meshType
@@ -2950,7 +3300,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TheBigRedButtonInstitute.BigRedButtonPressInteractor
   interactionMode: 1
   interactionRadius: 0.05
-  bodyPadding: 0.01
+  bodyPadding: 0
   bodyRenderers:
   - {fileID: 1941538918}
   - {fileID: 1941538917}
@@ -2971,6 +3321,8 @@ MonoBehaviour:
   - {fileID: 2130166576}
   bodyColliders: []
   trackingValid: 1
+  generatedMeshCollidersOnly: 1
+  disableLegacyHandPhysicsCapsules: 1
 --- !u!1 &1825899933
 GameObject:
   m_ObjectHideFlags: 0
@@ -3634,7 +3986,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 114567484643301796, guid: 835e735ca71bf78459fb2cababd74112, type: 3}
       propertyPath: _enablePhysicsCapsules
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

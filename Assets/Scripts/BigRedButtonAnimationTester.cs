@@ -47,6 +47,7 @@ namespace TheBigRedButtonInstitute
                 animator = gameObject.AddComponent<Animator>();
             }
 
+            ApplyLegacyAnimationDefaults();
             if (pressedClip != null)
             {
                 EnsureLegacyClipRegistered();
@@ -56,6 +57,7 @@ namespace TheBigRedButtonInstitute
 
         void OnEnable()
         {
+            ApplyLegacyAnimationDefaults();
             if (!playOnStart || !HasAnimation())
             {
                 return;
@@ -100,6 +102,7 @@ namespace TheBigRedButtonInstitute
             pauseBetweenLoops = 1.25f;
             replayKey = KeyCode.Space;
             EnsureLegacyClipRegistered();
+            ApplyLegacyAnimationDefaults();
         }
 
         public void Configure(Animator targetAnimator, AnimationClip animationClip)
@@ -311,6 +314,33 @@ namespace TheBigRedButtonInstitute
             }
 
             legacyAnimation.clip = legacyAnimation.GetClip(pressedClip.name);
+        }
+
+        void ApplyLegacyAnimationDefaults()
+        {
+            if (legacyAnimation == null)
+            {
+                return;
+            }
+
+            EnsureLegacyClipRegistered();
+            legacyAnimation.playAutomatically = false;
+            legacyAnimation.wrapMode = WrapMode.Once;
+            legacyAnimation.Stop();
+
+            if (!TryGetLegacyClipName(out var clipName))
+            {
+                return;
+            }
+
+            var state = legacyAnimation[clipName];
+            if (state == null)
+            {
+                return;
+            }
+
+            state.wrapMode = WrapMode.Once;
+            state.speed = 0f;
         }
 
         bool HasAnimation()

@@ -75,6 +75,7 @@ namespace TheBigRedButtonInstitute.Editor
             var polarHeartbeatButtonDriver = EnsurePolarHeartbeatButtonDriver(runtimeRoot);
 
             hud.ApplyAstralPresentationPreset();
+            ConfigureHud(hud);
             hud.ConfigureReferences(inputManager, headTransform);
             hud.EnsureSetupInEditor();
             inputManager.ConfigureReferences(hud, headTransform, button != null ? button.transform : null, tester);
@@ -245,6 +246,19 @@ namespace TheBigRedButtonInstitute.Editor
             EditorUtility.SetDirty(inputManager);
         }
 
+        static void ConfigureHud(QuestVrOverlayHud hud)
+        {
+            if (hud == null)
+            {
+                return;
+            }
+
+            var serializedHud = new SerializedObject(hud);
+            serializedHud.FindProperty("visible").boolValue = false;
+            serializedHud.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(hud);
+        }
+
         static void ConfigureCameraRigTracking(OVRCameraRig cameraRig)
         {
             if (cameraRig == null)
@@ -411,7 +425,7 @@ namespace TheBigRedButtonInstitute.Editor
             {
                 var skeletonSerializedObject = new SerializedObject(skeleton);
                 skeletonSerializedObject.FindProperty("_skeletonType").intValue = (int)handType.AsSkeletonType(skeletonVersion);
-                skeletonSerializedObject.FindProperty("_enablePhysicsCapsules").boolValue = true;
+                skeletonSerializedObject.FindProperty("_enablePhysicsCapsules").boolValue = false;
                 skeletonSerializedObject.ApplyModifiedPropertiesWithoutUndo();
             }
 
@@ -470,13 +484,13 @@ namespace TheBigRedButtonInstitute.Editor
             EnsureBodyPressInteractor(
                 leftControllerAnchor,
                 "Left Input Body Interactor",
-                0.01f,
+                0f,
                 leftController != null ? leftController.gameObject : null,
                 leftHand != null ? leftHand.gameObject : null);
             EnsureBodyPressInteractor(
                 rightControllerAnchor,
                 "Right Input Body Interactor",
-                0.01f,
+                0f,
                 rightController != null ? rightController.gameObject : null,
                 rightHand != null ? rightHand.gameObject : null);
         }
@@ -513,6 +527,11 @@ namespace TheBigRedButtonInstitute.Editor
             var renderers = CollectRenderers(bodyRoots);
             interactor.ConfigureBody(renderers, padding);
             interactor.SetTrackingValid(renderers.Length > 0);
+
+            var serializedInteractor = new SerializedObject(interactor);
+            serializedInteractor.FindProperty("generatedMeshCollidersOnly").boolValue = true;
+            serializedInteractor.FindProperty("disableLegacyHandPhysicsCapsules").boolValue = true;
+            serializedInteractor.ApplyModifiedPropertiesWithoutUndo();
 
             EditorUtility.SetDirty(interactor);
             EditorUtility.SetDirty(interactorObject);

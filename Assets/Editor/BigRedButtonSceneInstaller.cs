@@ -99,6 +99,10 @@ namespace TheBigRedButtonInstitute.Editor
             {
                 tester.Configure(legacyAnimation, clip);
                 tester.ConfigurePlayback(false, false, 0f, 0f, KeyCode.Space);
+                legacyAnimation.playAutomatically = false;
+                legacyAnimation.wrapMode = WrapMode.Once;
+                legacyAnimation.Stop();
+                EditorUtility.SetDirty(legacyAnimation);
                 EditorUtility.SetDirty(tester);
                 return;
             }
@@ -178,20 +182,29 @@ namespace TheBigRedButtonInstitute.Editor
                 UnityEngine.Object.DestroyImmediate(legacyDebugVisual);
             }
 
-            var targetRenderer = FindCapRenderer(button);
-            controller.ConfigureReferences(targetRenderer, inputManager);
+            var legacyPressSurface = button.transform.Find("Button Press Surface");
+            if (legacyPressSurface != null)
+            {
+                UnityEngine.Object.DestroyImmediate(legacyPressSurface.gameObject);
+            }
+
+            var pressTriggerRenderer = FindCapRenderer(button);
+            var passiveRenderer = FindBaseRenderer(button, pressTriggerRenderer);
 
             var serializedController = new SerializedObject(controller);
-            serializedController.FindProperty("targetRenderer").objectReferenceValue = targetRenderer;
+            serializedController.FindProperty("targetRenderer").objectReferenceValue = passiveRenderer;
+            serializedController.FindProperty("pressTriggerRenderer").objectReferenceValue = pressTriggerRenderer;
             serializedController.FindProperty("inputManager").objectReferenceValue = inputManager;
-            serializedController.FindProperty("pressZoneRadiusScale").floatValue = 0.78f;
-            serializedController.FindProperty("minimumPressZoneRadius").floatValue = 0.05f;
-            serializedController.FindProperty("minimumPressZoneThickness").floatValue = 0.012f;
             serializedController.FindProperty("pressCooldownSeconds").floatValue = 0.18f;
-            serializedController.FindProperty("exitHysteresis").floatValue = 0.03f;
+            serializedController.FindProperty("startupContactSuppressionSeconds").floatValue = 0.35f;
             serializedController.FindProperty("interactorRefreshIntervalSeconds").floatValue = 0.2f;
+            serializedController.FindProperty("usePressMeshCollider").boolValue = true;
+            serializedController.FindProperty("preferConvexPressMeshCollider").boolValue = true;
+            serializedController.FindProperty("minimumPressPenetration").floatValue = 0.0015f;
+            serializedController.FindProperty("pressMeshContactTolerance").floatValue = 0.001f;
             serializedController.ApplyModifiedPropertiesWithoutUndo();
 
+            controller.ConfigureReferences(passiveRenderer, pressTriggerRenderer, inputManager);
             EditorUtility.SetDirty(controller);
         }
 
@@ -304,24 +317,150 @@ namespace TheBigRedButtonInstitute.Editor
                 return null;
             }
 
+            var namedRenderer = FindRendererOnNamedChild(button.transform, "button");
+            if (namedRenderer != null)
+            {
+                return namedRenderer;
+            }
+
+            return FindNamedRenderer(button, "button", preferSkinnedRenderer: true) ??
+                FindFirstRenderer(button, preferSkinnedRenderer: true);
+        }
+
+        static Renderer FindBaseRenderer(GameObject button, Renderer excludedRenderer)
+        {
+            if (button == null)
+            {
+                return null;
+            }
+
+            var namedRenderer = FindRendererOnNamedChild(button.transform, "stand1") ??
+                FindRendererOnNamedChild(button.transform, "stand") ??
+                FindRendererOnNamedChild(button.transform, "base");
+            if (namedRenderer != null && namedRenderer != excludedRenderer)
+            {
+                return namedRenderer;
+            }
+
+            return FindNamedRenderer(button, "stand", preferSkinnedRenderer: false, excludedRenderer) ??
+                FindNamedRenderer(button, "base", preferSkinnedRenderer: false, excludedRenderer) ??
+                FindFirstRenderer(button, preferSkinnedRenderer: false, excludedRenderer) ??
+                FindFirstRenderer(button, preferSkinnedRenderer: true, excludedRenderer);
+        }
+
+        static Renderer FindNamedRenderer(
+            GameObject root,
+            string token,
+            bool preferSkinnedRenderer,
+            Renderer excludedRenderer = null)
+        {
             Renderer fallback = null;
-            var renderers = button.GetComponentsInChildren<Renderer>(true);
+            var renderers = root.GetComponentsInChildren<Renderer>(true);
             for (var i = 0; i < renderers.Length; i++)
             {
                 var candidate = renderers[i];
-                if (candidate == null || candidate.GetComponentInParent<BigRedButtonColliderDebugVisual>() != null)
+                if (!IsRendererCandidate(candidate, excludedRenderer))
                 {
                     continue;
                 }
 
-                fallback ??= candidate;
-                if (string.Equals(candidate.gameObject.name, "button", StringComparison.OrdinalIgnoreCase))
+                if (fallback == null && IsRendererTypeMatch(candidate, preferSkinnedRenderer))
+                {
+                    fallback = candidate;
+                }
+
+                var objectName = candidate.gameObject.name;
+                if (string.Equals(objectName, token, StringComparison.OrdinalIgnoreCase) ||
+                    objectName.IndexOf(token, StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    if (IsRendererTypeMatch(candidate, preferSkinnedRenderer))
+                    {
+                        return candidate;
+                    }
+
+                    fallback ??= candidate;
+                }
+            }
+
+            return fallback;
+        }
+
+        static Renderer FindFirstRenderer(
+            GameObject root,
+            bool preferSkinnedRenderer,
+            Renderer excludedRenderer = null)
+        {
+            var renderers = root.GetComponentsInChildren<Renderer>(true);
+            for (var i = 0; i < renderers.Length; i++)
+            {
+                var candidate = renderers[i];
+                if (IsRendererCandidate(candidate, excludedRenderer) && IsRendererTypeMatch(candidate, preferSkinnedRenderer))
                 {
                     return candidate;
                 }
             }
 
-            return fallback;
+            return null;
+        }
+
+        static bool IsRendererCandidate(Renderer renderer, Renderer excludedRenderer)
+        {
+            return renderer != null &&
+                renderer != excludedRenderer &&
+                !IsDebugVisualRenderer(renderer);
+        }
+
+        static bool IsRendererTypeMatch(Renderer renderer, bool preferSkinnedRenderer)
+        {
+            var isSkinnedRenderer = renderer is SkinnedMeshRenderer;
+            return preferSkinnedRenderer ? isSkinnedRenderer : !isSkinnedRenderer;
+        }
+
+        static bool IsDebugVisualRenderer(Renderer renderer)
+        {
+            if (renderer == null)
+            {
+                return false;
+            }
+
+            var debugVisual = renderer.GetComponentInParent<BigRedButtonColliderDebugVisual>();
+            return debugVisual != null && debugVisual.gameObject != renderer.gameObject;
+        }
+
+        static Renderer FindRendererOnNamedChild(Transform root, string childName)
+        {
+            var childTransform = FindDescendantByName(root, childName);
+            return childTransform != null ? childTransform.GetComponent<Renderer>() : null;
+        }
+
+        static Transform FindDescendantByName(Transform root, string childName)
+        {
+            if (root == null || string.IsNullOrWhiteSpace(childName))
+            {
+                return null;
+            }
+
+            for (var childIndex = 0; childIndex < root.childCount; childIndex++)
+            {
+                var child = root.GetChild(childIndex);
+                if (child == null)
+                {
+                    continue;
+                }
+
+                if (string.Equals(child.name, childName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return child;
+                }
+
+                var descendant = FindDescendantByName(child, childName);
+                if (descendant != null)
+                {
+                    return descendant;
+                }
+            }
+
+            return null;
         }
 
         public static void NormalizeButtonScale(GameObject button, float targetHeight = 0.36f)
