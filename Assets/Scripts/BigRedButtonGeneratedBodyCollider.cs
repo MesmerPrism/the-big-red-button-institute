@@ -13,11 +13,13 @@ namespace TheBigRedButtonInstitute
         [SerializeField] bool autoResolveSource = true;
         [SerializeField] bool preferConvex;
         [SerializeField] bool isTrigger;
+        [SerializeField, Min(0f)] float surfaceInflation;
         [SerializeField] MeshColliderCookingOptions cookingOptions = MeshColliderCookingOptions.CookForFasterSimulation | MeshColliderCookingOptions.UseFastMidphase;
         [SerializeField] Mesh serializedSnapshotMesh;
 
         MeshCollider _meshCollider;
         Mesh _runtimeMesh;
+        Mesh _generatedColliderMesh;
 
         public Renderer SourceRenderer => sourceRenderer;
         public MeshCollider Collider => _meshCollider;
@@ -30,11 +32,12 @@ namespace TheBigRedButtonInstitute
             ResolveSourceRenderer(forceRefresh: true);
         }
 
-        public void Configure(Renderer renderer, bool targetPreferConvex = false, bool targetIsTrigger = false)
+        public void Configure(Renderer renderer, bool targetPreferConvex = false, bool targetIsTrigger = false, float targetSurfaceInflation = 0f)
         {
             sourceRenderer = renderer;
             preferConvex = targetPreferConvex;
             isTrigger = targetIsTrigger;
+            surfaceInflation = Mathf.Max(0f, targetSurfaceInflation);
         }
 
         public MeshCollider RefreshCollider()
@@ -53,14 +56,20 @@ namespace TheBigRedButtonInstitute
                 return null;
             }
 
-            var useConvex = preferConvex && GetTriangleCount(sourceMesh) <= 255;
+            if (!TryBuildColliderMesh(sourceMesh, out var colliderMesh))
+            {
+                DisableCollider();
+                return null;
+            }
+
+            var useConvex = preferConvex && GetTriangleCount(colliderMesh) <= 255;
             meshCollider.enabled = false;
             meshCollider.sharedMesh = null;
             meshCollider.convex = false;
             meshCollider.isTrigger = isTrigger;
             meshCollider.cookingOptions = cookingOptions;
             meshCollider.convex = useConvex;
-            meshCollider.sharedMesh = sourceMesh;
+            meshCollider.sharedMesh = colliderMesh;
             meshCollider.enabled = meshCollider.sharedMesh != null;
             return meshCollider.enabled ? meshCollider : null;
         }
@@ -74,7 +83,13 @@ namespace TheBigRedButtonInstitute
                 return;
             }
 
-            var snapshotCopy = Object.Instantiate(snapshotMesh);
+            if (!TryBuildColliderMesh(snapshotMesh, out var colliderSnapshot))
+            {
+                ReplaceSerializedSnapshotMesh(null);
+                return;
+            }
+
+            var snapshotCopy = Object.Instantiate(colliderSnapshot);
             snapshotCopy.name = $"{name} Collider Snapshot";
             ReplaceSerializedSnapshotMesh(snapshotCopy);
         }
@@ -92,18 +107,30 @@ namespace TheBigRedButtonInstitute
 
         void OnDestroy()
         {
-            if (_runtimeMesh == null)
+            if (_runtimeMesh != null)
+            {
+                if (Application.isPlaying)
+                {
+                    Destroy(_runtimeMesh);
+                }
+                else
+                {
+                    DestroyImmediate(_runtimeMesh);
+                }
+            }
+
+            if (_generatedColliderMesh == null)
             {
                 return;
             }
 
             if (Application.isPlaying)
             {
-                Destroy(_runtimeMesh);
+                Destroy(_generatedColliderMesh);
             }
             else
             {
-                DestroyImmediate(_runtimeMesh);
+                DestroyImmediate(_generatedColliderMesh);
             }
         }
 
@@ -266,6 +293,96 @@ namespace TheBigRedButtonInstitute
             };
             mesh.MarkDynamic();
             return mesh;
+        }
+
+        bool TryBuildColliderMesh(Mesh sourceMesh, out Mesh colliderMesh)
+        {
+            colliderMesh = null;
+            if (!IsUsableMesh(sourceMesh))
+            {
+                return false;
+            }
+
+            if (surfaceInflation <= 0f)
+            {
+                colliderMesh = sourceMesh;
+                return true;
+            }
+
+            _generatedColliderMesh ??= CreateGeneratedColliderMesh();
+            if (!TryInflateMesh(sourceMesh, _generatedColliderMesh, surfaceInflation))
+            {
+                return false;
+            }
+
+            colliderMesh = _generatedColliderMesh;
+            return true;
+        }
+
+        Mesh CreateGeneratedColliderMesh()
+        {
+            var mesh = new Mesh
+            {
+                name = $"{name} Inflated Collider Mesh"
+            };
+            mesh.MarkDynamic();
+            return mesh;
+        }
+
+        static bool TryInflateMesh(Mesh sourceMesh, Mesh targetMesh, float inflation)
+        {
+            if (sourceMesh == null || targetMesh == null)
+            {
+                return false;
+            }
+
+            var sourceVertices = sourceMesh.vertices;
+            if (sourceVertices == null || sourceVertices.Length == 0)
+            {
+                return false;
+            }
+
+            var sourceNormals = sourceMesh.normals;
+            var sourceBounds = sourceMesh.bounds;
+            var boundsCenter = sourceBounds.center;
+            var inflatedVertices = new Vector3[sourceVertices.Length];
+            var inflatedNormals = new Vector3[sourceVertices.Length];
+            for (var vertexIndex = 0; vertexIndex < sourceVertices.Length; vertexIndex++)
+            {
+                var normal = vertexIndex < sourceNormals.Length ? sourceNormals[vertexIndex] : Vector3.zero;
+                if (normal.sqrMagnitude <= 0.000001f)
+                {
+                    normal = sourceVertices[vertexIndex] - boundsCenter;
+                }
+
+                if (normal.sqrMagnitude <= 0.000001f)
+                {
+                    normal = Vector3.up;
+                }
+
+                normal.Normalize();
+                inflatedNormals[vertexIndex] = normal;
+                inflatedVertices[vertexIndex] = sourceVertices[vertexIndex] + (normal * inflation);
+            }
+
+            targetMesh.Clear();
+            targetMesh.indexFormat = sourceMesh.indexFormat;
+            targetMesh.vertices = inflatedVertices;
+            targetMesh.normals = inflatedNormals;
+            targetMesh.subMeshCount = sourceMesh.subMeshCount;
+            for (var subMeshIndex = 0; subMeshIndex < sourceMesh.subMeshCount; subMeshIndex++)
+            {
+                targetMesh.SetIndices(
+                    sourceMesh.GetIndices(subMeshIndex),
+                    sourceMesh.GetTopology(subMeshIndex),
+                    subMeshIndex,
+                    calculateBounds: false);
+            }
+
+            var inflatedBounds = sourceBounds;
+            inflatedBounds.Expand(inflation * 2f);
+            targetMesh.bounds = inflatedBounds;
+            return true;
         }
 
         static int GetTriangleCount(Mesh mesh)

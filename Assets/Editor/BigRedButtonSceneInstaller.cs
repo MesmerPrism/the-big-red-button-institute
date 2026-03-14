@@ -200,8 +200,13 @@ namespace TheBigRedButtonInstitute.Editor
             serializedController.FindProperty("interactorRefreshIntervalSeconds").floatValue = 0.2f;
             serializedController.FindProperty("usePressMeshCollider").boolValue = true;
             serializedController.FindProperty("preferConvexPressMeshCollider").boolValue = true;
+            serializedController.FindProperty("pressTriggerMeshInflation").floatValue = 0.006f;
             serializedController.FindProperty("minimumPressPenetration").floatValue = 0.0015f;
             serializedController.FindProperty("pressMeshContactTolerance").floatValue = 0.001f;
+            serializedController.FindProperty("pressTriggerSurfaceContactTolerance").floatValue = 0.0004f;
+            serializedController.FindProperty("triggerSurfaceAlignmentMode").boolValue = false;
+            serializedController.FindProperty("triggerSurfacePoseOverrideIsOffset").boolValue = false;
+            serializedController.FindProperty("triggerSurfaceDiameterScale").floatValue = 1f;
             serializedController.ApplyModifiedPropertiesWithoutUndo();
 
             controller.ConfigureReferences(passiveRenderer, pressTriggerRenderer, inputManager);

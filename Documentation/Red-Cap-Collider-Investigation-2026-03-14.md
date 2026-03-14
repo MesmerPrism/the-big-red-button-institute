@@ -260,3 +260,26 @@ The safest technical direction is:
 - keep bounds-based position for the disc
 - only reintroduce mesh-derived orientation after its frame of reference is validated
 - keep the disc as the guaranteed press path until the cap shell is proven reliable on device
+
+## Checkpoint: Disc Placement Locked, Size And Sensitivity Still Wrong
+
+This checkpoint is worth preserving because it restores the most important part of the fallback path:
+
+- the trigger disc is back in the correct place on the cap
+- the trigger disc follows the button animation again
+
+Known remaining problems at this checkpoint:
+
+- the disc is still oversized relative to the red cap surface
+- press triggering is still too sensitive
+- on the latest Quest screenshot, the visible hand shell can hover well above the visible disc shell and still register a hit
+
+Interpretation:
+
+- placement and animation-follow are now stable enough to keep
+- the next work should be limited to footprint regression and collision-cause diagnosis
+
+Immediate next step from this checkpoint:
+
+- regress the disc footprint back to the play-mode-aligned fit that existed before the oversized-disc regression
+- then instrument the actual collision query path to determine why interaction fires while the visible shells are still far apart

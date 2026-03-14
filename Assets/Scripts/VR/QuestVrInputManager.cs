@@ -111,6 +111,7 @@ namespace TheBigRedButtonInstitute.VR
         [SerializeField] Transform buttonTransform;
         [SerializeField] BigRedButtonAnimationTester buttonAnimationTester;
         [SerializeField] BigRedButtonBlinkController buttonBlinkController;
+        [SerializeField] BigRedButtonManualPressController manualPressController;
         [SerializeField] PolarH10RuntimeManager polarRuntimeManager;
         [SerializeField] PolarHeartbeatButtonDriver polarHeartbeatButtonDriver;
 
@@ -196,6 +197,7 @@ namespace TheBigRedButtonInstitute.VR
             buttonTransform = button;
             buttonAnimationTester = tester;
             buttonBlinkController = button != null ? button.GetComponent<BigRedButtonBlinkController>() : null;
+            manualPressController = button != null ? button.GetComponent<BigRedButtonManualPressController>() : null;
             EnsureConfiguration();
             hud?.ConfigureReferences(this, headTransform);
             ArmStartupPlacement();
@@ -966,6 +968,13 @@ namespace TheBigRedButtonInstitute.VR
 
         bool WasControllerPressed(VrControllerButtonId button)
         {
+            if (button == VrControllerButtonId.RightIndexTrigger &&
+                manualPressController != null &&
+                manualPressController.ConsumesRightIndexTriggerInput)
+            {
+                return false;
+            }
+
             return button switch
             {
                 VrControllerButtonId.RightPrimaryButtonA => OVRInput.GetDown(OVRInput.RawButton.A),
@@ -1145,6 +1154,11 @@ namespace TheBigRedButtonInstitute.VR
             if ((buttonBlinkController == null || forceRefresh) && buttonTransform != null)
             {
                 buttonBlinkController = buttonTransform.GetComponent<BigRedButtonBlinkController>();
+            }
+
+            if ((manualPressController == null || forceRefresh) && buttonTransform != null)
+            {
+                manualPressController = buttonTransform.GetComponent<BigRedButtonManualPressController>();
             }
 
             if ((polarRuntimeManager == null || forceRefresh) && Application.isPlaying)
