@@ -29,10 +29,12 @@ namespace TheBigRedButtonInstitute
         const float SphereOversize = 1.03f;
         const float MeshOversize = 1.01f;
         const float PressZoneOversize = 1.01f;
-        const float PressTriggerOversize = 1.22f;
-        const float PressTriggerMeshOversize = 1.16f;
+        const float PressTriggerOversize = 1.05f;
+        const float PressTriggerMeshOversize = 1.06f;
 
         [SerializeField] VisualRole role = VisualRole.Interactor;
+        [SerializeField] bool animateScalePulse = false;
+        [SerializeField] bool scaleOnHighlight = false;
 
         Collider _targetCollider;
         BigRedButtonPressColliderProxy _proxy;
@@ -248,8 +250,10 @@ namespace TheBigRedButtonInstitute
 
         void ApplyVisualTransform(bool highlighted)
         {
-            var pulse = 1f + Mathf.Abs(Mathf.Sin((Time.unscaledTime * 4.5f) + (GetInstanceID() * 0.01f))) * 0.04f;
-            var highlightScale = highlighted ? 1.04f : 1f;
+            var pulse = animateScalePulse
+                ? 1f + Mathf.Abs(Mathf.Sin((Time.unscaledTime * 4.5f) + (GetInstanceID() * 0.01f))) * 0.04f
+                : 1f;
+            var highlightScale = scaleOnHighlight && highlighted ? 1.04f : 1f;
             var oversize = GetBaseOversize() * pulse * highlightScale;
 
             switch (_targetCollider)

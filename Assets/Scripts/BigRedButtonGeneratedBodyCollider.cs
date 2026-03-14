@@ -8,6 +8,8 @@ namespace TheBigRedButtonInstitute
         static readonly MeshColliderCookingOptions DefaultCookingOptions =
             MeshColliderCookingOptions.CookForFasterSimulation |
             MeshColliderCookingOptions.UseFastMidphase;
+        const string ColliderHostName = "Generated Collider Host";
+        const float MinScaleComponent = 0.000001f;
 
         [SerializeField] Renderer sourceRenderer;
         [SerializeField] bool autoResolveSource = true;
@@ -20,6 +22,8 @@ namespace TheBigRedButtonInstitute
         MeshCollider _meshCollider;
         Mesh _runtimeMesh;
         Mesh _generatedColliderMesh;
+        Transform _colliderHost;
+        Vector3 _colliderHostLocalPositionOffset;
 
         public Renderer SourceRenderer => sourceRenderer;
         public MeshCollider Collider => _meshCollider;
@@ -105,6 +109,12 @@ namespace TheBigRedButtonInstitute
             _meshCollider.enabled = false;
         }
 
+        public void SetColliderHostLocalPositionOffset(Vector3 localOffset)
+        {
+            _colliderHostLocalPositionOffset = localOffset;
+            SyncColliderHostTransform();
+        }
+
         void OnDestroy()
         {
             if (_runtimeMesh != null)
@@ -146,22 +156,46 @@ namespace TheBigRedButtonInstitute
         {
             if (_meshCollider != null)
             {
+                SyncColliderHostTransform();
                 return _meshCollider;
             }
 
-            RemoveLegacyGeneratedColliders();
-            _meshCollider = GetComponent<MeshCollider>();
-            if (_meshCollider == null)
+            if (sourceRenderer is SkinnedMeshRenderer)
             {
-                _meshCollider = gameObject.AddComponent<MeshCollider>();
+                EnsureColliderHost();
+                RemoveLegacyGeneratedColliders(_colliderHost != null ? _colliderHost.gameObject : null);
+                DisableLegacySourceColliderArtifacts();
+                if (_colliderHost != null)
+                {
+                    _meshCollider = _colliderHost.GetComponent<MeshCollider>();
+                    if (_meshCollider == null)
+                    {
+                        _meshCollider = _colliderHost.gameObject.AddComponent<MeshCollider>();
+                    }
+                }
+            }
+            else
+            {
+                RemoveLegacyGeneratedColliders(gameObject);
+                _meshCollider = GetComponent<MeshCollider>();
+                if (_meshCollider == null)
+                {
+                    _meshCollider = gameObject.AddComponent<MeshCollider>();
+                }
             }
 
+            SyncColliderHostTransform();
             return _meshCollider;
         }
 
-        void RemoveLegacyGeneratedColliders()
+        void RemoveLegacyGeneratedColliders(GameObject targetObject)
         {
-            var colliders = GetComponents<Collider>();
+            if (targetObject == null)
+            {
+                return;
+            }
+
+            var colliders = targetObject.GetComponents<Collider>();
             for (var i = 0; i < colliders.Length; i++)
             {
                 var collider = colliders[i];
@@ -181,6 +215,64 @@ namespace TheBigRedButtonInstitute
             }
         }
 
+        void EnsureColliderHost()
+        {
+            if (_colliderHost == null)
+            {
+                var existingHost = transform.Find(ColliderHostName);
+                if (existingHost != null)
+                {
+                    _colliderHost = existingHost;
+                }
+            }
+
+            if (_colliderHost == null)
+            {
+                var hostObject = new GameObject(ColliderHostName);
+                hostObject.layer = gameObject.layer;
+                _colliderHost = hostObject.transform;
+                _colliderHost.SetParent(transform, false);
+            }
+
+            SyncColliderHostTransform();
+        }
+
+        void SyncColliderHostTransform()
+        {
+            if (_colliderHost == null)
+            {
+                return;
+            }
+
+            _colliderHost.localPosition = _colliderHostLocalPositionOffset;
+            _colliderHost.localRotation = Quaternion.identity;
+            _colliderHost.localScale = ComputeInverseLossyScale(transform.lossyScale);
+        }
+
+        void DisableLegacySourceColliderArtifacts()
+        {
+            var sourceMeshCollider = GetComponent<MeshCollider>();
+            if (sourceMeshCollider != null)
+            {
+                sourceMeshCollider.enabled = false;
+                sourceMeshCollider.sharedMesh = null;
+            }
+
+            var sourceDebugVisual = GetComponent<BigRedButtonColliderDebugVisual>();
+            if (sourceDebugVisual != null)
+            {
+                sourceDebugVisual.enabled = false;
+            }
+        }
+
+        static Vector3 ComputeInverseLossyScale(Vector3 lossyScale)
+        {
+            return new Vector3(
+                Mathf.Abs(lossyScale.x) <= MinScaleComponent ? 1f : 1f / lossyScale.x,
+                Mathf.Abs(lossyScale.y) <= MinScaleComponent ? 1f : 1f / lossyScale.y,
+                Mathf.Abs(lossyScale.z) <= MinScaleComponent ? 1f : 1f / lossyScale.z);
+        }
+
         bool TryResolveSourceMesh(Renderer renderer, out Mesh sourceMesh)
         {
             sourceMesh = null;
@@ -194,7 +286,8 @@ namespace TheBigRedButtonInstitute
                 if (Application.isPlaying)
                 {
                     _runtimeMesh ??= CreateRuntimeMesh();
-                    skinnedRenderer.BakeMesh(_runtimeMesh);
+                    // Keep baked vertices in renderer-local space so transform scale is applied only once.
+                    skinnedRenderer.BakeMesh(_runtimeMesh, false);
                     if (IsUsableMesh(_runtimeMesh))
                     {
                         sourceMesh = _runtimeMesh;
@@ -211,7 +304,7 @@ namespace TheBigRedButtonInstitute
                 if (!Application.isPlaying)
                 {
                     _runtimeMesh ??= CreateRuntimeMesh();
-                    skinnedRenderer.BakeMesh(_runtimeMesh);
+                    skinnedRenderer.BakeMesh(_runtimeMesh, false);
                     if (IsUsableMesh(_runtimeMesh))
                     {
                         sourceMesh = _runtimeMesh;
@@ -243,7 +336,7 @@ namespace TheBigRedButtonInstitute
             if (renderer is SkinnedMeshRenderer skinnedRenderer)
             {
                 _runtimeMesh ??= CreateRuntimeMesh();
-                skinnedRenderer.BakeMesh(_runtimeMesh);
+                skinnedRenderer.BakeMesh(_runtimeMesh, false);
                 if (!IsUsableMesh(_runtimeMesh))
                 {
                     return false;

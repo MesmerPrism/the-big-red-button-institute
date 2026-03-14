@@ -166,7 +166,7 @@ namespace TheBigRedButtonInstitute.Editor
                 {
                     var sampleTime = Mathf.Clamp(sampleTimes[sampleIndex], 0f, clipLength);
                     pressedClip.SampleAnimation(button, sampleTime);
-                    triggerRenderer.BakeMesh(bakedMesh);
+                    triggerRenderer.BakeMesh(bakedMesh, false);
 
                     builder.AppendLine($"[Sample {sampleIndex}] t={sampleTime:0.###}s normalized={(sampleTime / clipLength):0.###}");
                     builder.AppendLine($"renderer.position: {FormatVector(triggerRenderer.transform.position)}");

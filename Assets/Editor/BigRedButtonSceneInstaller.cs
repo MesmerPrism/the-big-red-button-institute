@@ -17,6 +17,10 @@ namespace TheBigRedButtonInstitute.Editor
         const string UrpLitShaderName = "Universal Render Pipeline/Lit";
         const string SessionKey = "TheBigRedButtonInstitute.ImportedButtonInstalled.v6";
         static readonly Vector3 ButtonPosition = new(0f, 0.9f, 1.4f);
+        static readonly Vector3 TriggerSurfaceStableLocalPosition = new(-0.000021076481f, 0.017285282f, 0.0044704f);
+        static readonly Vector3 TriggerSurfaceStableLocalEuler = new(328.31277f, 180.4872f, 359.38284f);
+        static readonly Vector3 TriggerSurfaceStableLocalSize = new(0.006696218f, 0.0012468889f, 0.006696218f);
+        static readonly Vector3 TriggerColliderManualLocalOffset = new(0f, 0.00158f, -0.0018f);
         static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         static readonly int ColorId = Shader.PropertyToID("_Color");
         static readonly int BaseMapId = Shader.PropertyToID("_BaseMap");
@@ -200,13 +204,23 @@ namespace TheBigRedButtonInstitute.Editor
             serializedController.FindProperty("interactorRefreshIntervalSeconds").floatValue = 0.2f;
             serializedController.FindProperty("usePressMeshCollider").boolValue = true;
             serializedController.FindProperty("preferConvexPressMeshCollider").boolValue = true;
-            serializedController.FindProperty("pressTriggerMeshInflation").floatValue = 0.006f;
+            serializedController.FindProperty("pressTriggerMeshInflation").floatValue = 0f;
             serializedController.FindProperty("minimumPressPenetration").floatValue = 0.0015f;
             serializedController.FindProperty("pressMeshContactTolerance").floatValue = 0.001f;
             serializedController.FindProperty("pressTriggerSurfaceContactTolerance").floatValue = 0.0004f;
             serializedController.FindProperty("triggerSurfaceAlignmentMode").boolValue = false;
+            serializedController.FindProperty("useTriggerSurfacePoseOverride").boolValue = true;
             serializedController.FindProperty("triggerSurfacePoseOverrideIsOffset").boolValue = false;
+            serializedController.FindProperty("triggerSurfaceLocalPositionOverride").vector3Value = TriggerSurfaceStableLocalPosition;
+            serializedController.FindProperty("triggerSurfaceLocalEulerOverride").vector3Value = TriggerSurfaceStableLocalEuler;
+            serializedController.FindProperty("useTriggerSurfaceSizeOverride").boolValue = true;
+            serializedController.FindProperty("triggerSurfaceLocalSizeOverride").vector3Value = TriggerSurfaceStableLocalSize;
             serializedController.FindProperty("triggerSurfaceDiameterScale").floatValue = 1f;
+            serializedController.FindProperty("enableTriggerSurfacePressFallback").boolValue = false;
+            serializedController.FindProperty("alignTriggerColliderToSurface").boolValue = true;
+            serializedController.FindProperty("triggerColliderDerivedLocalOffset").vector3Value = Vector3.zero;
+            serializedController.FindProperty("triggerColliderManualLocalOffset").vector3Value = TriggerColliderManualLocalOffset;
+            serializedController.FindProperty("logPressCollisionDiagnostics").boolValue = true;
             serializedController.ApplyModifiedPropertiesWithoutUndo();
 
             controller.ConfigureReferences(passiveRenderer, pressTriggerRenderer, inputManager);

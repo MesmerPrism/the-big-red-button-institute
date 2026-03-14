@@ -96,6 +96,7 @@ namespace TheBigRedButtonInstitute.Editor
             }
 
             controller.SetTriggerSurfacePoseOverride(snapshot.localPosition, snapshot.localEuler);
+            controller.SetTriggerSurfaceSizeOverride(snapshot.boxSize);
             controller.RebuildConfiguredPressGeometryInEditor();
             EditorUtility.SetDirty(controller);
             EditorSceneManager.MarkSceneDirty(scene);

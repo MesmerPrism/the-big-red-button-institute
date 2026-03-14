@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Reflection;
+using System.Text;
 using UnityEngine;
 
 namespace TheBigRedButtonInstitute
@@ -29,6 +30,7 @@ namespace TheBigRedButtonInstitute
             BindingFlags.Instance | BindingFlags.NonPublic);
 
         float _nextBodySourceRefreshTime;
+        bool _hasLoggedSetup;
 
         public float InteractionRadius => interactionRadius;
         public bool UsesBodyInteraction => interactionMode == InteractionMode.RendererBody;
@@ -53,6 +55,7 @@ namespace TheBigRedButtonInstitute
         {
             interactionMode = InteractionMode.PointSphere;
             interactionRadius = Mathf.Max(0.005f, radius);
+            _hasLoggedSetup = false;
         }
 
         public void ConfigureBody(Renderer[] renderers, float padding = 0f)
@@ -62,6 +65,7 @@ namespace TheBigRedButtonInstitute
             bodyRenderers = SanitizeRenderers(renderers);
             bodyColliders = System.Array.Empty<Collider>();
             _nextBodySourceRefreshTime = 0f;
+            _hasLoggedSetup = false;
         }
 
         public void SetTrackingValid(bool isValid)
@@ -95,6 +99,14 @@ namespace TheBigRedButtonInstitute
             {
                 _nextBodySourceRefreshTime = Time.unscaledTime + BodySourceRefreshIntervalSeconds;
             }
+
+            TryLogBodySetup();
+        }
+
+        void OnEnable()
+        {
+            _hasLoggedSetup = false;
+            _nextBodySourceRefreshTime = 0f;
         }
 
         public bool OverlapsSphere(Vector3 worldCenter, float worldRadius)
@@ -300,6 +312,95 @@ namespace TheBigRedButtonInstitute
             }
 
             debugVisual.Configure(BigRedButtonColliderDebugVisual.VisualRole.Interactor);
+        }
+
+        void TryLogBodySetup()
+        {
+            if (_hasLoggedSetup || !Application.isPlaying || interactionMode != InteractionMode.RendererBody)
+            {
+                return;
+            }
+
+            var renderers = bodyRenderers ?? System.Array.Empty<Renderer>();
+            var colliders = bodyColliders ?? System.Array.Empty<Collider>();
+            Debug.LogWarning(
+                $"[BigRedButtonInteractorSetup] interactor={BuildTransformPath(transform)} " +
+                $"renderers={renderers.Length} rendererNames={BuildRendererList(renderers)} " +
+                $"colliders={colliders.Length} colliderNames={BuildColliderList(colliders)} " +
+                $"generatedOnly={(generatedMeshCollidersOnly ? 1 : 0)}");
+            _hasLoggedSetup = true;
+        }
+
+        static string BuildRendererList(Renderer[] renderers)
+        {
+            if (renderers == null || renderers.Length == 0)
+            {
+                return "<none>";
+            }
+
+            var builder = new StringBuilder(96);
+            for (var i = 0; i < renderers.Length; i++)
+            {
+                if (renderers[i] == null)
+                {
+                    continue;
+                }
+
+                if (builder.Length > 0)
+                {
+                    builder.Append('|');
+                }
+
+                builder.Append(renderers[i].name);
+            }
+
+            return builder.Length > 0 ? builder.ToString() : "<none>";
+        }
+
+        static string BuildColliderList(Collider[] colliders)
+        {
+            if (colliders == null || colliders.Length == 0)
+            {
+                return "<none>";
+            }
+
+            var builder = new StringBuilder(96);
+            for (var i = 0; i < colliders.Length; i++)
+            {
+                if (colliders[i] == null)
+                {
+                    continue;
+                }
+
+                if (builder.Length > 0)
+                {
+                    builder.Append('|');
+                }
+
+                builder.Append(colliders[i].GetType().Name);
+                builder.Append(':');
+                builder.Append(colliders[i].name);
+            }
+
+            return builder.Length > 0 ? builder.ToString() : "<none>";
+        }
+
+        static string BuildTransformPath(Transform transform)
+        {
+            if (transform == null)
+            {
+                return "<null>";
+            }
+
+            var path = transform.name;
+            var current = transform.parent;
+            while (current != null)
+            {
+                path = $"{current.name}/{path}";
+                current = current.parent;
+            }
+
+            return path;
         }
 
         static void DisableHandPhysicsCapsules(OVRSkeleton skeleton)

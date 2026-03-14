@@ -159,8 +159,12 @@ namespace TheBigRedButtonInstitute
             var localEuler = localRotation.eulerAngles;
             var controller = root != null ? root.GetComponent<BigRedButtonManualPressController>() : null;
             controller?.SetTriggerSurfacePoseOverride(localPosition, localEuler);
+            if (_targetCollider is BoxCollider targetBoxCollider)
+            {
+                controller?.SetTriggerSurfaceSizeOverride(targetBoxCollider.size);
+            }
 #if UNITY_EDITOR
-            WriteEditorSnapshot(localPosition, localEuler, _targetCollider is BoxCollider boxCollider ? boxCollider.size : Vector3.zero);
+            WriteEditorSnapshot(localPosition, localEuler, _targetCollider is BoxCollider snapshotBoxCollider ? snapshotBoxCollider.size : Vector3.zero);
 #endif
 
             Debug.Log(

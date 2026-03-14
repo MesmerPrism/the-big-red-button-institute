@@ -4,47 +4,52 @@ using UnityEngine.Rendering;
 namespace TheBigRedButtonInstitute
 {
     [DisallowMultipleComponent]
-    public sealed class BigRedButtonRendererMeshDebug : MonoBehaviour
+    public sealed class BigRedButtonCapRuntimeShellInspector : MonoBehaviour
     {
-        const float HighlightHoldSeconds = 0.12f;
-
-        [SerializeField] Renderer sourceRenderer;
+        [SerializeField] SkinnedMeshRenderer sourceRenderer;
         [SerializeField] bool autoResolveSource = true;
-        [SerializeField, Min(1f)] float oversize = 1.08f;
-        [SerializeField, Min(0f)] float verticalLiftFactor;
-        [SerializeField] Color baseColor = new(0.08f, 1f, 0.82f, 0.72f);
-        [SerializeField] Color highlightColor = new(1f, 0.95f, 0.18f, 0.92f);
+        [SerializeField, Min(1f)] float shellOversize = 1.08f;
+        [SerializeField, Min(0f)] float pulseAmplitude = 0.035f;
+        [SerializeField, Min(0f)] float pulseFrequency = 2.8f;
+        [SerializeField] bool alwaysOnTop = true;
+        [SerializeField] Color shellColor = new(0.34f, 1f, 0.18f, 0.24f);
+        [SerializeField] Color pulseColor = new(1f, 0.98f, 0.28f, 0.58f);
+        [SerializeField, Min(0f)] float emissionIntensity = 1.4f;
 
         Transform _visualTransform;
         MeshFilter _visualMeshFilter;
         MeshRenderer _visualRenderer;
         Mesh _runtimeMesh;
         Material _runtimeMaterial;
-        float _lastHighlightTime = float.NegativeInfinity;
 
-        public Renderer SourceRenderer => sourceRenderer;
+        public SkinnedMeshRenderer SourceRenderer => sourceRenderer;
+
+        void Reset()
+        {
+            ResolveSourceRenderer(forceRefresh: true);
+        }
 
         public void Configure(
-            Renderer renderer,
-            float targetOversize = 1.08f,
-            float targetVerticalLiftFactor = 0f)
+            SkinnedMeshRenderer renderer,
+            float targetShellOversize = 1.08f,
+            float targetPulseAmplitude = 0.035f,
+            float targetPulseFrequency = 2.8f,
+            bool targetAlwaysOnTop = true)
         {
             sourceRenderer = renderer;
-            oversize = Mathf.Max(1f, targetOversize);
-            verticalLiftFactor = Mathf.Max(0f, targetVerticalLiftFactor);
+            shellOversize = Mathf.Max(1f, targetShellOversize);
+            pulseAmplitude = Mathf.Max(0f, targetPulseAmplitude);
+            pulseFrequency = Mathf.Max(0f, targetPulseFrequency);
+            alwaysOnTop = targetAlwaysOnTop;
+
             if (!Application.isPlaying)
             {
                 return;
             }
 
             EnsureVisual();
-            UpdateVisual(forceHighlight: false);
-        }
-
-        public void MarkHighlighted()
-        {
-            _lastHighlightTime = Time.unscaledTime;
-            UpdateVisual(forceHighlight: true);
+            SyncVisualMesh();
+            UpdateVisualPresentation();
         }
 
         void Awake()
@@ -67,7 +72,8 @@ namespace TheBigRedButtonInstitute
 
             ResolveSourceRenderer(forceRefresh: false);
             EnsureVisual();
-            UpdateVisual(forceHighlight: false);
+            SyncVisualMesh();
+            UpdateVisualPresentation();
         }
 
         void LateUpdate()
@@ -79,7 +85,8 @@ namespace TheBigRedButtonInstitute
 
             ResolveSourceRenderer(forceRefresh: false);
             EnsureVisual();
-            UpdateVisual(forceHighlight: false);
+            SyncVisualMesh();
+            UpdateVisualPresentation();
         }
 
         void OnDisable()
@@ -90,37 +97,15 @@ namespace TheBigRedButtonInstitute
         void OnDestroy()
         {
             DestroyVisual();
-
-            if (_runtimeMesh != null)
-            {
-                if (Application.isPlaying)
-                {
-                    Destroy(_runtimeMesh);
-                }
-                else
-                {
-                    DestroyImmediate(_runtimeMesh);
-                }
-            }
-
-            if (_runtimeMaterial != null)
-            {
-                if (Application.isPlaying)
-                {
-                    Destroy(_runtimeMaterial);
-                }
-                else
-                {
-                    DestroyImmediate(_runtimeMaterial);
-                }
-            }
+            DestroyRuntimeMesh();
+            DestroyRuntimeMaterial();
         }
 
         void ResolveSourceRenderer(bool forceRefresh)
         {
             if ((sourceRenderer == null || forceRefresh) && autoResolveSource)
             {
-                sourceRenderer = GetComponent<Renderer>();
+                sourceRenderer = GetComponent<SkinnedMeshRenderer>();
             }
         }
 
@@ -134,7 +119,7 @@ namespace TheBigRedButtonInstitute
 
             if (_visualTransform == null)
             {
-                var visualObject = new GameObject("Renderer Mesh Debug");
+                var visualObject = new GameObject("Cap Runtime Shell Inspector");
                 visualObject.layer = gameObject.layer;
                 visualObject.transform.SetParent(transform, false);
                 _visualTransform = visualObject.transform;
@@ -148,15 +133,51 @@ namespace TheBigRedButtonInstitute
                 _visualRenderer.allowOcclusionWhenDynamic = false;
             }
 
-            if (_runtimeMaterial == null)
-            {
-                _runtimeMaterial = CreateRuntimeMaterial();
-            }
-
+            _runtimeMaterial ??= CreateRuntimeMaterial(alwaysOnTop);
             if (_visualRenderer != null)
             {
                 _visualRenderer.sharedMaterial = _runtimeMaterial;
             }
+        }
+
+        void SyncVisualMesh()
+        {
+            if (sourceRenderer == null || _visualMeshFilter == null || _visualRenderer == null)
+            {
+                return;
+            }
+
+            _runtimeMesh ??= CreateRuntimeMesh();
+            sourceRenderer.BakeMesh(_runtimeMesh, false);
+            if (_runtimeMesh.vertexCount <= 0)
+            {
+                _visualMeshFilter.sharedMesh = null;
+                _visualRenderer.enabled = false;
+                return;
+            }
+
+            _visualMeshFilter.sharedMesh = _runtimeMesh;
+            _visualRenderer.enabled = sourceRenderer.enabled && sourceRenderer.gameObject.activeInHierarchy;
+        }
+
+        void UpdateVisualPresentation()
+        {
+            if (_visualTransform == null || _visualRenderer == null)
+            {
+                return;
+            }
+
+            var pulse = pulseAmplitude <= 0f || pulseFrequency <= 0f
+                ? 1f
+                : 1f + Mathf.Abs(Mathf.Sin((Time.unscaledTime * pulseFrequency) + (GetInstanceID() * 0.01f))) * pulseAmplitude;
+            _visualTransform.localPosition = Vector3.zero;
+            _visualTransform.localRotation = Quaternion.identity;
+            _visualTransform.localScale = Vector3.one * shellOversize * pulse;
+
+            var lerp = pulseAmplitude <= 0f || pulseFrequency <= 0f
+                ? 0f
+                : Mathf.Abs(Mathf.Sin((Time.unscaledTime * pulseFrequency * 0.5f) + (GetInstanceID() * 0.013f)));
+            ApplyMaterialColor(Color.Lerp(shellColor, pulseColor, lerp), Mathf.Lerp(emissionIntensity, emissionIntensity * 1.9f, lerp));
         }
 
         void DestroyVisual()
@@ -180,73 +201,55 @@ namespace TheBigRedButtonInstitute
             _visualRenderer = null;
         }
 
-        void UpdateVisual(bool forceHighlight)
+        void DestroyRuntimeMesh()
         {
-            if (sourceRenderer == null || _visualTransform == null || _visualMeshFilter == null || _visualRenderer == null)
+            if (_runtimeMesh == null)
             {
                 return;
             }
 
-            if (!TryResolveVisualMesh(sourceRenderer, out var visualMesh))
+            if (Application.isPlaying)
             {
-                _visualMeshFilter.sharedMesh = null;
-                _visualRenderer.enabled = false;
-                return;
+                Destroy(_runtimeMesh);
+            }
+            else
+            {
+                DestroyImmediate(_runtimeMesh);
             }
 
-            _visualMeshFilter.sharedMesh = visualMesh;
-
-            var bounds = visualMesh.bounds;
-            var highlighted = forceHighlight || Time.unscaledTime - _lastHighlightTime <= HighlightHoldSeconds;
-            var lift = Mathf.Max(0.0025f, bounds.extents.y * verticalLiftFactor);
-            var pulse = 1f + Mathf.Abs(Mathf.Sin((Time.unscaledTime * 4.5f) + (GetInstanceID() * 0.01f))) * 0.05f;
-            var highlightScale = highlighted ? 1.05f : 1f;
-
-            _visualTransform.localPosition = Vector3.up * lift;
-            _visualTransform.localRotation = Quaternion.identity;
-            _visualTransform.localScale = Vector3.one * oversize * pulse * highlightScale;
-
-            ApplyMaterialColor(highlighted ? highlightColor : baseColor, highlighted ? 1.8f : 0.95f);
-            _visualRenderer.enabled = sourceRenderer.enabled && sourceRenderer.gameObject.activeInHierarchy;
+            _runtimeMesh = null;
         }
 
-        bool TryResolveVisualMesh(Renderer renderer, out Mesh mesh)
+        void DestroyRuntimeMaterial()
         {
-            mesh = null;
-            if (renderer == null)
+            if (_runtimeMaterial == null)
             {
-                return false;
+                return;
             }
 
-            if (renderer is SkinnedMeshRenderer skinnedMeshRenderer)
+            if (Application.isPlaying)
             {
-                _runtimeMesh ??= CreateRuntimeMesh();
-                skinnedMeshRenderer.BakeMesh(_runtimeMesh, false);
-                mesh = _runtimeMesh;
-                return mesh.vertexCount > 0;
+                Destroy(_runtimeMaterial);
+            }
+            else
+            {
+                DestroyImmediate(_runtimeMaterial);
             }
 
-            var meshFilter = renderer.GetComponent<MeshFilter>();
-            if (meshFilter == null || meshFilter.sharedMesh == null)
-            {
-                return false;
-            }
-
-            mesh = meshFilter.sharedMesh;
-            return mesh.vertexCount > 0;
+            _runtimeMaterial = null;
         }
 
         Mesh CreateRuntimeMesh()
         {
             var mesh = new Mesh
             {
-                name = $"{name} Renderer Debug Mesh"
+                name = $"{name} Runtime Shell Mesh"
             };
             mesh.MarkDynamic();
             return mesh;
         }
 
-        static Material CreateRuntimeMaterial()
+        static Material CreateRuntimeMaterial(bool targetAlwaysOnTop)
         {
             var shader = Shader.Find("Universal Render Pipeline/Unlit") ??
                 Shader.Find("Unlit/Color") ??
@@ -255,7 +258,7 @@ namespace TheBigRedButtonInstitute
 
             var material = new Material(shader)
             {
-                name = "BigRedButton Renderer Mesh Debug",
+                name = "BigRedButton Cap Runtime Shell",
                 renderQueue = (int)RenderQueue.Overlay
             };
 
@@ -294,10 +297,10 @@ namespace TheBigRedButtonInstitute
 
             if (material.HasProperty("_QueueOffset"))
             {
-                material.SetFloat("_QueueOffset", 80f);
+                material.SetFloat("_QueueOffset", 100f);
             }
 
-            if (material.HasProperty("_ZTest"))
+            if (targetAlwaysOnTop && material.HasProperty("_ZTest"))
             {
                 material.SetFloat("_ZTest", (float)CompareFunction.Always);
             }
@@ -309,7 +312,7 @@ namespace TheBigRedButtonInstitute
             return material;
         }
 
-        void ApplyMaterialColor(Color color, float emissionIntensity)
+        void ApplyMaterialColor(Color color, float targetEmissionIntensity)
         {
             if (_runtimeMaterial == null)
             {
@@ -326,7 +329,7 @@ namespace TheBigRedButtonInstitute
                 _runtimeMaterial.SetColor("_Color", color);
             }
 
-            var emission = color * emissionIntensity;
+            var emission = color * Mathf.Max(0f, targetEmissionIntensity);
             if (_runtimeMaterial.HasProperty("_EmissionColor"))
             {
                 _runtimeMaterial.SetColor("_EmissionColor", emission);

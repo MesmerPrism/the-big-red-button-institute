@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Text;
 using UnityEngine;
 using TheBigRedButtonInstitute.VR;
 
@@ -26,7 +28,7 @@ namespace TheBigRedButtonInstitute
         [Header("Press Mesh")]
         [SerializeField] bool usePressMeshCollider = true;
         [SerializeField] bool preferConvexPressMeshCollider = true;
-        [SerializeField, Min(0f)] float pressTriggerMeshInflation = 0.006f;
+        [SerializeField, Min(0f)] float pressTriggerMeshInflation;
         [SerializeField, Min(0f)] float minimumPressPenetration = 0.0015f;
         [SerializeField, Min(0f)] float pressMeshContactTolerance = 0.001f;
         [SerializeField, Min(0f)] float pressTriggerSurfaceContactTolerance = 0.0004f;
@@ -37,7 +39,19 @@ namespace TheBigRedButtonInstitute
         [SerializeField] bool triggerSurfacePoseOverrideIsOffset = false;
         [SerializeField] Vector3 triggerSurfaceLocalPositionOverride;
         [SerializeField] Vector3 triggerSurfaceLocalEulerOverride = new(0f, 180f, 0f);
+        [SerializeField] bool useTriggerSurfaceSizeOverride = false;
+        [SerializeField] Vector3 triggerSurfaceLocalSizeOverride;
         [SerializeField, Range(0.8f, 1.1f)] float triggerSurfaceDiameterScale = 1f;
+        [SerializeField] bool enableTriggerSurfacePressFallback = false;
+
+        [Header("Trigger Collider Alignment")]
+        [SerializeField] bool alignTriggerColliderToSurface = true;
+        [SerializeField] Vector3 triggerColliderDerivedLocalOffset;
+        [SerializeField] Vector3 triggerColliderManualLocalOffset;
+
+        [Header("Debug")]
+        [SerializeField] bool logPressCollisionDiagnostics = true;
+        [SerializeField, Min(0.05f)] float pressCollisionDiagnosticCooldownSeconds = 0.2f;
 
         readonly HashSet<int> _activeInteractorIds = new();
         readonly HashSet<int> _frameInteractorIds = new();
@@ -57,9 +71,11 @@ namespace TheBigRedButtonInstitute
         float _nextAllowedPressTime;
         float _nextInteractorRefreshTime;
         float _entrySuppressionEndTime;
+        float _nextPressCollisionDiagnosticTime;
         Vector3 _runtimeTriggerSurfaceLocalOffset;
         Quaternion _runtimeTriggerSurfaceRotationOffset = Quaternion.identity;
         bool _hasRuntimeTriggerSurfaceOffset;
+        bool _hasLoggedRuntimeSetup;
         bool _pressArmed;
 
         public Renderer TargetRenderer => targetRenderer;
@@ -74,6 +90,17 @@ namespace TheBigRedButtonInstitute
             triggerSurfaceLocalPositionOverride = localPosition;
             triggerSurfaceLocalEulerOverride = localEulerAngles;
             ResetTriggerSurfacePoseOffsetCache();
+        }
+
+        public void SetTriggerSurfaceSizeOverride(Vector3 localSize)
+        {
+            useTriggerSurfaceSizeOverride = true;
+            triggerSurfaceLocalSizeOverride = SanitizeTriggerSurfaceLocalSize(localSize);
+        }
+
+        public void SetTriggerColliderManualLocalOffset(Vector3 localOffset)
+        {
+            triggerColliderManualLocalOffset = localOffset;
         }
 
         void Reset()
@@ -95,6 +122,7 @@ namespace TheBigRedButtonInstitute
             _activeInteractorIds.Clear();
             _frameInteractorIds.Clear();
             ResetTriggerSurfacePoseOffsetCache();
+            _hasLoggedRuntimeSetup = false;
             ResolveReferences(forceRefresh: false);
             ConfigureBody();
             ResolveConfiguredColliders();
@@ -107,6 +135,7 @@ namespace TheBigRedButtonInstitute
             _activeInteractorIds.Clear();
             _frameInteractorIds.Clear();
             ResetTriggerSurfacePoseOffsetCache();
+            _hasLoggedRuntimeSetup = false;
             _pressArmed = false;
         }
 
@@ -166,6 +195,7 @@ namespace TheBigRedButtonInstitute
             ConfigureBody();
             ResolveConfiguredColliders();
             SyncAnimatedPressGeometry();
+            TryLogRuntimeSetup();
             if (!triggerSurfaceAlignmentMode)
             {
                 EvaluatePressInteractors();
@@ -181,7 +211,7 @@ namespace TheBigRedButtonInstitute
             }
 
             var hasPressTriggerMesh = HasUsablePressTriggerMesh();
-            var hasTriggerSurface = IsColliderUsable(_pressTriggerSurfaceCollider);
+            var hasTriggerSurface = HasUsableTriggerSurfaceFallback();
             if (_interactors == null ||
                 _interactors.Length == 0 ||
                 (!hasPressTriggerMesh && !hasTriggerSurface))
@@ -220,6 +250,9 @@ namespace TheBigRedButtonInstitute
                 var interactorColliders = interactor.GetInteractionColliders();
                 var hasUsableCollider = false;
                 var interactorHit = false;
+                var diagnosticHitCollider = default(Collider);
+                var diagnosticMeshHit = false;
+                var diagnosticSurfaceHit = false;
                 for (var colliderIndex = 0; colliderIndex < interactorColliders.Length; colliderIndex++)
                 {
                     var interactorCollider = interactorColliders[colliderIndex];
@@ -229,13 +262,18 @@ namespace TheBigRedButtonInstitute
                     }
 
                     hasUsableCollider = true;
-                    if (!IsPressTriggerHit(interactorCollider))
+                    var meshHit = IsMeshTriggerHit(interactorCollider);
+                    var surfaceHit = IsTriggerSurfaceHit(interactorCollider);
+                    if (!meshHit && !surfaceHit)
                     {
                         continue;
                     }
 
                     MarkColliderOverlap(interactorCollider);
                     interactorHit = true;
+                    diagnosticHitCollider ??= interactorCollider;
+                    diagnosticMeshHit |= meshHit;
+                    diagnosticSurfaceHit |= surfaceHit;
                 }
 
                 if (!hasUsableCollider)
@@ -250,26 +288,34 @@ namespace TheBigRedButtonInstitute
                 }
 
                 _pressTriggerDebugVisual?.MarkHighlighted();
-                _pressTriggerSurfaceDebugVisual?.MarkHighlighted();
+                if (enableTriggerSurfacePressFallback)
+                {
+                    _pressTriggerSurfaceDebugVisual?.MarkHighlighted();
+                }
                 _pressTriggerRendererShell?.MarkHighlighted();
 
                 _frameInteractorIds.Add(interactorId);
                 if (!_activeInteractorIds.Contains(interactorId))
                 {
+                    TryLogPressCollisionDiagnostics(interactor, diagnosticHitCollider, diagnosticMeshHit, diagnosticSurfaceHit);
                     if (!_pressArmed)
                     {
                         _activeInteractorIds.Add(interactorId);
                         continue;
                     }
 
-                    TryHandleInteractor(interactor);
+                    TryHandleInteractor(interactor, diagnosticHitCollider, diagnosticMeshHit, diagnosticSurfaceHit);
                 }
             }
 
             _activeInteractorIds.RemoveWhere(id => !_frameInteractorIds.Contains(id));
         }
 
-        void TryHandleInteractor(BigRedButtonPressInteractor interactor)
+        void TryHandleInteractor(
+            BigRedButtonPressInteractor interactor,
+            Collider interactorCollider,
+            bool meshHit,
+            bool surfaceHit)
         {
             if (interactor == null)
             {
@@ -291,8 +337,14 @@ namespace TheBigRedButtonInstitute
             ResolveReferences(forceRefresh: false);
             if (inputManager == null || !inputManager.TriggerButtonPressFromRuntime())
             {
+                TryLogPressDispatchFailure(interactor);
                 return;
             }
+
+            Debug.LogWarning(
+                $"[BigRedButtonPressDispatch] interactor={BuildTransformPath(interactor.transform)} " +
+                $"collider={DescribeCollider(interactorCollider)} meshHit={(meshHit ? 1 : 0)} surfaceHit={(surfaceHit ? 1 : 0)} " +
+                $"triggerMesh={DescribeCollider(_pressTriggerCollider)} triggerSurface={DescribeCollider(_pressTriggerSurfaceCollider)}");
 
             _nextAllowedPressTime = Time.unscaledTime + pressCooldownSeconds;
         }
@@ -361,6 +413,7 @@ namespace TheBigRedButtonInstitute
                 ref _pressTriggerDebugVisual,
                 BigRedButtonColliderDebugVisual.VisualRole.PressTrigger);
             _pressTriggerSurfaceCollider = RefreshTriggerSurface(resolvedTriggerRenderer, ref _pressTriggerSurfaceDebugVisual);
+            ApplyTriggerSurfaceActivationState();
             _pressTriggerRendererShell = RefreshRendererShell(resolvedTriggerRenderer, _pressTriggerCollider);
         }
 
@@ -407,6 +460,7 @@ namespace TheBigRedButtonInstitute
                 ref _triggerColliderGenerator,
                 ref _pressTriggerDebugVisual);
             _pressTriggerSurfaceCollider = ResolveConfiguredTriggerSurface(ref _pressTriggerSurfaceDebugVisual);
+            ApplyTriggerSurfaceActivationState();
             _pressTriggerRendererShell = ResolveConfiguredRendererShell(resolvedTriggerRenderer, _pressTriggerCollider);
         }
 
@@ -442,7 +496,7 @@ namespace TheBigRedButtonInstitute
                 ref _pressTriggerCollider,
                 ref _pressTriggerDebugVisual);
 
-            if (IsRendererUsable(resolvedTriggerRenderer) && IsColliderUsable(_pressTriggerSurfaceCollider))
+            if (IsRendererUsable(resolvedTriggerRenderer) && _pressTriggerSurfaceCollider != null)
             {
                 ConfigureTriggerSurfaceAlignmentTool(_pressTriggerSurfaceCollider.transform);
                 if (!triggerSurfaceAlignmentMode)
@@ -452,6 +506,16 @@ namespace TheBigRedButtonInstitute
                         _pressTriggerSurfaceCollider.transform,
                         _pressTriggerSurfaceCollider);
                 }
+
+                SyncTriggerColliderAlignmentFromSurface(
+                    resolvedTriggerRenderer,
+                    _triggerColliderGenerator,
+                    _pressTriggerSurfaceCollider.transform);
+                ApplyTriggerSurfaceActivationState();
+            }
+            else
+            {
+                _triggerColliderGenerator?.SetColliderHostLocalPositionOffset(triggerColliderManualLocalOffset);
             }
         }
 
@@ -477,11 +541,54 @@ namespace TheBigRedButtonInstitute
                 return;
             }
 
-            debugVisual ??= collider.GetComponent<BigRedButtonColliderDebugVisual>();
+            if (debugVisual == null || debugVisual.gameObject != collider.gameObject)
+            {
+                if (debugVisual != null)
+                {
+                    debugVisual.enabled = false;
+                }
+
+                debugVisual = collider.GetComponent<BigRedButtonColliderDebugVisual>();
+                if (debugVisual == null)
+                {
+                    debugVisual = collider.gameObject.AddComponent<BigRedButtonColliderDebugVisual>();
+                    debugVisual.Configure(BigRedButtonColliderDebugVisual.VisualRole.PressTrigger);
+                }
+            }
+
             if (debugVisual != null)
             {
                 debugVisual.enabled = true;
             }
+        }
+
+        void SyncTriggerColliderAlignmentFromSurface(
+            Renderer renderer,
+            BigRedButtonGeneratedBodyCollider colliderGenerator,
+            Transform surfaceTransform)
+        {
+            if (renderer == null || colliderGenerator == null || surfaceTransform == null)
+            {
+                return;
+            }
+
+            if (!TryGetDefaultTriggerSurfacePose(
+                    renderer,
+                    out var baseCenterWorld,
+                    out _,
+                    out _,
+                    out _))
+            {
+                triggerColliderDerivedLocalOffset = Vector3.zero;
+                colliderGenerator.SetColliderHostLocalPositionOffset(triggerColliderManualLocalOffset);
+                return;
+            }
+
+            var correctionWorld = surfaceTransform.position - baseCenterWorld;
+            triggerColliderDerivedLocalOffset = renderer.transform.InverseTransformVector(correctionWorld);
+            var finalLocalOffset = (alignTriggerColliderToSurface ? triggerColliderDerivedLocalOffset : Vector3.zero) +
+                triggerColliderManualLocalOffset;
+            colliderGenerator.SetColliderHostLocalPositionOffset(finalLocalOffset);
         }
 
         MeshCollider RefreshColliderSurface(
@@ -523,10 +630,18 @@ namespace TheBigRedButtonInstitute
                 return null;
             }
 
-            debugVisual ??= collider.GetComponent<BigRedButtonColliderDebugVisual>();
-            if (debugVisual == null)
+            if (debugVisual == null || debugVisual.gameObject != collider.gameObject)
             {
-                debugVisual = collider.gameObject.AddComponent<BigRedButtonColliderDebugVisual>();
+                if (debugVisual != null)
+                {
+                    debugVisual.enabled = false;
+                }
+
+                debugVisual = collider.GetComponent<BigRedButtonColliderDebugVisual>();
+                if (debugVisual == null)
+                {
+                    debugVisual = collider.gameObject.AddComponent<BigRedButtonColliderDebugVisual>();
+                }
             }
 
             debugVisual.enabled = true;
@@ -547,9 +662,8 @@ namespace TheBigRedButtonInstitute
             }
 
             colliderGenerator = renderer.GetComponent<BigRedButtonGeneratedBodyCollider>();
-            debugVisual = renderer.GetComponent<BigRedButtonColliderDebugVisual>();
-
-            var collider = renderer.GetComponent<MeshCollider>();
+            var collider = renderer.GetComponentInChildren<MeshCollider>(true);
+            debugVisual = collider != null ? collider.GetComponent<BigRedButtonColliderDebugVisual>() : null;
             return IsColliderUsable(collider) && collider.sharedMesh != null ? collider : null;
         }
 
@@ -594,7 +708,7 @@ namespace TheBigRedButtonInstitute
 
         bool IsTriggerSurfaceHit(Collider interactorCollider)
         {
-            if (!IsColliderUsable(interactorCollider) || !IsColliderUsable(_pressTriggerSurfaceCollider))
+            if (!HasUsableTriggerSurfaceFallback() || !IsColliderUsable(interactorCollider))
             {
                 return false;
             }
@@ -851,11 +965,10 @@ namespace TheBigRedButtonInstitute
             _pressTriggerSurfaceAlignmentTool = ConfigureTriggerSurfaceAlignmentTool(surfaceTransform);
             if (debugVisual != null)
             {
-                debugVisual.enabled = true;
                 debugVisual.Configure(BigRedButtonColliderDebugVisual.VisualRole.PressTrigger);
             }
 
-            return IsColliderUsable(boxCollider) ? boxCollider : null;
+            return boxCollider;
         }
 
         BoxCollider RefreshTriggerSurface(
@@ -883,7 +996,6 @@ namespace TheBigRedButtonInstitute
                 _pressTriggerSurfaceCollider = surfaceTransform.gameObject.AddComponent<BoxCollider>();
             }
 
-            _pressTriggerSurfaceCollider.enabled = true;
             _pressTriggerSurfaceCollider.isTrigger = true;
             UpdateTriggerSurfaceBounds(renderer, surfaceTransform, _pressTriggerSurfaceCollider);
             _pressTriggerSurfaceAlignmentTool = ConfigureTriggerSurfaceAlignmentTool(surfaceTransform);
@@ -894,9 +1006,39 @@ namespace TheBigRedButtonInstitute
                 debugVisual = _pressTriggerSurfaceCollider.gameObject.AddComponent<BigRedButtonColliderDebugVisual>();
             }
 
-            debugVisual.enabled = true;
             debugVisual.Configure(BigRedButtonColliderDebugVisual.VisualRole.PressTrigger);
+            ApplyTriggerSurfaceActivationState();
             return _pressTriggerSurfaceCollider;
+        }
+
+        bool HasUsableTriggerSurfaceFallback()
+        {
+            return enableTriggerSurfacePressFallback && IsColliderUsable(_pressTriggerSurfaceCollider);
+        }
+
+        bool ShouldEnableTriggerSurfacePresentation()
+        {
+            return triggerSurfaceAlignmentMode || enableTriggerSurfacePressFallback;
+        }
+
+        void ApplyTriggerSurfaceActivationState()
+        {
+            var shouldEnablePresentation = ShouldEnableTriggerSurfacePresentation();
+            if (_pressTriggerSurfaceCollider != null)
+            {
+                _pressTriggerSurfaceCollider.isTrigger = true;
+                _pressTriggerSurfaceCollider.enabled = shouldEnablePresentation;
+            }
+
+            if (_pressTriggerSurfaceDebugVisual != null)
+            {
+                _pressTriggerSurfaceDebugVisual.enabled = shouldEnablePresentation;
+            }
+
+            if (_pressTriggerSurfaceAlignmentTool != null)
+            {
+                _pressTriggerSurfaceAlignmentTool.enabled = triggerSurfaceAlignmentMode;
+            }
         }
 
         BigRedButtonTriggerSurfaceAlignmentTool ConfigureTriggerSurfaceAlignmentTool(Transform surfaceTransform)
@@ -946,12 +1088,15 @@ namespace TheBigRedButtonInstitute
 
             surfaceTransform.localScale = Vector3.one;
             boxCollider.center = Vector3.zero;
-            boxCollider.size = WorldSizeToLocal(
+            var defaultLocalSize = WorldSizeToLocal(
                 new Vector3(
                     Mathf.Max(0.01f, circularDiameter),
                     thicknessWorld,
                     Mathf.Max(0.01f, circularDiameter)),
                 surfaceTransform);
+            boxCollider.size = useTriggerSurfaceSizeOverride
+                ? SanitizeTriggerSurfaceLocalSize(triggerSurfaceLocalSizeOverride)
+                : SanitizeTriggerSurfaceLocalSize(defaultLocalSize);
         }
 
         bool TryApplyTriggerSurfacePoseOverride(Transform surfaceTransform, Vector3 baseCenterWorld, Quaternion baseRotation)
@@ -997,6 +1142,204 @@ namespace TheBigRedButtonInstitute
             _runtimeTriggerSurfaceLocalOffset = Vector3.zero;
             _runtimeTriggerSurfaceRotationOffset = Quaternion.identity;
             _hasRuntimeTriggerSurfaceOffset = false;
+        }
+
+        void TryLogPressCollisionDiagnostics(
+            BigRedButtonPressInteractor interactor,
+            Collider interactorCollider,
+            bool meshHit,
+            bool surfaceHit)
+        {
+            if (!logPressCollisionDiagnostics ||
+                interactorCollider == null ||
+                Time.unscaledTime < _nextPressCollisionDiagnosticTime)
+            {
+                return;
+            }
+
+            _nextPressCollisionDiagnosticTime = Time.unscaledTime + pressCollisionDiagnosticCooldownSeconds;
+
+            var builder = new StringBuilder(768);
+            builder.Append("[BigRedButtonPressDiagnostics] ");
+            builder.AppendFormat(
+                CultureInfo.InvariantCulture,
+                "time={0:0.###} armed={1} cooldownRemaining={2:0.###} meshHit={3} surfaceHit={4} meshInflation={5:0.####} surfaceTolerance={6:0.####} ",
+                Time.unscaledTime,
+                _pressArmed ? 1 : 0,
+                Mathf.Max(0f, _nextAllowedPressTime - Time.unscaledTime),
+                meshHit ? 1 : 0,
+                surfaceHit ? 1 : 0,
+                pressTriggerMeshInflation,
+                pressTriggerSurfaceContactTolerance);
+            builder.AppendFormat(
+                CultureInfo.InvariantCulture,
+                "interactor={0} collider={1} ",
+                BuildTransformPath(interactor != null ? interactor.transform : null),
+                DescribeCollider(interactorCollider));
+            AppendColliderContactDiagnostics(builder, "triggerMesh", _pressTriggerCollider, interactorCollider);
+            AppendColliderContactDiagnostics(builder, "triggerSurface", _pressTriggerSurfaceCollider, interactorCollider);
+            AppendColliderContactDiagnostics(builder, "base", _baseCollider, interactorCollider);
+            if (IsColliderUsable(_pressTriggerSurfaceCollider))
+            {
+                builder.AppendFormat(
+                    CultureInfo.InvariantCulture,
+                    "triggerSurface.localSize={0} ",
+                    FormatVector(_pressTriggerSurfaceCollider.size));
+            }
+
+            Debug.Log(builder.ToString(), this);
+        }
+
+        void TryLogPressDispatchFailure(BigRedButtonPressInteractor interactor)
+        {
+            if (!logPressCollisionDiagnostics || Time.unscaledTime < _nextPressCollisionDiagnosticTime)
+            {
+                return;
+            }
+
+            _nextPressCollisionDiagnosticTime = Time.unscaledTime + pressCollisionDiagnosticCooldownSeconds;
+            Debug.Log(
+                $"[BigRedButtonPressDiagnostics] dispatchFailed interactor={BuildTransformPath(interactor != null ? interactor.transform : null)} " +
+                $"inputManagerPresent={(inputManager != null ? 1 : 0)}",
+                this);
+        }
+
+        void TryLogRuntimeSetup()
+        {
+            if (_hasLoggedRuntimeSetup || !Application.isPlaying)
+            {
+                return;
+            }
+
+            var triggerRendererScale = PressTriggerRenderer != null ? FormatVector(PressTriggerRenderer.transform.lossyScale) : "<none>";
+            var triggerMeshLocalBounds = "<none>";
+            var triggerMeshWorldBounds = "<none>";
+            var triggerMeshLocalPosition = "<none>";
+            var triggerColliderDerivedOffset = FormatVector(triggerColliderDerivedLocalOffset);
+            var triggerColliderManualOffset = FormatVector(triggerColliderManualLocalOffset);
+            if (IsColliderUsable(_pressTriggerCollider) && _pressTriggerCollider.sharedMesh != null)
+            {
+                triggerMeshLocalBounds = FormatBounds(_pressTriggerCollider.sharedMesh.bounds);
+                triggerMeshWorldBounds = FormatBounds(_pressTriggerCollider.bounds);
+                triggerMeshLocalPosition = FormatVector(_pressTriggerCollider.transform.localPosition);
+            }
+
+            Debug.LogWarning(
+                $"[BigRedButtonPressSetup] button={BuildTransformPath(transform)} " +
+                $"triggerRenderer={BuildTransformPath(PressTriggerRenderer != null ? PressTriggerRenderer.transform : null)} " +
+                $"triggerMesh={DescribeCollider(_pressTriggerCollider)} triggerSurface={DescribeCollider(_pressTriggerSurfaceCollider)} " +
+                $"triggerSurfaceFallbackEnabled={(enableTriggerSurfacePressFallback ? 1 : 0)} " +
+                $"rendererShellEnabled={(_pressTriggerRendererShell != null && _pressTriggerRendererShell.enabled ? 1 : 0)} " +
+                $"meshInflation={pressTriggerMeshInflation:0.####} surfaceTolerance={pressTriggerSurfaceContactTolerance:0.####} " +
+                $"surfaceSize={(IsColliderUsable(_pressTriggerSurfaceCollider) ? FormatVector(_pressTriggerSurfaceCollider.size) : "<none>")} " +
+                $"triggerRendererScale={triggerRendererScale} " +
+                $"triggerColliderDerivedOffset={triggerColliderDerivedOffset} " +
+                $"triggerColliderManualOffset={triggerColliderManualOffset} " +
+                $"triggerMeshLocalPosition={triggerMeshLocalPosition} " +
+                $"triggerMeshLocalBounds={triggerMeshLocalBounds} " +
+                $"triggerMeshWorldBounds={triggerMeshWorldBounds}");
+            _hasLoggedRuntimeSetup = true;
+        }
+
+        void AppendColliderContactDiagnostics(StringBuilder builder, string label, Collider targetCollider, Collider interactorCollider)
+        {
+            if (builder == null)
+            {
+                return;
+            }
+
+            builder.Append(label);
+            builder.Append('=');
+            if (!IsColliderUsable(targetCollider))
+            {
+                builder.Append("<none> ");
+                return;
+            }
+
+            builder.Append(DescribeCollider(targetCollider));
+            builder.Append(' ');
+
+            if (TryComputeColliderPenetration(targetCollider, interactorCollider, out var penetrationDistance))
+            {
+                builder.AppendFormat(CultureInfo.InvariantCulture, "penetration={0:0.####} ", penetrationDistance);
+            }
+            else
+            {
+                builder.Append("penetration=<unsupported> ");
+            }
+
+            builder.AppendFormat(
+                CultureInfo.InvariantCulture,
+                "boundsGap={0:0.####} ",
+                ComputeBoundsGap(targetCollider.bounds, interactorCollider.bounds));
+        }
+
+        static float ComputeBoundsGap(Bounds aBounds, Bounds bBounds)
+        {
+            var gapX = Mathf.Max(0f, Mathf.Max(aBounds.min.x - bBounds.max.x, bBounds.min.x - aBounds.max.x));
+            var gapY = Mathf.Max(0f, Mathf.Max(aBounds.min.y - bBounds.max.y, bBounds.min.y - aBounds.max.y));
+            var gapZ = Mathf.Max(0f, Mathf.Max(aBounds.min.z - bBounds.max.z, bBounds.min.z - aBounds.max.z));
+            return Mathf.Sqrt((gapX * gapX) + (gapY * gapY) + (gapZ * gapZ));
+        }
+
+        static Vector3 SanitizeTriggerSurfaceLocalSize(Vector3 localSize)
+        {
+            return new Vector3(
+                Mathf.Max(0.0005f, Mathf.Abs(localSize.x)),
+                Mathf.Max(0.0005f, Mathf.Abs(localSize.y)),
+                Mathf.Max(0.0005f, Mathf.Abs(localSize.z)));
+        }
+
+        static string DescribeCollider(Collider collider)
+        {
+            if (collider == null)
+            {
+                return "<null>";
+            }
+
+            return string.Format(
+                CultureInfo.InvariantCulture,
+                "{0}('{1}') enabled={2}",
+                collider.GetType().Name,
+                BuildTransformPath(collider.transform),
+                collider.enabled ? 1 : 0);
+        }
+
+        static string BuildTransformPath(Transform transform)
+        {
+            if (transform == null)
+            {
+                return "<null>";
+            }
+
+            var path = transform.name;
+            var current = transform.parent;
+            while (current != null)
+            {
+                path = $"{current.name}/{path}";
+                current = current.parent;
+            }
+
+            return path;
+        }
+
+        static string FormatVector(Vector3 value)
+        {
+            return string.Format(
+                CultureInfo.InvariantCulture,
+                "({0:0.####},{1:0.####},{2:0.####})",
+                value.x,
+                value.y,
+                value.z);
+        }
+
+        static string FormatBounds(Bounds bounds)
+        {
+            return string.Format(
+                CultureInfo.InvariantCulture,
+                "[center={0} size={1}]",
+                FormatVector(bounds.center),
+                FormatVector(bounds.size));
         }
 
         bool TryGetDefaultTriggerSurfacePose(
@@ -1242,7 +1585,7 @@ namespace TheBigRedButtonInstitute
             if (renderer is SkinnedMeshRenderer skinnedRenderer)
             {
                 _triggerSurfaceFitMesh ??= CreateTriggerSurfaceFitMesh();
-                skinnedRenderer.BakeMesh(_triggerSurfaceFitMesh);
+                skinnedRenderer.BakeMesh(_triggerSurfaceFitMesh, false);
                 if (IsUsableSurfaceMesh(_triggerSurfaceFitMesh))
                 {
                     mesh = _triggerSurfaceFitMesh;
@@ -1415,11 +1758,15 @@ namespace TheBigRedButtonInstitute
 
         static BigRedButtonRendererMeshDebug RefreshRendererShell(Renderer renderer, MeshCollider meshCollider)
         {
-            DisableRendererShell(renderer);
-            return null;
+            return ConfigureRendererShell(renderer, meshCollider);
         }
 
         static BigRedButtonRendererMeshDebug ResolveConfiguredRendererShell(Renderer renderer, MeshCollider meshCollider)
+        {
+            return ConfigureRendererShell(renderer, meshCollider);
+        }
+
+        static BigRedButtonRendererMeshDebug ConfigureRendererShell(Renderer renderer, MeshCollider meshCollider)
         {
             DisableRendererShell(renderer);
             return null;
@@ -1436,6 +1783,12 @@ namespace TheBigRedButtonInstitute
             if (rendererShell != null)
             {
                 rendererShell.enabled = false;
+            }
+
+            var capShellInspector = renderer.GetComponent<BigRedButtonCapRuntimeShellInspector>();
+            if (capShellInspector != null)
+            {
+                capShellInspector.enabled = false;
             }
         }
 

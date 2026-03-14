@@ -17,11 +17,13 @@ The currently working baseline in this commit is:
 
 - the hand shell is visible
 - the base shell is visible
-- the fallback press disc is visible again
-- the fallback press disc can drive the animation without depending on the cap mesh collider
-- the disc currently uses a simple moving horizontal band based on the cap renderer bounds
+- the red-cap mesh collider shell is the active press trigger again
+- the cap collider uses the inverse-scale runtime host path so it stays on the animated cap instead of floating at prefab-root scale
+- the manually tuned cap offset is now persisted as `triggerColliderManualLocalOffset = {0, 0.00158, -0.0018}`
+- the fallback `Button Trigger Surface` object is still kept in the scene for calibration/reference, but its collider and debug shell are disabled during normal play
+- the shell pulse and highlight-size animation are disabled so final visual tuning can be judged from a fixed collider size
 
-This baseline is intentionally conservative. It is the last version that restored working Quest interaction after later pose-fitting experiments regressed the disc completely.
+This baseline is intentionally conservative. The cap mesh is now responsible for press dispatch, while the disc remains as a dormant alignment aid instead of a second live trigger path.
 
 ## Scene / Model Facts Confirmed
 
@@ -38,6 +40,11 @@ Relevant local evidence:
 - `Builds/Android/big-red-button-diagnostics.txt`
 - `Builds/Android/big-red-button-mesh-introspection.txt`
 - `Builds/Android/big-red-button-animation-samples.txt`
+
+Additional confirmed implementation detail:
+
+- the live cap trigger collider now runs on `Big Red Button/RootNode/button/Generated Collider Host`
+- the dormant fallback disc is still authored as `Big Red Button/Button Trigger Surface`
 
 ## Approaches Attempted
 
@@ -132,6 +139,11 @@ Failure mode:
 
 - It does not match the cap top plane.
 - It is offset from the visible red cap when viewed from the side.
+
+Current status:
+
+- no longer used for live press dispatch in the current baseline
+- kept only as a disabled calibration/reference surface because it was useful for manually tuning the cap collider offset
 
 ### 5. Mesh-derived trigger-surface pose fitting
 
@@ -245,21 +257,22 @@ The second assumption was disproven by repeated Quest regressions when the fitte
 
 ## Recommended Next Step After This Commit
 
-Keep the fallback disc alive and visible at all times.
+Keep the fallback disc object in the scene, but do not let it silently become active again without an explicit flag.
 
-For the next true cap-collider attempt:
+For the next cap-collider refinement:
 
-- do not remove the disc fallback
-- do not let press interaction depend solely on the cap mesh collider
-- treat the cap mesh shell and the disc as separate systems
-- validate baked-mesh data with runtime diagnostics before trusting it for placement
-- if a cap shell is attempted again, prefer using it for contact and visualization only after its world-space pose has been verified against Quest screenshots
+- keep press interaction on the cap mesh collider unless there is a specific reason to re-enable fallback mode
+- keep the disc object only as a recoverable reference/alignment tool
+- validate any future cap-offset changes against the dormant disc and against Quest screenshots
+- if fallback mode is ever reintroduced, gate it behind an explicit serialized flag so it cannot accidentally affect press dispatch
 
 The safest technical direction is:
 
-- keep bounds-based position for the disc
+- keep the cap collider on the generated host child
+- keep the saved manual local offset in the authored scene/installer
+- keep the trigger-surface fallback disabled by default
 - only reintroduce mesh-derived orientation after its frame of reference is validated
-- keep the disc as the guaranteed press path until the cap shell is proven reliable on device
+- keep the disc as a dormant alignment reference until there is a specific reason to re-enable fallback mode
 
 ## Checkpoint: Disc Placement Locked, Size And Sensitivity Still Wrong
 

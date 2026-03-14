@@ -471,27 +471,34 @@ namespace TheBigRedButtonInstitute.Editor
             RemovePressInteractor(rightHandAnchor, "Right Hand Press Interactor");
             RemovePressInteractor(leftControllerAnchor, "Left Controller Press Interactor");
             RemovePressInteractor(rightControllerAnchor, "Right Controller Press Interactor");
+            RemovePressInteractor(leftHandAnchor, "Left Input Body Interactor");
+            RemovePressInteractor(rightHandAnchor, "Right Input Body Interactor");
+            RemovePressInteractor(leftControllerAnchor, "Left Input Body Interactor");
+            RemovePressInteractor(rightControllerAnchor, "Right Input Body Interactor");
+            RemovePressInteractor(leftHandAnchor, "Left Controller Body Interactor");
+            RemovePressInteractor(rightHandAnchor, "Right Controller Body Interactor");
+            RemovePressInteractor(leftControllerAnchor, "Left Controller Body Interactor");
+            RemovePressInteractor(rightControllerAnchor, "Right Controller Body Interactor");
             RemovePressInteractor(deprecatedLeftHandAnchor, "Left Hand Press Interactor");
             RemovePressInteractor(deprecatedRightHandAnchor, "Right Hand Press Interactor");
             RemovePressInteractor(deprecatedLeftControllerAnchor, "Left Controller Press Interactor");
             RemovePressInteractor(deprecatedRightControllerAnchor, "Right Controller Press Interactor");
+            RemovePressInteractor(deprecatedLeftHandAnchor, "Left Input Body Interactor");
+            RemovePressInteractor(deprecatedRightHandAnchor, "Right Input Body Interactor");
+            RemovePressInteractor(deprecatedLeftControllerAnchor, "Left Input Body Interactor");
+            RemovePressInteractor(deprecatedRightControllerAnchor, "Right Input Body Interactor");
 
             var leftHand = FindDirectChildComponent<OVRHand>(leftHandAnchor);
             var rightHand = FindDirectChildComponent<OVRHand>(rightHandAnchor);
-            var leftController = FindDirectChildComponent<OVRControllerHelper>(leftControllerAnchor);
-            var rightController = FindDirectChildComponent<OVRControllerHelper>(rightControllerAnchor);
-
             EnsureBodyPressInteractor(
-                leftControllerAnchor,
-                "Left Input Body Interactor",
+                leftHandAnchor,
+                "Left Hand Body Interactor",
                 0f,
-                leftController != null ? leftController.gameObject : null,
                 leftHand != null ? leftHand.gameObject : null);
             EnsureBodyPressInteractor(
-                rightControllerAnchor,
-                "Right Input Body Interactor",
+                rightHandAnchor,
+                "Right Hand Body Interactor",
                 0f,
-                rightController != null ? rightController.gameObject : null,
                 rightHand != null ? rightHand.gameObject : null);
         }
 
