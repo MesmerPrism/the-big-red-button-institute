@@ -26,7 +26,7 @@ RenderSettings:
   m_AmbientIntensity: 0.8
   m_AmbientMode: 1
   m_SubtractiveShadowColor: {r: 0.42, g: 0.478, b: 0.627, a: 1}
-  m_SkyboxMaterial: {fileID: 0}
+  m_SkyboxMaterial: {fileID: 2100000, guid: 432ed89a0a403bf459d915edabab367f, type: 2}
   m_HaloStrength: 0.5
   m_FlareStrength: 1
   m_FlareFadeSpeed: 3
@@ -150,6 +150,76 @@ Transform:
   m_Children: []
   m_Father: {fileID: 444464803}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &10976772
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 10976773}
+  - component: {fileID: 10976775}
+  - component: {fileID: 10976774}
+  m_Layer: 0
+  m_Name: Left Controller Shell Interactor
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &10976773
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 10976772}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 853220154}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &10976774
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 10976772}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1b53f491f88c4daab41b1d732dd5516d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TheBigRedButtonInstitute.VR.QuestVrTouchPlusControllerOnly
+  autoResolveFromParentAnchor: 1
+  controllerVisualName: Left Controller Visual
+  touchPlusModelRootName: MetaQuestTouchPlus_Left
+--- !u!114 &10976775
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 10976772}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2f5886ffb5c46d8ab8bc281f5bdbd64, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TheBigRedButtonInstitute.BigRedButtonPressInteractor
+  interactionMode: 1
+  interactionRadius: 0.05
+  bodyPadding: 0
+  bodyRenderers: []
+  bodyColliders: []
+  autoResolveBodyRenderersFromParent: 1
+  parentRendererRootName: Left Controller Visual/MetaQuestTouchPlus_Left
+  trackingValid: 0
+  generatedMeshCollidersOnly: 1
+  disableLegacyHandPhysicsCapsules: 1
 --- !u!1 &31420506
 GameObject:
   m_ObjectHideFlags: 0
@@ -214,6 +284,76 @@ Transform:
   m_Children: []
   m_Father: {fileID: 448229256}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &119602225
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 119602226}
+  - component: {fileID: 119602228}
+  - component: {fileID: 119602227}
+  m_Layer: 0
+  m_Name: Right Controller Shell Interactor
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &119602226
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 119602225}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1345342562}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &119602227
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 119602225}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1b53f491f88c4daab41b1d732dd5516d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TheBigRedButtonInstitute.VR.QuestVrTouchPlusControllerOnly
+  autoResolveFromParentAnchor: 1
+  controllerVisualName: Right Controller Visual
+  touchPlusModelRootName: MetaQuestTouchPlus_Right
+--- !u!114 &119602228
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 119602225}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2f5886ffb5c46d8ab8bc281f5bdbd64, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TheBigRedButtonInstitute.BigRedButtonPressInteractor
+  interactionMode: 1
+  interactionRadius: 0.05
+  bodyPadding: 0
+  bodyRenderers: []
+  bodyColliders: []
+  autoResolveBodyRenderersFromParent: 1
+  parentRendererRootName: Right Controller Visual/MetaQuestTouchPlus_Right
+  trackingValid: 0
+  generatedMeshCollidersOnly: 1
+  disableLegacyHandPhysicsCapsules: 1
 --- !u!137 &256577513 stripped
 SkinnedMeshRenderer:
   m_CorrespondingSourceObject: {fileID: -8779325000484960244, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
@@ -468,6 +608,8 @@ MonoBehaviour:
   bodyRenderers:
   - {fileID: 2130166576}
   bodyColliders: []
+  autoResolveBodyRenderersFromParent: 0
+  parentRendererRootName: 
   trackingValid: 1
   generatedMeshCollidersOnly: 1
   disableLegacyHandPhysicsCapsules: 1
@@ -1006,6 +1148,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: -3717114202187975224, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1657561393}
+    - targetCorrespondingSourceObject: {fileID: -7672793155012463815, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1547244645}
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 2242888416370347441, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
       insertIndex: -1
@@ -1172,7 +1317,7 @@ MonoBehaviour:
   triggerSurfaceDiameterScale: 1
   enableTriggerSurfacePressFallback: 0
   alignTriggerColliderToSurface: 1
-  triggerColliderDerivedLocalOffset: {x: 0, y: 0, z: 0}
+  triggerColliderDerivedLocalOffset: {x: 0, y: -0.0027, z: 0.0016}
   triggerColliderManualLocalOffset: {x: 0, y: 0.00158, z: -0.0018}
   logPressCollisionDiagnostics: 1
   pressCollisionDiagnosticCooldownSeconds: 0.2
@@ -1342,6 +1487,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TheBigRedButtonInstitute.BigRedButtonColliderDebugVisual
   role: 1
+  animateScalePulse: 0
+  scaleOnHighlight: 0
 --- !u!1 &795546522
 GameObject:
   m_ObjectHideFlags: 0
@@ -1554,6 +1701,7 @@ Transform:
   m_Children:
   - {fileID: 1616515096}
   - {fileID: 1941538902}
+  - {fileID: 10976773}
   m_Father: {fileID: 920101078}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &887912685
@@ -2278,41 +2426,43 @@ MonoBehaviour:
   m_text: '<b><size=118%><color=#8FE6FF>=== BIG RED BUTTON ===</color></size></b>
 
     <size=78%><color=#7FA6B8>[
-    17:24:17 UTC ]</color></size>
+    22:15:54 UTC ]</color></size>
 
     <size=82%><color=#AFC0CF>Page:</color> <color=#C7FFA2>Dashboard</color></size>
 
     <size=82%><color=#AFC0CF>Message:</color>
     <color=#EAF6FF>center_button executed</color></size>
 
-
+    
 
     <b><color=#66FFCC>[BUTTON]</color></b>
 
     <color=#AFC0CF>Press
     count:</color> <color=#EAF6FF>0</color>
 
-    <color=#AFC0CF>Height:</color> <color=#EAF6FF>n/a</color>
+    <color=#AFC0CF>Height:</color>
+    <color=#EAF6FF>n/a</color>
 
-    <color=#AFC0CF>Distance:</color>
-    <color=#EAF6FF>0.78 m</color>
+    <color=#AFC0CF>Distance:</color> <color=#EAF6FF>0.78
+    m</color>
 
-
+    
 
     <b><color=#FFB56B>[POLAR SNAPSHOT]</color></b>
 
     <color=#AFC0CF>Permissions:</color>
     <color=#EAF6FF>editor runtime</color>
 
-    <color=#AFC0CF>Guidance:</color> <color=#EAF6FF>android
-    build only</color>
+    <color=#AFC0CF>Guidance:</color>
+    <color=#EAF6FF>android build only</color>
 
-    <color=#AFC0CF>Polar:</color> <color=#EAF6FF>idle</color>
+    <color=#AFC0CF>Polar:</color>
+    <color=#EAF6FF>idle</color>
 
-    <color=#AFC0CF>Heart:</color>
-    <color=#EAF6FF>waiting</color>
+    <color=#AFC0CF>Heart:</color> <color=#EAF6FF>waiting</color>
 
-    <color=#AFC0CF>Button drive:</color> <color=#EAF6FF>idle</color>
+    <color=#AFC0CF>Button
+    drive:</color> <color=#EAF6FF>idle</color>
 
     <color=#4C5A66>--------------------</color>
 
@@ -2323,10 +2473,11 @@ MonoBehaviour:
     Up Arrow / Down Arrow</color>  <color=#AFC0CF>Select:</color> <color=#FFD79A>R
     Trigger / Enter</color></size>
 
-    <size=78%><color=#AFC0CF>Pages:</color> <color=#C7FFA2>Dashboard<color=#FFD79A>*</color></color>
-    <color=#7C8A95>|</color> <color=#AFC0CF>Permissions</color> <color=#7C8A95>|</color>
-    <color=#AFC0CF>Signals</color> <color=#7C8A95>|</color> <color=#AFC0CF>Terminal</color>
-    <color=#7C8A95>|</color> <color=#AFC0CF>Input</color></size>'
+    <size=78%><color=#AFC0CF>Pages:</color>
+    <color=#C7FFA2>Dashboard<color=#FFD79A>*</color></color> <color=#7C8A95>|</color>
+    <color=#AFC0CF>Permissions</color> <color=#7C8A95>|</color> <color=#AFC0CF>Signals</color>
+    <color=#7C8A95>|</color> <color=#AFC0CF>Terminal</color> <color=#7C8A95>|</color>
+    <color=#AFC0CF>Input</color></size>'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -2398,7 +2549,82 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
---- !u!43 &1239980614
+--- !u!1 &1277823278
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1277823281}
+  - component: {fileID: 1277823280}
+  - component: {fileID: 1277823279}
+  m_Layer: 2
+  m_Name: Left
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1277823279
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1277823278}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_Material: {fileID: 0}
+  m_Color: {r: 0.38, g: 0.74, b: 0.94, a: 0.92}
+  m_RaycastTarget: 0
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 0
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 0}
+  m_Type: 0
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
+--- !u!222 &1277823280
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1277823278}
+  m_CullTransparentMesh: 1
+--- !u!224 &1277823281
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1277823278}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 893368901}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 1}
+  m_AnchoredPosition: {x: 20, y: 0}
+  m_SizeDelta: {x: 6, y: -40}
+  m_Pivot: {x: 0, y: 0.5}
+--- !u!43 &1278460295
 Mesh:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -2576,81 +2802,6 @@ Mesh:
       - serializedVersion: 1
         m_IndexStart: 0
         m_IndexCount: 0
---- !u!1 &1277823278
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1277823281}
-  - component: {fileID: 1277823280}
-  - component: {fileID: 1277823279}
-  m_Layer: 2
-  m_Name: Left
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1277823279
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1277823278}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
-  m_Material: {fileID: 0}
-  m_Color: {r: 0.38, g: 0.74, b: 0.94, a: 0.92}
-  m_RaycastTarget: 0
-  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
-  m_Maskable: 0
-  m_OnCullStateChanged:
-    m_PersistentCalls:
-      m_Calls: []
-  m_Sprite: {fileID: 0}
-  m_Type: 0
-  m_PreserveAspect: 0
-  m_FillCenter: 1
-  m_FillMethod: 4
-  m_FillAmount: 1
-  m_FillClockwise: 1
-  m_FillOrigin: 0
-  m_UseSpriteMesh: 0
-  m_PixelsPerUnitMultiplier: 1
---- !u!222 &1277823280
-CanvasRenderer:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1277823278}
-  m_CullTransparentMesh: 1
---- !u!224 &1277823281
-RectTransform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1277823278}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 893368901}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 20, y: 0}
-  m_SizeDelta: {x: 6, y: -40}
-  m_Pivot: {x: 0, y: 0.5}
 --- !u!1 &1345342561
 GameObject:
   m_ObjectHideFlags: 0
@@ -2682,8 +2833,79 @@ Transform:
   m_Children:
   - {fileID: 31420507}
   - {fileID: 1574726468}
+  - {fileID: 119602226}
   m_Father: {fileID: 444464803}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1547244644
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1547244645}
+  - component: {fileID: 1547244647}
+  - component: {fileID: 1547244646}
+  m_Layer: 0
+  m_Name: Generated Collider Host
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1547244645
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1547244644}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 0.044531744, y: 0.044531744, z: 0.044531744}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 700491449}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1547244646
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1547244644}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8c34f1000ed442b989d4384541813fe7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TheBigRedButtonInstitute.BigRedButtonColliderDebugVisual
+  role: 2
+  animateScalePulse: 0
+  scaleOnHighlight: 0
+--- !u!64 &1547244647
+MeshCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1547244644}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 5
+  m_Convex: 1
+  m_CookingOptions: 18
+  m_Mesh: {fileID: 1278460295}
 --- !u!1 &1561502109
 GameObject:
   m_ObjectHideFlags: 0
@@ -2819,6 +3041,42 @@ PrefabInstance:
       propertyPath: m_controller
       value: 2
       objectReference: {fileID: 0}
+    - target: {fileID: 11479374, guid: d9809c5e8418bb047bf2c8ba1d1a2cec, type: 3}
+      propertyPath: m_modelMetaTouchProLeftController
+      value: 
+      objectReference: {fileID: 1574726469}
+    - target: {fileID: 11479374, guid: d9809c5e8418bb047bf2c8ba1d1a2cec, type: 3}
+      propertyPath: m_modelMetaTouchPlusLeftController
+      value: 
+      objectReference: {fileID: 1574726469}
+    - target: {fileID: 11479374, guid: d9809c5e8418bb047bf2c8ba1d1a2cec, type: 3}
+      propertyPath: m_modelMetaTouchProRightController
+      value: 
+      objectReference: {fileID: 1574726469}
+    - target: {fileID: 11479374, guid: d9809c5e8418bb047bf2c8ba1d1a2cec, type: 3}
+      propertyPath: m_modelOculusTouchRiftLeftController
+      value: 
+      objectReference: {fileID: 1574726469}
+    - target: {fileID: 11479374, guid: d9809c5e8418bb047bf2c8ba1d1a2cec, type: 3}
+      propertyPath: m_modelOculusTouchRiftRightController
+      value: 
+      objectReference: {fileID: 1574726469}
+    - target: {fileID: 11479374, guid: d9809c5e8418bb047bf2c8ba1d1a2cec, type: 3}
+      propertyPath: m_modelOculusTouchQuest2LeftController
+      value: 
+      objectReference: {fileID: 1574726469}
+    - target: {fileID: 11479374, guid: d9809c5e8418bb047bf2c8ba1d1a2cec, type: 3}
+      propertyPath: m_modelOculusTouchQuest2RightController
+      value: 
+      objectReference: {fileID: 1574726469}
+    - target: {fileID: 11479374, guid: d9809c5e8418bb047bf2c8ba1d1a2cec, type: 3}
+      propertyPath: m_modelOculusTouchQuestAndRiftSLeftController
+      value: 
+      objectReference: {fileID: 1574726469}
+    - target: {fileID: 11479374, guid: d9809c5e8418bb047bf2c8ba1d1a2cec, type: 3}
+      propertyPath: m_modelOculusTouchQuestAndRiftSRightController
+      value: 
+      objectReference: {fileID: 1574726469}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -2827,6 +3085,11 @@ PrefabInstance:
 --- !u!4 &1574726468 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 488160, guid: d9809c5e8418bb047bf2c8ba1d1a2cec, type: 3}
+  m_PrefabInstance: {fileID: 1574726467}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &1574726469 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 3167219928512786494, guid: d9809c5e8418bb047bf2c8ba1d1a2cec, type: 3}
   m_PrefabInstance: {fileID: 1574726467}
   m_PrefabAsset: {fileID: 0}
 --- !u!1 &1577415114 stripped
@@ -2851,11 +3114,11 @@ MeshCollider:
   m_LayerOverridePriority: 0
   m_IsTrigger: 0
   m_ProvidesContacts: 0
-  m_Enabled: 1
+  m_Enabled: 0
   serializedVersion: 5
   m_Convex: 1
   m_CookingOptions: 18
-  m_Mesh: {fileID: 1239980614}
+  m_Mesh: {fileID: 0}
 --- !u!114 &1577415116
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2874,7 +3137,7 @@ MonoBehaviour:
   isTrigger: 0
   surfaceInflation: 0
   cookingOptions: 18
-  serializedSnapshotMesh: {fileID: 1239980614}
+  serializedSnapshotMesh: {fileID: 1278460295}
 --- !u!114 &1577415117
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2882,12 +3145,14 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1577415114}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8c34f1000ed442b989d4384541813fe7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TheBigRedButtonInstitute.BigRedButtonColliderDebugVisual
   role: 2
+  animateScalePulse: 0
+  scaleOnHighlight: 0
 --- !u!114 &1577415118
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3007,6 +3272,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TheBigRedButtonInstitute.BigRedButtonColliderDebugVisual
   role: 2
+  animateScalePulse: 0
+  scaleOnHighlight: 0
 --- !u!65 &1657561395
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -3265,6 +3532,8 @@ MonoBehaviour:
   bodyRenderers:
   - {fileID: 1735088353}
   bodyColliders: []
+  autoResolveBodyRenderersFromParent: 0
+  parentRendererRootName: 
   trackingValid: 1
   generatedMeshCollidersOnly: 1
   disableLegacyHandPhysicsCapsules: 1
@@ -3584,6 +3853,42 @@ PrefabInstance:
       propertyPath: m_controller
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 11479374, guid: d9809c5e8418bb047bf2c8ba1d1a2cec, type: 3}
+      propertyPath: m_modelMetaTouchProLeftController
+      value: 
+      objectReference: {fileID: 1941538903}
+    - target: {fileID: 11479374, guid: d9809c5e8418bb047bf2c8ba1d1a2cec, type: 3}
+      propertyPath: m_modelMetaTouchProRightController
+      value: 
+      objectReference: {fileID: 1941538903}
+    - target: {fileID: 11479374, guid: d9809c5e8418bb047bf2c8ba1d1a2cec, type: 3}
+      propertyPath: m_modelMetaTouchPlusRightController
+      value: 
+      objectReference: {fileID: 1941538903}
+    - target: {fileID: 11479374, guid: d9809c5e8418bb047bf2c8ba1d1a2cec, type: 3}
+      propertyPath: m_modelOculusTouchRiftLeftController
+      value: 
+      objectReference: {fileID: 1941538903}
+    - target: {fileID: 11479374, guid: d9809c5e8418bb047bf2c8ba1d1a2cec, type: 3}
+      propertyPath: m_modelOculusTouchRiftRightController
+      value: 
+      objectReference: {fileID: 1941538903}
+    - target: {fileID: 11479374, guid: d9809c5e8418bb047bf2c8ba1d1a2cec, type: 3}
+      propertyPath: m_modelOculusTouchQuest2LeftController
+      value: 
+      objectReference: {fileID: 1941538903}
+    - target: {fileID: 11479374, guid: d9809c5e8418bb047bf2c8ba1d1a2cec, type: 3}
+      propertyPath: m_modelOculusTouchQuest2RightController
+      value: 
+      objectReference: {fileID: 1941538903}
+    - target: {fileID: 11479374, guid: d9809c5e8418bb047bf2c8ba1d1a2cec, type: 3}
+      propertyPath: m_modelOculusTouchQuestAndRiftSLeftController
+      value: 
+      objectReference: {fileID: 1941538903}
+    - target: {fileID: 11479374, guid: d9809c5e8418bb047bf2c8ba1d1a2cec, type: 3}
+      propertyPath: m_modelOculusTouchQuestAndRiftSRightController
+      value: 
+      objectReference: {fileID: 1941538903}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -3592,6 +3897,11 @@ PrefabInstance:
 --- !u!4 &1941538902 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 488160, guid: d9809c5e8418bb047bf2c8ba1d1a2cec, type: 3}
+  m_PrefabInstance: {fileID: 1941538901}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &1941538903 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 5482576687330655957, guid: d9809c5e8418bb047bf2c8ba1d1a2cec, type: 3}
   m_PrefabInstance: {fileID: 1941538901}
   m_PrefabAsset: {fileID: 0}
 --- !u!1 &2002627720

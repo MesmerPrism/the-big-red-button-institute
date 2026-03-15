@@ -20,6 +20,7 @@ namespace TheBigRedButtonInstitute.Editor
         static readonly Vector3 TriggerSurfaceStableLocalPosition = new(-0.000021076481f, 0.017285282f, 0.0044704f);
         static readonly Vector3 TriggerSurfaceStableLocalEuler = new(328.31277f, 180.4872f, 359.38284f);
         static readonly Vector3 TriggerSurfaceStableLocalSize = new(0.006696218f, 0.0012468889f, 0.006696218f);
+        static readonly Vector3 TriggerColliderStableDerivedLocalOffset = new(0f, -0.0027f, 0.0016f);
         static readonly Vector3 TriggerColliderManualLocalOffset = new(0f, 0.00158f, -0.0018f);
         static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         static readonly int ColorId = Shader.PropertyToID("_Color");
@@ -218,7 +219,7 @@ namespace TheBigRedButtonInstitute.Editor
             serializedController.FindProperty("triggerSurfaceDiameterScale").floatValue = 1f;
             serializedController.FindProperty("enableTriggerSurfacePressFallback").boolValue = false;
             serializedController.FindProperty("alignTriggerColliderToSurface").boolValue = true;
-            serializedController.FindProperty("triggerColliderDerivedLocalOffset").vector3Value = Vector3.zero;
+            serializedController.FindProperty("triggerColliderDerivedLocalOffset").vector3Value = TriggerColliderStableDerivedLocalOffset;
             serializedController.FindProperty("triggerColliderManualLocalOffset").vector3Value = TriggerColliderManualLocalOffset;
             serializedController.FindProperty("logPressCollisionDiagnostics").boolValue = true;
             serializedController.ApplyModifiedPropertiesWithoutUndo();

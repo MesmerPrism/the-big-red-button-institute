@@ -19,6 +19,8 @@ namespace TheBigRedButtonInstitute
         [SerializeField, Min(0f)] float bodyPadding;
         [SerializeField] Renderer[] bodyRenderers = System.Array.Empty<Renderer>();
         [SerializeField] Collider[] bodyColliders = System.Array.Empty<Collider>();
+        [SerializeField] bool autoResolveBodyRenderersFromParent;
+        [SerializeField] string parentRendererRootName = string.Empty;
         [SerializeField] bool trackingValid = true;
         [SerializeField] bool generatedMeshCollidersOnly = true;
         [SerializeField] bool disableLegacyHandPhysicsCapsules = true;
@@ -64,6 +66,22 @@ namespace TheBigRedButtonInstitute
             bodyPadding = Mathf.Max(0f, padding);
             bodyRenderers = SanitizeRenderers(renderers);
             bodyColliders = System.Array.Empty<Collider>();
+            autoResolveBodyRenderersFromParent = false;
+            parentRendererRootName = string.Empty;
+            trackingValid = true;
+            _nextBodySourceRefreshTime = 0f;
+            _hasLoggedSetup = false;
+        }
+
+        public void ConfigureBodyFromParent(string rendererRootName, float padding = 0f)
+        {
+            interactionMode = InteractionMode.RendererBody;
+            bodyPadding = Mathf.Max(0f, padding);
+            bodyRenderers = System.Array.Empty<Renderer>();
+            bodyColliders = System.Array.Empty<Collider>();
+            autoResolveBodyRenderersFromParent = true;
+            parentRendererRootName = rendererRootName ?? string.Empty;
+            trackingValid = true;
             _nextBodySourceRefreshTime = 0f;
             _hasLoggedSetup = false;
         }
@@ -186,7 +204,7 @@ namespace TheBigRedButtonInstitute
 
             if (bodyRenderers == null || bodyRenderers.Length == 0)
             {
-                bodyRenderers = SanitizeRenderers(GetComponentsInChildren<Renderer>(true));
+                bodyRenderers = ResolveConfiguredBodyRenderers();
             }
 
             return bodyRenderers;
@@ -196,7 +214,7 @@ namespace TheBigRedButtonInstitute
         {
             if (forceRendererRefresh)
             {
-                bodyRenderers = SanitizeRenderers(bodyRenderers);
+                bodyRenderers = ResolveConfiguredBodyRenderers();
             }
 
             var colliders = new List<Collider>();
@@ -401,6 +419,33 @@ namespace TheBigRedButtonInstitute
             }
 
             return path;
+        }
+
+        Renderer[] ResolveConfiguredBodyRenderers()
+        {
+            if (autoResolveBodyRenderersFromParent)
+            {
+                var parentTransform = transform.parent;
+                if (parentTransform == null)
+                {
+                    return System.Array.Empty<Renderer>();
+                }
+
+                if (!string.IsNullOrWhiteSpace(parentRendererRootName))
+                {
+                    var rendererRoot = parentTransform.Find(parentRendererRootName);
+                    if (rendererRoot != null)
+                    {
+                        return SanitizeRenderers(rendererRoot.GetComponentsInChildren<Renderer>(true));
+                    }
+                }
+
+                return SanitizeRenderers(parentTransform.GetComponentsInChildren<Renderer>(true));
+            }
+
+            return bodyRenderers != null && bodyRenderers.Length > 0
+                ? SanitizeRenderers(bodyRenderers)
+                : SanitizeRenderers(GetComponentsInChildren<Renderer>(true));
         }
 
         static void DisableHandPhysicsCapsules(OVRSkeleton skeleton)

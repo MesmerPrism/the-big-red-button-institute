@@ -567,25 +567,27 @@ namespace TheBigRedButtonInstitute
             BigRedButtonGeneratedBodyCollider colliderGenerator,
             Transform surfaceTransform)
         {
-            if (renderer == null || colliderGenerator == null || surfaceTransform == null)
+            if (colliderGenerator == null)
             {
                 return;
             }
 
-            if (!TryGetDefaultTriggerSurfacePose(
+            // Keep normal play locked to the authored cap offset. Only calibration mode
+            // recomputes the derived correction from the movable trigger surface.
+            if (triggerSurfaceAlignmentMode &&
+                renderer != null &&
+                surfaceTransform != null &&
+                TryGetDefaultTriggerSurfacePose(
                     renderer,
                     out var baseCenterWorld,
                     out _,
                     out _,
                     out _))
             {
-                triggerColliderDerivedLocalOffset = Vector3.zero;
-                colliderGenerator.SetColliderHostLocalPositionOffset(triggerColliderManualLocalOffset);
-                return;
+                var correctionWorld = surfaceTransform.position - baseCenterWorld;
+                triggerColliderDerivedLocalOffset = renderer.transform.InverseTransformVector(correctionWorld);
             }
 
-            var correctionWorld = surfaceTransform.position - baseCenterWorld;
-            triggerColliderDerivedLocalOffset = renderer.transform.InverseTransformVector(correctionWorld);
             var finalLocalOffset = (alignTriggerColliderToSurface ? triggerColliderDerivedLocalOffset : Vector3.zero) +
                 triggerColliderManualLocalOffset;
             colliderGenerator.SetColliderHostLocalPositionOffset(finalLocalOffset);

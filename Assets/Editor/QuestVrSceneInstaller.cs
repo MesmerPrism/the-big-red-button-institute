@@ -479,6 +479,8 @@ namespace TheBigRedButtonInstitute.Editor
             RemovePressInteractor(rightHandAnchor, "Right Controller Body Interactor");
             RemovePressInteractor(leftControllerAnchor, "Left Controller Body Interactor");
             RemovePressInteractor(rightControllerAnchor, "Right Controller Body Interactor");
+            RemovePressInteractor(leftControllerAnchor, "Left Controller Shell Interactor");
+            RemovePressInteractor(rightControllerAnchor, "Right Controller Shell Interactor");
             RemovePressInteractor(deprecatedLeftHandAnchor, "Left Hand Press Interactor");
             RemovePressInteractor(deprecatedRightHandAnchor, "Right Hand Press Interactor");
             RemovePressInteractor(deprecatedLeftControllerAnchor, "Left Controller Press Interactor");
@@ -487,6 +489,8 @@ namespace TheBigRedButtonInstitute.Editor
             RemovePressInteractor(deprecatedRightHandAnchor, "Right Input Body Interactor");
             RemovePressInteractor(deprecatedLeftControllerAnchor, "Left Input Body Interactor");
             RemovePressInteractor(deprecatedRightControllerAnchor, "Right Input Body Interactor");
+            RemovePressInteractor(deprecatedLeftControllerAnchor, "Left Controller Shell Interactor");
+            RemovePressInteractor(deprecatedRightControllerAnchor, "Right Controller Shell Interactor");
 
             var leftHand = FindDirectChildComponent<OVRHand>(leftHandAnchor);
             var rightHand = FindDirectChildComponent<OVRHand>(rightHandAnchor);
@@ -500,6 +504,22 @@ namespace TheBigRedButtonInstitute.Editor
                 "Right Hand Body Interactor",
                 0f,
                 rightHand != null ? rightHand.gameObject : null);
+            EnsureParentResolvedBodyPressInteractor(
+                leftControllerAnchor,
+                "Left Controller Shell Interactor",
+                0f,
+                "Left Controller Visual/MetaQuestTouchPlus_Left",
+                "Left Controller Visual",
+                "MetaQuestTouchPlus_Left",
+                participatesInPresses: false);
+            EnsureParentResolvedBodyPressInteractor(
+                rightControllerAnchor,
+                "Right Controller Shell Interactor",
+                0f,
+                "Right Controller Visual/MetaQuestTouchPlus_Right",
+                "Right Controller Visual",
+                "MetaQuestTouchPlus_Right",
+                participatesInPresses: false);
         }
 
         static GameObject EnsureBodyPressInteractor(Transform anchor, string interactorName, float padding, params GameObject[] bodyRoots)
@@ -534,6 +554,63 @@ namespace TheBigRedButtonInstitute.Editor
             var renderers = CollectRenderers(bodyRoots);
             interactor.ConfigureBody(renderers, padding);
             interactor.SetTrackingValid(renderers.Length > 0);
+
+            var serializedInteractor = new SerializedObject(interactor);
+            serializedInteractor.FindProperty("generatedMeshCollidersOnly").boolValue = true;
+            serializedInteractor.FindProperty("disableLegacyHandPhysicsCapsules").boolValue = true;
+            serializedInteractor.ApplyModifiedPropertiesWithoutUndo();
+
+            EditorUtility.SetDirty(interactor);
+            EditorUtility.SetDirty(interactorObject);
+            return interactorObject;
+        }
+
+        static GameObject EnsureParentResolvedBodyPressInteractor(
+            Transform anchor,
+            string interactorName,
+            float padding,
+            string rendererRootName,
+            string controllerVisualName,
+            string touchPlusModelRootName,
+            bool participatesInPresses)
+        {
+            if (anchor == null)
+            {
+                return null;
+            }
+
+            var interactorTransform = anchor.Find(interactorName);
+            GameObject interactorObject;
+            if (interactorTransform == null)
+            {
+                interactorObject = new GameObject(interactorName);
+                interactorObject.transform.SetParent(anchor, false);
+            }
+            else
+            {
+                interactorObject = interactorTransform.gameObject;
+            }
+
+            interactorObject.transform.localPosition = Vector3.zero;
+            interactorObject.transform.localRotation = Quaternion.identity;
+            interactorObject.transform.localScale = Vector3.one;
+
+            var interactor = interactorObject.GetComponent<BigRedButtonPressInteractor>();
+            if (interactor == null)
+            {
+                interactor = interactorObject.AddComponent<BigRedButtonPressInteractor>();
+            }
+
+            interactor.ConfigureBodyFromParent(rendererRootName, padding);
+            interactor.SetTrackingValid(participatesInPresses);
+
+            var touchPlusOverride = interactorObject.GetComponent<QuestVrTouchPlusControllerOnly>();
+            if (touchPlusOverride == null)
+            {
+                touchPlusOverride = interactorObject.AddComponent<QuestVrTouchPlusControllerOnly>();
+            }
+
+            touchPlusOverride.Configure(controllerVisualName, touchPlusModelRootName);
 
             var serializedInteractor = new SerializedObject(interactor);
             serializedInteractor.FindProperty("generatedMeshCollidersOnly").boolValue = true;
