@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using TheBigRedButtonInstitute.Biofeedback;
+using TheBigRedButtonInstitute.RustyXrBroker;
 using UnityEngine;
+using UnityEngine.XR;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
 #endif
@@ -18,6 +20,7 @@ namespace TheBigRedButtonInstitute.VR
         const string NextPageControlLabel = "R Stick Right / Right Arrow";
         const string CommandMoveControlLabel = "R Stick Up/Down / Up Arrow / Down Arrow";
         const string CommandActivateControlLabel = "R Trigger / Enter";
+        const string BrokerOpenUiLaunchExtra = "rustyxr.brokerOpenUi";
 
         public enum VrActionId
         {
@@ -27,7 +30,8 @@ namespace TheBigRedButtonInstitute.VR
             SelectNextCommand = 3,
             ExecuteSelectedCommand = 4,
             CenterButton = 5,
-            ReplayButtonPress = 6
+            ReplayButtonPress = 6,
+            OpenBrokerConsole = 7
         }
 
         public enum VrTerminalCommandId
@@ -40,7 +44,13 @@ namespace TheBigRedButtonInstitute.VR
             PolarConnect = 5,
             PolarScan = 6,
             PolarClearSavedDevice = 7,
-            PolarRequestPermissions = 8
+            PolarRequestPermissions = 8,
+            BrokerStatus = 9,
+            BrokerConnect = 10,
+            BrokerSubscribe = 11,
+            BrokerDriveButton = 12,
+            BrokerOpenUi = 13,
+            BrokerCloseUi = 14
         }
 
         public enum VrControllerButtonId
@@ -114,10 +124,14 @@ namespace TheBigRedButtonInstitute.VR
         [SerializeField] BigRedButtonManualPressController manualPressController;
         [SerializeField] PolarH10RuntimeManager polarRuntimeManager;
         [SerializeField] PolarHeartbeatButtonDriver polarHeartbeatButtonDriver;
+        [SerializeField] RustyXrBrokerClient brokerClient;
+        [SerializeField] RustyXrBrokerButtonDriver brokerButtonDriver;
+        [SerializeField] QuestVrRustyXrBrokerButtonBridge brokerButtonBridge;
 
         [Header("Behavior")]
         [SerializeField] bool autoResolveReferences = true;
         [SerializeField] bool placeButtonOnStartup = true;
+        [SerializeField] bool keepButtonInFrontOfHead = true;
         [SerializeField] bool enableSimultaneousHandsAndControllers = true;
         [SerializeField, Min(0f)] float startupPlacementDelay = 0.2f;
         [SerializeField, Min(0.2f)] float buttonDistanceFromHead = 0.48f;
@@ -125,6 +139,7 @@ namespace TheBigRedButtonInstitute.VR
         [SerializeField, Min(0.4f)] float minimumButtonHeight = 0.54f;
         [SerializeField, Min(0.1f)] float targetButtonHeight = 0.36f;
         [SerializeField] Vector3 buttonRotationOffsetEuler;
+        [SerializeField] bool allowBrokerOpenUiLaunchExtra = true;
 
         [Header("HUD Page Flick")]
         [SerializeField] bool enableHudPageFlickNavigation = true;
@@ -149,7 +164,13 @@ namespace TheBigRedButtonInstitute.VR
         int _buttonPressCount;
         bool _hasPlacedButtonOnStartup;
         bool _hasConfiguredSimultaneousHandsAndControllers;
+        bool _brokerOpenUiLaunchExtraChecked;
+        bool _brokerOpenUiLaunchExtraPending;
+        bool _rightPrimaryBrokerOpenWasPressed;
+        bool _brokerConsoleCloseProbeArmed;
         float _startupPlacementTime;
+        double _nextBrokerOpenUiLaunchAttempt;
+        int _brokerOpenShortcutFrame = -1;
 
         public IReadOnlyList<ActionBinding> Bindings => bindings;
         public IReadOnlyList<TerminalCommand> Commands => commands;
@@ -186,7 +207,10 @@ namespace TheBigRedButtonInstitute.VR
             ResolveReferences(forceRefresh: false);
             TryConfigureSimultaneousHandsAndControllers();
             TryPlaceButtonOnStartup();
+            TryKeepButtonInFrontOfHead();
+            TryHandleBrokerOpenUiLaunchExtra();
             ProcessHudNavigation();
+            ProcessBrokerOpenUiPrimaryShortcut();
             ProcessBindings();
         }
 
@@ -209,6 +233,16 @@ namespace TheBigRedButtonInstitute.VR
             polarHeartbeatButtonDriver = heartbeatButtonDriver;
         }
 
+        public void ConfigureBrokerReferences(
+            RustyXrBrokerClient client,
+            RustyXrBrokerButtonDriver buttonDriver,
+            QuestVrRustyXrBrokerButtonBridge buttonBridge)
+        {
+            brokerClient = client;
+            brokerButtonDriver = buttonDriver;
+            brokerButtonBridge = buttonBridge;
+        }
+
         public void EnsureConfiguration()
         {
             bindings ??= new List<ActionBinding>();
@@ -216,6 +250,7 @@ namespace TheBigRedButtonInstitute.VR
             MigrateLegacyBindings();
             RemoveLegacyCommandCursorBindings();
             MergeMissingBindings();
+            EnsureBrokerOpenUiPrimaryButtonBinding();
             MergeMissingCommands();
         }
 
@@ -294,19 +329,17 @@ namespace TheBigRedButtonInstitute.VR
 
             EnsureReasonableButtonScale();
 
-            var horizontalForward = Vector3.ProjectOnPlane(headTransform.forward, Vector3.up);
-            if (horizontalForward.sqrMagnitude < 0.001f)
+            if (!TryResolveButtonPoseInFrontOfHead(out var targetPosition, out var targetRotation))
             {
-                horizontalForward = headTransform.forward;
+                if (reportToHud)
+                {
+                    hud?.SetTransientMessage("center_button failed: invalid head direction");
+                }
+
+                return false;
             }
 
-            horizontalForward.Normalize();
-
-            var targetPosition = headTransform.position + horizontalForward * buttonDistanceFromHead;
-            targetPosition.y = Mathf.Max(minimumButtonHeight, headTransform.position.y + buttonVerticalOffset);
-
-            buttonTransform.position = targetPosition;
-            buttonTransform.rotation = Quaternion.LookRotation(-horizontalForward, Vector3.up) * Quaternion.Euler(buttonRotationOffsetEuler);
+            buttonTransform.SetPositionAndRotation(targetPosition, targetRotation);
 
             _hasPlacedButtonOnStartup = true;
             if (reportToHud)
@@ -391,6 +424,11 @@ namespace TheBigRedButtonInstitute.VR
                 }
 
                 if (binding.action == VrActionId.SelectPreviousCommand || binding.action == VrActionId.SelectNextCommand)
+                {
+                    continue;
+                }
+
+                if (binding.action == VrActionId.OpenBrokerConsole && _brokerOpenShortcutFrame == Time.frameCount)
                 {
                     continue;
                 }
@@ -532,6 +570,9 @@ namespace TheBigRedButtonInstitute.VR
                 case VrActionId.ReplayButtonPress:
                     ReplayButtonPress();
                     break;
+                case VrActionId.OpenBrokerConsole:
+                    ToggleBrokerConsoleShortcut("binding", primaryShortcut: false);
+                    break;
             }
         }
 
@@ -593,6 +634,61 @@ namespace TheBigRedButtonInstitute.VR
                     polarRuntimeManager.RequestBlePermissionsOnly();
                     hud?.SetTransientMessage("polar_permissions requested");
                     break;
+                case VrTerminalCommandId.BrokerStatus:
+                    if (brokerClient == null)
+                    {
+                        hud?.SetTransientMessage("broker_status failed: client missing");
+                        break;
+                    }
+
+                    brokerClient.RequestStatus();
+                    var brokerStatus = brokerClient.BuildStatusLabel();
+                    Debug.Log($"[QuestVrInputManager] broker {brokerStatus}", this);
+                    hud?.SetTransientMessage($"broker: {brokerStatus}");
+                    break;
+                case VrTerminalCommandId.BrokerConnect:
+                    if (brokerClient == null)
+                    {
+                        hud?.SetTransientMessage("broker_connect failed: client missing");
+                        break;
+                    }
+
+                    brokerClient.ConnectNow();
+                    hud?.SetTransientMessage("broker_connect requested");
+                    break;
+                case VrTerminalCommandId.BrokerSubscribe:
+                    if (brokerClient == null)
+                    {
+                        hud?.SetTransientMessage("broker_subscribe failed: client missing");
+                        break;
+                    }
+
+                    var subscriptions = brokerClient.SubscribeToDefaultStreams();
+                    hud?.SetTransientMessage($"broker_subscribe requested: {subscriptions}");
+                    break;
+                case VrTerminalCommandId.BrokerOpenUi:
+                    OpenBrokerConsole();
+                    break;
+                case VrTerminalCommandId.BrokerCloseUi:
+                    CloseBrokerConsole("terminal");
+                    break;
+                case VrTerminalCommandId.BrokerDriveButton:
+                    if (brokerButtonDriver == null)
+                    {
+                        hud?.SetTransientMessage("broker_drive_button failed: driver missing");
+                        break;
+                    }
+
+                    if (brokerButtonDriver.ApplyBrokerDriveValue(1f, Time.unscaledTimeAsDouble, true))
+                    {
+                        hud?.SetTransientMessage("broker_drive_button executed");
+                    }
+                    else
+                    {
+                        hud?.SetTransientMessage($"broker_drive_button ignored: {brokerButtonDriver.DriveStateLabel}");
+                    }
+
+                    break;
             }
         }
 
@@ -605,6 +701,182 @@ namespace TheBigRedButtonInstitute.VR
             }
 
             hud?.SetTransientMessage("press_button executed");
+        }
+
+        void OpenBrokerConsole()
+        {
+            if (brokerClient == null)
+            {
+                hud?.SetTransientMessage("broker_open_ui failed: client missing");
+                return;
+            }
+
+            if (!brokerClient.IsConnected)
+            {
+                brokerClient.ConnectNow();
+                hud?.SetTransientMessage("broker_open_ui waiting for connection");
+                return;
+            }
+
+            if (brokerClient.OpenBrokerConsole())
+            {
+                _brokerConsoleCloseProbeArmed = true;
+                hud?.SetTransientMessage("broker_open_ui requested");
+                Debug.Log("[QuestVrInputManager] broker_open_ui requested", this);
+            }
+            else
+            {
+                hud?.SetTransientMessage($"broker_open_ui failed: {brokerClient.LastError}");
+            }
+        }
+
+        void CloseBrokerConsole(string source)
+        {
+            if (brokerClient == null)
+            {
+                hud?.SetTransientMessage("broker_close_ui failed: client missing");
+                return;
+            }
+
+            if (!brokerClient.IsConnected)
+            {
+                brokerClient.ConnectNow();
+                hud?.SetTransientMessage("broker_close_ui waiting for connection");
+                return;
+            }
+
+            if (brokerClient.CloseBrokerConsole())
+            {
+                _brokerConsoleCloseProbeArmed = false;
+                hud?.SetTransientMessage("broker_close_ui requested");
+                Debug.Log($"[QuestVrInputManager] broker_close_ui requested source={source}", this);
+            }
+            else
+            {
+                hud?.SetTransientMessage($"broker_close_ui failed: {brokerClient.LastError}");
+            }
+        }
+
+        void ProcessBrokerOpenUiPrimaryShortcut()
+        {
+            var pressed = TryReadRightPrimaryBrokerOpenPressed(out var source);
+            if (pressed && !_rightPrimaryBrokerOpenWasPressed)
+            {
+                _brokerOpenShortcutFrame = Time.frameCount;
+                ToggleBrokerConsoleShortcut(source, primaryShortcut: true);
+            }
+
+            _rightPrimaryBrokerOpenWasPressed = pressed;
+        }
+
+        void ToggleBrokerConsoleShortcut(string source, bool primaryShortcut)
+        {
+            var prefix = primaryShortcut ? "primary shortcut" : "shortcut";
+            if (_brokerConsoleCloseProbeArmed)
+            {
+                Debug.Log($"[QuestVrInputManager] broker_close_ui {prefix} source={source}", this);
+                CloseBrokerConsole(primaryShortcut ? $"primary:{source}" : $"shortcut:{source}");
+            }
+            else
+            {
+                Debug.Log($"[QuestVrInputManager] broker_open_ui {prefix} source={source}", this);
+                OpenBrokerConsole();
+            }
+        }
+
+        static bool TryReadRightPrimaryBrokerOpenPressed(out string source)
+        {
+            if (OVRInput.Get(OVRInput.RawButton.A))
+            {
+                source = "ovr_raw_a";
+                return true;
+            }
+
+            if (OVRInput.Get(OVRInput.Button.One, OVRInput.Controller.RTouch))
+            {
+                source = "ovr_button_one_right";
+                return true;
+            }
+
+            var rightHand = InputDevices.GetDeviceAtXRNode(XRNode.RightHand);
+            if (rightHand.isValid &&
+                rightHand.TryGetFeatureValue(UnityEngine.XR.CommonUsages.primaryButton, out var primaryButton) &&
+                primaryButton)
+            {
+                source = "xr_common_primary_right";
+                return true;
+            }
+
+            source = "";
+            return false;
+        }
+
+        void TryHandleBrokerOpenUiLaunchExtra()
+        {
+            if (!allowBrokerOpenUiLaunchExtra)
+            {
+                return;
+            }
+
+            if (!_brokerOpenUiLaunchExtraChecked)
+            {
+                _brokerOpenUiLaunchExtraChecked = true;
+                _brokerOpenUiLaunchExtraPending = ReadBrokerOpenUiLaunchExtra();
+                if (_brokerOpenUiLaunchExtraPending)
+                {
+                    Debug.Log("[QuestVrInputManager] broker_open_ui launch extra received", this);
+                }
+            }
+
+            if (!_brokerOpenUiLaunchExtraPending)
+            {
+                return;
+            }
+
+            if (Time.unscaledTimeAsDouble < _nextBrokerOpenUiLaunchAttempt)
+            {
+                return;
+            }
+
+            _nextBrokerOpenUiLaunchAttempt = Time.unscaledTimeAsDouble + 0.5d;
+            if (brokerClient == null)
+            {
+                return;
+            }
+
+            if (!brokerClient.IsConnected)
+            {
+                brokerClient.ConnectNow();
+                return;
+            }
+
+            if (brokerClient.OpenBrokerConsole())
+            {
+                _brokerConsoleCloseProbeArmed = true;
+                _brokerOpenUiLaunchExtraPending = false;
+                hud?.SetTransientMessage("broker_open_ui launch extra requested");
+                Debug.Log("[QuestVrInputManager] broker_open_ui requested from launch extra", this);
+            }
+        }
+
+        static bool ReadBrokerOpenUiLaunchExtra()
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            try
+            {
+                using var unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer");
+                using var activity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity");
+                using var intent = activity?.Call<AndroidJavaObject>("getIntent");
+                return intent != null && intent.Call<bool>("getBooleanExtra", BrokerOpenUiLaunchExtra, false);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[QuestVrInputManager] broker_open_ui launch extra check failed: {ex.Message}");
+                return false;
+            }
+#else
+            return false;
+#endif
         }
 
         string BuildStatusSummary()
@@ -637,12 +909,20 @@ namespace TheBigRedButtonInstitute.VR
                 summary.Append(polarRuntimeManager.BuildPlainStatusSummary());
             }
 
+            if (brokerClient != null)
+            {
+                summary.Append(" / broker ");
+                summary.Append(brokerClient.BuildStatusLabel());
+            }
+
             return summary.ToString();
         }
 
         void AppendDashboardPage(StringBuilder builder)
         {
             AppendButtonSection(builder);
+            builder.AppendLine();
+            AppendBrokerSection(builder);
             builder.AppendLine();
             builder.AppendLine("<b><color=#FFB56B>[POLAR SNAPSHOT]</color></b>");
             if (polarRuntimeManager == null)
@@ -693,6 +973,31 @@ namespace TheBigRedButtonInstitute.VR
             builder.AppendLine($"<color=#AFC0CF>Button drive:</color> <color=#EAF6FF>{EscapeRichText(GetButtonDriveLabel())}</color>");
             builder.AppendLine($"<color=#AFC0CF>Press count:</color> <color=#EAF6FF>{_buttonPressCount:N0}</color>");
             builder.AppendLine($"<color=#AFC0CF>Status:</color> <color=#EAF6FF>{EscapeRichText(polarRuntimeManager.StatusMessage)}</color>");
+            builder.AppendLine();
+            AppendBrokerSection(builder);
+        }
+
+        void AppendBrokerSection(StringBuilder builder)
+        {
+            builder.AppendLine("<b><color=#66FFCC>[RUSTY XR BROKER]</color></b>");
+            if (brokerClient == null)
+            {
+                builder.AppendLine("<color=#AFC0CF>Status:</color> <color=#97A9B6>client unavailable</color>");
+                return;
+            }
+
+            builder.AppendLine($"<color=#AFC0CF>Status:</color> <color=#EAF6FF>{EscapeRichText(brokerClient.BuildStatusLabel())}</color>");
+            builder.AppendLine($"<color=#AFC0CF>Last:</color> <color=#EAF6FF>{EscapeRichText(brokerClient.LastStatus)}</color>");
+            if (brokerButtonDriver != null)
+            {
+                builder.AppendLine($"<color=#AFC0CF>Drive:</color> <color=#EAF6FF>{EscapeRichText(brokerButtonDriver.DriveStateLabel)}</color>");
+                builder.AppendLine($"<color=#AFC0CF>Drive pulses:</color> <color=#EAF6FF>{brokerButtonDriver.TriggerCount:N0}</color>");
+            }
+
+            if (brokerButtonBridge != null)
+            {
+                builder.AppendLine($"<color=#AFC0CF>Button bridge:</color> <color=#EAF6FF>{EscapeRichText(brokerButtonBridge.LastState)}</color>");
+            }
         }
 
         void AppendTerminalPage(StringBuilder builder, int selectedCommandIndex)
@@ -798,6 +1103,11 @@ namespace TheBigRedButtonInstitute.VR
 
         string GetButtonDriveLabel()
         {
+            if (brokerButtonDriver != null)
+            {
+                return $"broker {brokerButtonDriver.DriveStateLabel}";
+            }
+
             return polarHeartbeatButtonDriver != null ? polarHeartbeatButtonDriver.DriveStateLabel : "manual only";
         }
 
@@ -864,9 +1174,10 @@ namespace TheBigRedButtonInstitute.VR
         {
             return new List<ActionBinding>
             {
-                new() { controllerButton = VrControllerButtonId.RightPrimaryButtonA, keyboardKey = KeyCode.C, action = VrActionId.CenterButton, label = "center_button" },
+                new() { controllerButton = VrControllerButtonId.RightSecondaryButtonB, keyboardKey = KeyCode.C, action = VrActionId.CenterButton, label = "center_button" },
                 new() { controllerButton = VrControllerButtonId.RightGripTrigger, keyboardKey = KeyCode.H, action = VrActionId.ToggleHud, label = "toggle_hud" },
-                new() { controllerButton = VrControllerButtonId.RightIndexTrigger, keyboardKey = KeyCode.Return, action = VrActionId.ExecuteSelectedCommand, label = "execute_command" }
+                new() { controllerButton = VrControllerButtonId.RightIndexTrigger, keyboardKey = KeyCode.Return, action = VrActionId.ExecuteSelectedCommand, label = "execute_command" },
+                new() { controllerButton = VrControllerButtonId.RightPrimaryButtonA, keyboardKey = KeyCode.O, action = VrActionId.OpenBrokerConsole, label = "broker_open_ui" }
             };
         }
 
@@ -899,6 +1210,43 @@ namespace TheBigRedButtonInstitute.VR
                 {
                     bindings.RemoveAt(i);
                 }
+            }
+        }
+
+        void EnsureBrokerOpenUiPrimaryButtonBinding()
+        {
+            var foundOpenUi = false;
+            for (var i = 0; i < bindings.Count; i++)
+            {
+                var binding = bindings[i];
+                if (binding.action == VrActionId.OpenBrokerConsole)
+                {
+                    binding.controllerButton = VrControllerButtonId.RightPrimaryButtonA;
+                    binding.keyboardKey = KeyCode.O;
+                    binding.label = "broker_open_ui";
+                    bindings[i] = binding;
+                    foundOpenUi = true;
+                    continue;
+                }
+
+                if (binding.controllerButton == VrControllerButtonId.RightPrimaryButtonA)
+                {
+                    binding.controllerButton = binding.action == VrActionId.CenterButton
+                        ? VrControllerButtonId.RightSecondaryButtonB
+                        : VrControllerButtonId.None;
+                    bindings[i] = binding;
+                }
+            }
+
+            if (!foundOpenUi)
+            {
+                bindings.Add(new ActionBinding
+                {
+                    controllerButton = VrControllerButtonId.RightPrimaryButtonA,
+                    keyboardKey = KeyCode.O,
+                    action = VrActionId.OpenBrokerConsole,
+                    label = "broker_open_ui"
+                });
             }
         }
 
@@ -954,6 +1302,12 @@ namespace TheBigRedButtonInstitute.VR
                 new() { command = "polar_connect", description = "request BLE permissions and reconnect to Polar", action = VrTerminalCommandId.PolarConnect },
                 new() { command = "polar_scan", description = "scan for nearby Polar H10 devices", action = VrTerminalCommandId.PolarScan },
                 new() { command = "polar_clear_saved_device", description = "forget the saved Polar device address", action = VrTerminalCommandId.PolarClearSavedDevice },
+                new() { command = "broker_status", description = "request broker status", action = VrTerminalCommandId.BrokerStatus },
+                new() { command = "broker_connect", description = "connect the localhost broker client", action = VrTerminalCommandId.BrokerConnect },
+                new() { command = "broker_open_ui", description = "open the broker 2D console", action = VrTerminalCommandId.BrokerOpenUi },
+                new() { command = "broker_close_ui", description = "close the broker 2D console", action = VrTerminalCommandId.BrokerCloseUi },
+                new() { command = "broker_subscribe", description = "subscribe to broker test streams", action = VrTerminalCommandId.BrokerSubscribe },
+                new() { command = "broker_drive_button", description = "drive the button from broker path", action = VrTerminalCommandId.BrokerDriveButton },
                 new() { command = "center_button", description = "place the button in front of the viewer", action = VrTerminalCommandId.CenterButton },
                 new() { command = "press_button", description = "play the imported press animation once", action = VrTerminalCommandId.PressButton },
                 new() { command = "toggle_hud", description = "show or hide the overlay", action = VrTerminalCommandId.ToggleHud },
@@ -1111,6 +1465,54 @@ namespace TheBigRedButtonInstitute.VR
             CenterButtonInFrontOfHead(reportToHud: false);
         }
 
+        void TryKeepButtonInFrontOfHead()
+        {
+            if (!keepButtonInFrontOfHead ||
+                !Application.isPlaying ||
+                !_hasPlacedButtonOnStartup ||
+                buttonTransform == null ||
+                headTransform == null)
+            {
+                return;
+            }
+
+            if (!TryResolveButtonPoseInFrontOfHead(out var targetPosition, out var targetRotation))
+            {
+                return;
+            }
+
+            buttonTransform.SetPositionAndRotation(targetPosition, targetRotation);
+        }
+
+        bool TryResolveButtonPoseInFrontOfHead(out Vector3 targetPosition, out Quaternion targetRotation)
+        {
+            targetPosition = default;
+            targetRotation = default;
+
+            if (buttonTransform == null || headTransform == null)
+            {
+                return false;
+            }
+
+            var horizontalForward = Vector3.ProjectOnPlane(headTransform.forward, Vector3.up);
+            if (horizontalForward.sqrMagnitude < 0.001f)
+            {
+                horizontalForward = headTransform.forward;
+            }
+
+            if (horizontalForward.sqrMagnitude < 0.001f)
+            {
+                return false;
+            }
+
+            horizontalForward.Normalize();
+
+            targetPosition = headTransform.position + horizontalForward * buttonDistanceFromHead;
+            targetPosition.y = Mathf.Max(minimumButtonHeight, headTransform.position.y + buttonVerticalOffset);
+            targetRotation = Quaternion.LookRotation(-horizontalForward, Vector3.up) * Quaternion.Euler(buttonRotationOffsetEuler);
+            return true;
+        }
+
         void ResolveReferences(bool forceRefresh)
         {
             if (!autoResolveReferences && !forceRefresh)
@@ -1177,6 +1579,33 @@ namespace TheBigRedButtonInstitute.VR
                 if (polarHeartbeatButtonDriver == null)
                 {
                     polarHeartbeatButtonDriver = FindAnyObjectByType<PolarHeartbeatButtonDriver>();
+                }
+            }
+
+            if (brokerClient == null || forceRefresh)
+            {
+                brokerClient = GetComponent<RustyXrBrokerClient>();
+                if (brokerClient == null)
+                {
+                    brokerClient = FindAnyObjectByType<RustyXrBrokerClient>();
+                }
+            }
+
+            if (brokerButtonDriver == null || forceRefresh)
+            {
+                brokerButtonDriver = GetComponent<RustyXrBrokerButtonDriver>();
+                if (brokerButtonDriver == null)
+                {
+                    brokerButtonDriver = FindAnyObjectByType<RustyXrBrokerButtonDriver>();
+                }
+            }
+
+            if (brokerButtonBridge == null || forceRefresh)
+            {
+                brokerButtonBridge = GetComponent<QuestVrRustyXrBrokerButtonBridge>();
+                if (brokerButtonBridge == null)
+                {
+                    brokerButtonBridge = FindAnyObjectByType<QuestVrRustyXrBrokerButtonBridge>();
                 }
             }
         }

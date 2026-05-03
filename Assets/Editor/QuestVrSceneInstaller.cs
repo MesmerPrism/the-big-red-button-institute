@@ -5,6 +5,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using TheBigRedButtonInstitute.Biofeedback;
+using TheBigRedButtonInstitute.RustyXrBroker;
 using TheBigRedButtonInstitute.VR;
 
 namespace TheBigRedButtonInstitute.Editor
@@ -19,6 +20,7 @@ namespace TheBigRedButtonInstitute.Editor
         const string ButtonName = "Big Red Button";
         const string RuntimeRootName = "VR Runtime";
         const string HudName = "VR Overlay HUD";
+        const string LegacyGeneratedCounterCanvasName = "Button Press Counter Canvas";
         const string SessionKey = "TheBigRedButtonInstitute.QuestVrInstalled.v2";
         static readonly Vector3 RigPosition = new(0f, 1.65f, -1.7f);
 
@@ -58,6 +60,7 @@ namespace TheBigRedButtonInstitute.Editor
 
             var runtimeRoot = EnsureRuntimeRoot(scene);
             QuestLinkEnvironmentInstaller.InstallIntoScene(scene, runtimeRoot);
+            RemoveLegacyGeneratedCounter(runtimeRoot);
             var hud = EnsureHud(runtimeRoot.transform);
             var inputManager = EnsureInputManager(runtimeRoot);
             ConfigureInputManagerPlacement(inputManager);
@@ -73,6 +76,7 @@ namespace TheBigRedButtonInstitute.Editor
 
             var polarRuntimeManager = PolarH10SceneInstaller.InstallIntoScene(scene, runtimeRoot, headTransform);
             var polarHeartbeatButtonDriver = EnsurePolarHeartbeatButtonDriver(runtimeRoot);
+            var brokerRuntime = EnsureRustyXrBrokerRuntime(runtimeRoot, inputManager);
 
             hud.ApplyAstralPresentationPreset();
             ConfigureHud(hud);
@@ -80,13 +84,26 @@ namespace TheBigRedButtonInstitute.Editor
             hud.EnsureSetupInEditor();
             inputManager.ConfigureReferences(hud, headTransform, button != null ? button.transform : null, tester);
             inputManager.ConfigurePolarReferences(polarRuntimeManager, polarHeartbeatButtonDriver);
+            inputManager.ConfigureBrokerReferences(brokerRuntime.Client, brokerRuntime.ButtonDriver, brokerRuntime.ButtonBridge);
             polarHeartbeatButtonDriver.ConfigureReferences(polarRuntimeManager, inputManager, blinkController);
             inputManager.CenterButtonInFrontOfHead();
+            var targetCamera = headTransform.GetComponent<Camera>() ?? Camera.main;
+            var pressCounter = BigRedButtonWorldPressCounterAuthoring.AuthorIntoOpenScene(
+                scene,
+                inputManager,
+                button != null ? button.transform : null,
+                targetCamera,
+                polarRuntimeManager);
+            RemoveRuntimeDebugVisuals(scene);
 
             EditorUtility.SetDirty(runtimeRoot);
             EditorUtility.SetDirty(hud.gameObject);
             EditorUtility.SetDirty(hud);
             EditorUtility.SetDirty(inputManager);
+            if (pressCounter != null)
+            {
+                EditorUtility.SetDirty(pressCounter);
+            }
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);
             SessionState.SetBool(SessionKey, true);
@@ -228,6 +245,103 @@ namespace TheBigRedButtonInstitute.Editor
             return runtimeRoot.GetComponent<QuestVrInputManager>() ?? runtimeRoot.AddComponent<QuestVrInputManager>();
         }
 
+        static void RemoveLegacyGeneratedCounter(GameObject runtimeRoot)
+        {
+            if (runtimeRoot == null)
+            {
+                return;
+            }
+
+            var legacyCanvas = runtimeRoot.transform.Find(LegacyGeneratedCounterCanvasName);
+            if (legacyCanvas != null)
+            {
+                UnityEngine.Object.DestroyImmediate(legacyCanvas.gameObject);
+            }
+
+            var behaviours = runtimeRoot.GetComponents<MonoBehaviour>();
+            for (var index = behaviours.Length - 1; index >= 0; index--)
+            {
+                var behaviour = behaviours[index];
+                if (behaviour == null)
+                {
+                    continue;
+                }
+
+                if (behaviour.GetType().Name == "QuestVrButtonPressCounterCanvas")
+                {
+                    UnityEngine.Object.DestroyImmediate(behaviour);
+                }
+            }
+
+            GameObjectUtility.RemoveMonoBehavioursWithMissingScript(runtimeRoot);
+        }
+
+        static void RemoveRuntimeDebugVisuals(Scene scene)
+        {
+            if (!scene.IsValid())
+            {
+                return;
+            }
+
+            foreach (var rootObject in scene.GetRootGameObjects())
+            {
+                RemoveRuntimeDebugVisuals(rootObject);
+            }
+        }
+
+        static void RemoveRuntimeDebugVisuals(GameObject rootObject)
+        {
+            if (rootObject == null)
+            {
+                return;
+            }
+
+            var colliderDebugVisuals = rootObject.GetComponentsInChildren<BigRedButtonColliderDebugVisual>(true);
+            for (var index = colliderDebugVisuals.Length - 1; index >= 0; index--)
+            {
+                UnityEngine.Object.DestroyImmediate(colliderDebugVisuals[index]);
+            }
+
+            var rendererDebugVisuals = rootObject.GetComponentsInChildren<BigRedButtonRendererMeshDebug>(true);
+            for (var index = rendererDebugVisuals.Length - 1; index >= 0; index--)
+            {
+                UnityEngine.Object.DestroyImmediate(rendererDebugVisuals[index]);
+            }
+
+            var capShellInspectors = rootObject.GetComponentsInChildren<BigRedButtonCapRuntimeShellInspector>(true);
+            for (var index = capShellInspectors.Length - 1; index >= 0; index--)
+            {
+                UnityEngine.Object.DestroyImmediate(capShellInspectors[index]);
+            }
+
+            RemoveRuntimeDebugVisualChildren(rootObject.transform);
+        }
+
+        static void RemoveRuntimeDebugVisualChildren(Transform root)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            for (var childIndex = root.childCount - 1; childIndex >= 0; childIndex--)
+            {
+                var child = root.GetChild(childIndex);
+                if (child == null)
+                {
+                    continue;
+                }
+
+                RemoveRuntimeDebugVisualChildren(child);
+                if (string.Equals(child.name, "Collider Debug Visual", StringComparison.Ordinal) ||
+                    string.Equals(child.name, "Renderer Mesh Debug", StringComparison.Ordinal) ||
+                    string.Equals(child.name, "Cap Runtime Shell Inspector", StringComparison.Ordinal))
+                {
+                    UnityEngine.Object.DestroyImmediate(child.gameObject);
+                }
+            }
+        }
+
         static void ConfigureInputManagerPlacement(QuestVrInputManager inputManager)
         {
             if (inputManager == null)
@@ -237,6 +351,7 @@ namespace TheBigRedButtonInstitute.Editor
 
             var serializedInputManager = new SerializedObject(inputManager);
             serializedInputManager.FindProperty("placeButtonOnStartup").boolValue = true;
+            serializedInputManager.FindProperty("keepButtonInFrontOfHead").boolValue = true;
             serializedInputManager.FindProperty("enableSimultaneousHandsAndControllers").boolValue = true;
             serializedInputManager.FindProperty("startupPlacementDelay").floatValue = 0.2f;
             serializedInputManager.FindProperty("buttonDistanceFromHead").floatValue = 0.48f;
@@ -511,7 +626,7 @@ namespace TheBigRedButtonInstitute.Editor
                 "Left Controller Visual/MetaQuestTouchPlus_Left",
                 "Left Controller Visual",
                 "MetaQuestTouchPlus_Left",
-                participatesInPresses: false);
+                participatesInPresses: true);
             EnsureParentResolvedBodyPressInteractor(
                 rightControllerAnchor,
                 "Right Controller Shell Interactor",
@@ -519,7 +634,7 @@ namespace TheBigRedButtonInstitute.Editor
                 "Right Controller Visual/MetaQuestTouchPlus_Right",
                 "Right Controller Visual",
                 "MetaQuestTouchPlus_Right",
-                participatesInPresses: false);
+                participatesInPresses: true);
         }
 
         static GameObject EnsureBodyPressInteractor(Transform anchor, string interactorName, float padding, params GameObject[] bodyRoots)
@@ -558,6 +673,7 @@ namespace TheBigRedButtonInstitute.Editor
             var serializedInteractor = new SerializedObject(interactor);
             serializedInteractor.FindProperty("generatedMeshCollidersOnly").boolValue = true;
             serializedInteractor.FindProperty("disableLegacyHandPhysicsCapsules").boolValue = true;
+            serializedInteractor.FindProperty("enableRuntimeDebugVisuals").boolValue = false;
             serializedInteractor.ApplyModifiedPropertiesWithoutUndo();
 
             EditorUtility.SetDirty(interactor);
@@ -615,6 +731,7 @@ namespace TheBigRedButtonInstitute.Editor
             var serializedInteractor = new SerializedObject(interactor);
             serializedInteractor.FindProperty("generatedMeshCollidersOnly").boolValue = true;
             serializedInteractor.FindProperty("disableLegacyHandPhysicsCapsules").boolValue = true;
+            serializedInteractor.FindProperty("enableRuntimeDebugVisuals").boolValue = false;
             serializedInteractor.ApplyModifiedPropertiesWithoutUndo();
 
             EditorUtility.SetDirty(interactor);
@@ -751,6 +868,54 @@ namespace TheBigRedButtonInstitute.Editor
         static PolarHeartbeatButtonDriver EnsurePolarHeartbeatButtonDriver(GameObject runtimeRoot)
         {
             return runtimeRoot.GetComponent<PolarHeartbeatButtonDriver>() ?? runtimeRoot.AddComponent<PolarHeartbeatButtonDriver>();
+        }
+
+        readonly struct BrokerRuntimeComponents
+        {
+            public BrokerRuntimeComponents(
+                RustyXrBrokerClient client,
+                RustyXrBrokerEventRouter router,
+                RustyXrBrokerDriveSignalReceiver driveReceiver,
+                RustyXrBrokerButtonDriver buttonDriver,
+                QuestVrRustyXrBrokerButtonBridge buttonBridge)
+            {
+                Client = client;
+                Router = router;
+                DriveReceiver = driveReceiver;
+                ButtonDriver = buttonDriver;
+                ButtonBridge = buttonBridge;
+            }
+
+            public RustyXrBrokerClient Client { get; }
+            public RustyXrBrokerEventRouter Router { get; }
+            public RustyXrBrokerDriveSignalReceiver DriveReceiver { get; }
+            public RustyXrBrokerButtonDriver ButtonDriver { get; }
+            public QuestVrRustyXrBrokerButtonBridge ButtonBridge { get; }
+        }
+
+        static BrokerRuntimeComponents EnsureRustyXrBrokerRuntime(GameObject runtimeRoot, QuestVrInputManager inputManager)
+        {
+            var client = runtimeRoot.GetComponent<RustyXrBrokerClient>() ?? runtimeRoot.AddComponent<RustyXrBrokerClient>();
+            client.ConfigureIdentity("org.thebigredbuttoninstitute.app", "The Big Red Button Institute", "0.1.0");
+
+            var driveReceiver = runtimeRoot.GetComponent<RustyXrBrokerDriveSignalReceiver>() ?? runtimeRoot.AddComponent<RustyXrBrokerDriveSignalReceiver>();
+            driveReceiver.StreamId = RustyXrBrokerDriveSignal.DefaultStream;
+
+            var router = runtimeRoot.GetComponent<RustyXrBrokerEventRouter>() ?? runtimeRoot.AddComponent<RustyXrBrokerEventRouter>();
+            router.ConfigureReferences(client, driveReceiver);
+
+            var buttonDriver = runtimeRoot.GetComponent<RustyXrBrokerButtonDriver>() ?? runtimeRoot.AddComponent<RustyXrBrokerButtonDriver>();
+            buttonDriver.ConfigureReferences(driveReceiver);
+
+            var buttonBridge = runtimeRoot.GetComponent<QuestVrRustyXrBrokerButtonBridge>() ?? runtimeRoot.AddComponent<QuestVrRustyXrBrokerButtonBridge>();
+            buttonBridge.ConfigureReferences(buttonDriver, inputManager);
+
+            EditorUtility.SetDirty(client);
+            EditorUtility.SetDirty(driveReceiver);
+            EditorUtility.SetDirty(router);
+            EditorUtility.SetDirty(buttonDriver);
+            EditorUtility.SetDirty(buttonBridge);
+            return new BrokerRuntimeComponents(client, router, driveReceiver, buttonDriver, buttonBridge);
         }
     }
 }

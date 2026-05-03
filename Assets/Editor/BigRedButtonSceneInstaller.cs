@@ -154,10 +154,20 @@ namespace TheBigRedButtonInstitute.Editor
             serializedController.FindProperty("idleTint").colorValue = new Color(0.82f, 0.22f, 0.22f, 1f);
             serializedController.FindProperty("blinkTint").colorValue = new Color(1f, 0.72f, 0.72f, 1f);
             serializedController.FindProperty("idleEmission").colorValue = Color.black;
-            serializedController.FindProperty("blinkEmission").colorValue = new Color(4f, 0.45f, 0.45f, 1f);
-            serializedController.FindProperty("pulseDuration").floatValue = 0.32f;
-            serializedController.FindProperty("blinkLightIntensity").floatValue = 1.35f;
-            serializedController.FindProperty("pulseLightRange").floatValue = 0.8f;
+            serializedController.FindProperty("blinkEmission").colorValue = new Color(7f, 1.1f, 0.85f, 1f);
+            serializedController.FindProperty("pulseDuration").floatValue = 0.42f;
+            serializedController.FindProperty("drivePulseLight").boolValue = true;
+            serializedController.FindProperty("pulseLightColor").colorValue = new Color(1f, 0.18f, 0.12f, 1f);
+            serializedController.FindProperty("idleLightIntensity").floatValue = 0f;
+            serializedController.FindProperty("blinkLightIntensity").floatValue = 2.2f;
+            serializedController.FindProperty("pulseLightRange").floatValue = 0.6f;
+            serializedController.FindProperty("usePulseLightSurfaceRig").boolValue = true;
+            serializedController.FindProperty("pulseLightSurfaceCount").intValue = 4;
+            serializedController.FindProperty("pulseLightSurfaceRadiusScale").floatValue = 0.42f;
+            serializedController.FindProperty("placePulseLightOnRendererSurface").boolValue = true;
+            serializedController.FindProperty("pulseLightSurfaceInset").floatValue = 0.016f;
+            serializedController.FindProperty("pulseLightSurfaceWorldOffset").vector3Value = Vector3.zero;
+            serializedController.FindProperty("pulseLightLocalOffset").vector3Value = new Vector3(0f, 0.0195f, 0.0029f);
             serializedController.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(controller);
         }
@@ -222,10 +232,83 @@ namespace TheBigRedButtonInstitute.Editor
             serializedController.FindProperty("triggerColliderDerivedLocalOffset").vector3Value = TriggerColliderStableDerivedLocalOffset;
             serializedController.FindProperty("triggerColliderManualLocalOffset").vector3Value = TriggerColliderManualLocalOffset;
             serializedController.FindProperty("logPressCollisionDiagnostics").boolValue = true;
+            serializedController.FindProperty("enableRuntimeDebugVisuals").boolValue = false;
             serializedController.ApplyModifiedPropertiesWithoutUndo();
 
             controller.ConfigureReferences(passiveRenderer, pressTriggerRenderer, inputManager);
             EditorUtility.SetDirty(controller);
+        }
+
+        [MenuItem("Tools/Big Red Button/Report Blink Light Placement")]
+        public static void ReportBlinkLightPlacement()
+        {
+            var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            GameObject button = null;
+            foreach (var rootObject in scene.GetRootGameObjects())
+            {
+                if (rootObject.name == ButtonName)
+                {
+                    button = rootObject;
+                    break;
+                }
+            }
+
+            if (button == null)
+            {
+                Debug.LogError("Could not find Big Red Button while reporting blink light placement.");
+                return;
+            }
+
+            var controller = button.GetComponent<BigRedButtonBlinkController>();
+            if (controller == null)
+            {
+                Debug.LogError("Could not find BigRedButtonBlinkController while reporting blink light placement.");
+                return;
+            }
+
+            var serializedController = new SerializedObject(controller);
+            var targetRenderer = serializedController.FindProperty("targetRenderer").objectReferenceValue as Renderer;
+            var blinkAnchor = serializedController.FindProperty("blinkAnchor").objectReferenceValue as Transform;
+            var drivePulseLight = serializedController.FindProperty("drivePulseLight").boolValue;
+            var localOffset = serializedController.FindProperty("pulseLightLocalOffset").vector3Value;
+            var useSurfaceRig = serializedController.FindProperty("usePulseLightSurfaceRig").boolValue;
+            var surfaceLightCount = serializedController.FindProperty("pulseLightSurfaceCount").intValue;
+            var surfaceRadiusScale = serializedController.FindProperty("pulseLightSurfaceRadiusScale").floatValue;
+            var placeOnSurface = serializedController.FindProperty("placePulseLightOnRendererSurface").boolValue;
+            var surfaceInset = serializedController.FindProperty("pulseLightSurfaceInset").floatValue;
+            var surfaceWorldOffset = serializedController.FindProperty("pulseLightSurfaceWorldOffset").vector3Value;
+            if (targetRenderer == null || blinkAnchor == null)
+            {
+                Debug.LogError("Blink light placement report is missing target renderer or anchor.");
+                return;
+            }
+
+            var anchorWorld = blinkAnchor.position;
+            var bounds = targetRenderer.bounds;
+            var boundsTopCenter = new Vector3(bounds.center.x, bounds.max.y, bounds.center.z);
+            var localOffsetWorld = blinkAnchor.TransformPoint(localOffset);
+            var lightWorld = placeOnSurface
+                ? new Vector3(bounds.center.x, bounds.max.y - surfaceInset, bounds.center.z) + surfaceWorldOffset
+                : localOffsetWorld;
+            var surfaceLightPositions = ResolveSurfaceLightPositions(targetRenderer, blinkAnchor, surfaceLightCount, surfaceRadiusScale, surfaceInset, surfaceWorldOffset);
+            var buttonLocalLight = button.transform.InverseTransformPoint(lightWorld);
+            var capLocalLight = blinkAnchor.InverseTransformPoint(lightWorld);
+
+            Debug.Log(
+                "BRB blink light placement report\n" +
+                $"button root: pos={FormatVector(button.transform.position)} rot={FormatVector(button.transform.eulerAngles)} scale={FormatVector(button.transform.lossyScale)}\n" +
+                $"cap renderer: {targetRenderer.name} anchor={blinkAnchor.name}\n" +
+                $"anchor world pos={FormatVector(anchorWorld)} lossyScale={FormatVector(blinkAnchor.lossyScale)}\n" +
+                $"drivePulseLight={drivePulseLight}\n" +
+                $"usePulseLightSurfaceRig={useSurfaceRig} surfaceLightCount={Mathf.Clamp(surfaceLightCount, 1, 4)} surfaceRadiusScale={surfaceRadiusScale:0.0000}\n" +
+                $"configured local offset={FormatVector(localOffset)}\n" +
+                $"surface placement enabled={placeOnSurface} surfaceInset={surfaceInset:0.0000}m surfaceWorldOffset={FormatVector(surfaceWorldOffset)}\n" +
+                $"local offset world pos={FormatVector(localOffsetWorld)}\n" +
+                $"light world pos={FormatVector(lightWorld)} buttonLocal={FormatVector(buttonLocalLight)} capLocal={FormatVector(capLocalLight)}\n" +
+                $"surface rig world positions={FormatVectors(surfaceLightPositions)}\n" +
+                $"cap world bounds center={FormatVector(bounds.center)} min={FormatVector(bounds.min)} max={FormatVector(bounds.max)} size={FormatVector(bounds.size)}\n" +
+                $"light minus cap top center={FormatVector(lightWorld - boundsTopCenter)} yAboveBoundsMax={lightWorld.y - bounds.max.y:0.0000}m\n" +
+                $"light distance from cap center={Vector3.Distance(lightWorld, bounds.center):0.0000}m");
         }
 
         static Material EnsureBlinkMaterial(Material sourceMaterial)
@@ -428,6 +511,52 @@ namespace TheBigRedButtonInstitute.Editor
             return renderer != null &&
                 renderer != excludedRenderer &&
                 !IsDebugVisualRenderer(renderer);
+        }
+
+        static string FormatVector(Vector3 value)
+        {
+            return $"({value.x:0.0000}, {value.y:0.0000}, {value.z:0.0000})";
+        }
+
+        static string FormatVectors(Vector3[] values)
+        {
+            if (values == null || values.Length == 0)
+            {
+                return "<none>";
+            }
+
+            return string.Join(", ", values.Select(FormatVector));
+        }
+
+        static Vector3[] ResolveSurfaceLightPositions(
+            Renderer targetRenderer,
+            Transform blinkAnchor,
+            int surfaceLightCount,
+            float surfaceRadiusScale,
+            float surfaceInset,
+            Vector3 surfaceWorldOffset)
+        {
+            var bounds = targetRenderer.bounds;
+            var y = bounds.max.y - surfaceInset;
+            var center = new Vector3(bounds.center.x, y, bounds.center.z) + surfaceWorldOffset;
+            var radius = Mathf.Min(bounds.extents.x, bounds.extents.z) * surfaceRadiusScale;
+            var right = ResolveHorizontalAxis(blinkAnchor != null ? blinkAnchor.right : Vector3.right, Vector3.right);
+            var forward = ResolveHorizontalAxis(blinkAnchor != null ? blinkAnchor.forward : Vector3.forward, Vector3.forward);
+            var count = Mathf.Clamp(surfaceLightCount, 1, 4);
+
+            return count switch
+            {
+                1 => new[] { center },
+                2 => new[] { center - (right * radius), center + (right * radius) },
+                3 => new[] { center + (forward * radius), center - (right * radius * 0.86f) - (forward * radius * 0.5f), center + (right * radius * 0.86f) - (forward * radius * 0.5f) },
+                _ => new[] { center - (right * radius), center + (right * radius), center - (forward * radius), center + (forward * radius) }
+            };
+        }
+
+        static Vector3 ResolveHorizontalAxis(Vector3 axis, Vector3 fallback)
+        {
+            var projected = Vector3.ProjectOnPlane(axis, Vector3.up);
+            return projected.sqrMagnitude > 0.0001f ? projected.normalized : fallback;
         }
 
         static bool IsRendererTypeMatch(Renderer renderer, bool preferSkinnedRenderer)

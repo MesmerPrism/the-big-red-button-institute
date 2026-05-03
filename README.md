@@ -10,11 +10,15 @@ and Polar H10 biofeedback input.
   the viewer from VR.
 - The HUD supports multiple pages, controller-driven terminal commands, and
   Polar connection / permission status.
+- A small world-space counter above the button shows accepted button presses
+  without opening the HUD.
 - Polar H10 heartbeat can drive the button press animation when the connection
   is live.
+- The Quest broker sidecar path can drive the same button press routine through
+  subscribed broker stream events.
 - Android APK builds are supported from `Tools > Big Red Button > Build Quest APK`.
 
 ## Docs
 
 - `Documentation/Quest-Polar-Workflow.md`
-
+- `Documentation/Public-Broker-Latency-Example-Roadmap.md`

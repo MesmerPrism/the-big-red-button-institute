@@ -12,6 +12,7 @@ controller-driven HUD, and a Polar H10 connection stack derived from
 - `Big Red Button`
 - `VR Runtime`
 - `VR Runtime/VR Overlay HUD`
+- `VR Runtime/Button Press Counter Canvas`
 - `VR Runtime/Biofeedback Connection Hub`
 - `VR Runtime/Polar H10 Breathing Source`
 
@@ -77,6 +78,12 @@ Current useful terminal commands:
 - `polar_connect`
 - `polar_scan`
 - `polar_clear_saved_device`
+- `broker_status`
+- `broker_connect`
+- `broker_subscribe`
+- `broker_drive_button`
+- `broker_open_ui`
+- `broker_close_ui`
 - `center_button`
 - `press_button`
 - `toggle_hud`
@@ -85,9 +92,14 @@ Current useful terminal commands:
 ## Button behavior
 
 - The imported button lives in the scene as a normal imported asset.
+- `QuestVrButtonPressCounterCanvas` shows the accepted press count above the
+  physical button for headset checks where the HUD is hidden.
 - `PolarHeartbeatButtonDriver` listens to processed heartbeat samples.
 - When Polar tracking is connected and confidence is high enough, accepted beat
   events trigger the button press animation.
+- Broker drive pulses use the same button press method, so the visible counter,
+  HUD press count, and button animation remain comparable across direct and
+  broker-routed paths.
 
 ## Build workflow
 
@@ -120,8 +132,9 @@ adb shell am start -W -n org.thebigredbuttoninstitute.app/com.unity3d.player.Uni
 - `Assets/Scripts/Biofeedback/PolarH10RuntimeManager.cs`
 - `Assets/Scripts/Biofeedback/PolarHeartbeatButtonDriver.cs`
 - `Assets/Scripts/VR/QuestVrInputManager.cs`
+- `Assets/Scripts/VR/QuestVrButtonPressCounterCanvas.cs`
 - `Assets/Scripts/VR/QuestVrOverlayHud.cs`
+- `Assets/Scripts/RustyXrBroker/`
 - `Assets/Editor/PolarH10SceneInstaller.cs`
 - `Assets/Editor/QuestVrSceneInstaller.cs`
 - `Assets/Editor/QuestVrApkBuilder.cs`
-

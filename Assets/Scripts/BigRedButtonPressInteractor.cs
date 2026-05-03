@@ -24,6 +24,7 @@ namespace TheBigRedButtonInstitute
         [SerializeField] bool trackingValid = true;
         [SerializeField] bool generatedMeshCollidersOnly = true;
         [SerializeField] bool disableLegacyHandPhysicsCapsules = true;
+        [SerializeField] bool enableRuntimeDebugVisuals = false;
 
         const float BodySourceRefreshIntervalSeconds = 0.25f;
 
@@ -322,6 +323,17 @@ namespace TheBigRedButtonInstitute
             }
 
             proxy.Configure(this);
+
+            if (!enableRuntimeDebugVisuals)
+            {
+                var existingDebugVisual = collider.GetComponent<BigRedButtonColliderDebugVisual>();
+                if (existingDebugVisual != null)
+                {
+                    existingDebugVisual.enabled = false;
+                }
+
+                return;
+            }
 
             var debugVisual = collider.GetComponent<BigRedButtonColliderDebugVisual>();
             if (debugVisual == null)

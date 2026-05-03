@@ -52,6 +52,7 @@ namespace TheBigRedButtonInstitute
         [Header("Debug")]
         [SerializeField] bool logPressCollisionDiagnostics = true;
         [SerializeField, Min(0.05f)] float pressCollisionDiagnosticCooldownSeconds = 0.2f;
+        [SerializeField] bool enableRuntimeDebugVisuals = false;
 
         readonly HashSet<int> _activeInteractorIds = new();
         readonly HashSet<int> _frameInteractorIds = new();
@@ -448,6 +449,7 @@ namespace TheBigRedButtonInstitute
                 _pressTriggerSurfaceDebugVisual = null;
                 _pressTriggerSurfaceAlignmentTool = null;
                 _pressTriggerRendererShell = ResolveConfiguredRendererShell(resolvedTriggerRenderer, _pressTriggerCollider);
+                ApplyRuntimeDebugVisualState();
                 return;
             }
 
@@ -462,6 +464,7 @@ namespace TheBigRedButtonInstitute
             _pressTriggerSurfaceCollider = ResolveConfiguredTriggerSurface(ref _pressTriggerSurfaceDebugVisual);
             ApplyTriggerSurfaceActivationState();
             _pressTriggerRendererShell = ResolveConfiguredRendererShell(resolvedTriggerRenderer, _pressTriggerCollider);
+            ApplyRuntimeDebugVisualState();
         }
 
         void SyncAnimatedPressGeometry()
@@ -478,7 +481,8 @@ namespace TheBigRedButtonInstitute
                     resolvedTriggerRenderer,
                     _baseColliderGenerator,
                     ref _baseCollider,
-                    ref _baseDebugVisual);
+                    ref _baseDebugVisual,
+                    enableRuntimeDebugVisuals);
                 _pressTriggerCollider = _baseCollider;
                 _triggerColliderGenerator = _baseColliderGenerator;
                 _pressTriggerDebugVisual = _baseDebugVisual;
@@ -489,12 +493,14 @@ namespace TheBigRedButtonInstitute
                 targetRenderer,
                 _baseColliderGenerator,
                 ref _baseCollider,
-                ref _baseDebugVisual);
+                ref _baseDebugVisual,
+                enableRuntimeDebugVisuals);
             SyncAnimatedCollider(
                 resolvedTriggerRenderer,
                 _triggerColliderGenerator,
                 ref _pressTriggerCollider,
-                ref _pressTriggerDebugVisual);
+                ref _pressTriggerDebugVisual,
+                enableRuntimeDebugVisuals);
 
             if (IsRendererUsable(resolvedTriggerRenderer) && _pressTriggerSurfaceCollider != null)
             {
@@ -523,7 +529,8 @@ namespace TheBigRedButtonInstitute
             Renderer renderer,
             BigRedButtonGeneratedBodyCollider colliderGenerator,
             ref MeshCollider collider,
-            ref BigRedButtonColliderDebugVisual debugVisual)
+            ref BigRedButtonColliderDebugVisual debugVisual,
+            bool enableDebugVisuals)
         {
             if (renderer is not SkinnedMeshRenderer || colliderGenerator == null)
             {
@@ -538,6 +545,13 @@ namespace TheBigRedButtonInstitute
                     debugVisual.enabled = false;
                 }
 
+                return;
+            }
+
+            if (!enableDebugVisuals)
+            {
+                debugVisual ??= collider.GetComponent<BigRedButtonColliderDebugVisual>();
+                DisableDebugVisual(ref debugVisual);
                 return;
             }
 
@@ -630,6 +644,13 @@ namespace TheBigRedButtonInstitute
             {
                 DisableColliderSurface(ref colliderGenerator, ref debugVisual);
                 return null;
+            }
+
+            if (!enableRuntimeDebugVisuals)
+            {
+                debugVisual ??= collider.GetComponent<BigRedButtonColliderDebugVisual>();
+                DisableDebugVisual(ref debugVisual);
+                return collider;
             }
 
             if (debugVisual == null || debugVisual.gameObject != collider.gameObject)
@@ -740,7 +761,10 @@ namespace TheBigRedButtonInstitute
             proxy?.MarkOverlap();
 
             var debugVisual = interactorCollider != null ? interactorCollider.GetComponent<BigRedButtonColliderDebugVisual>() : null;
-            debugVisual?.MarkHighlighted();
+            if (debugVisual != null && debugVisual.isActiveAndEnabled)
+            {
+                debugVisual.MarkHighlighted();
+            }
         }
 
         void RemoveLegacyPressGeometry()
@@ -946,6 +970,23 @@ namespace TheBigRedButtonInstitute
             ref BigRedButtonColliderDebugVisual debugVisual)
         {
             colliderGenerator?.DisableCollider();
+            DisableDebugVisual(ref debugVisual);
+        }
+
+        void ApplyRuntimeDebugVisualState()
+        {
+            if (enableRuntimeDebugVisuals)
+            {
+                return;
+            }
+
+            DisableDebugVisual(ref _baseDebugVisual);
+            DisableDebugVisual(ref _pressTriggerDebugVisual);
+            DisableDebugVisual(ref _pressTriggerSurfaceDebugVisual);
+        }
+
+        static void DisableDebugVisual(ref BigRedButtonColliderDebugVisual debugVisual)
+        {
             if (debugVisual != null)
             {
                 debugVisual.enabled = false;
@@ -967,7 +1008,14 @@ namespace TheBigRedButtonInstitute
             _pressTriggerSurfaceAlignmentTool = ConfigureTriggerSurfaceAlignmentTool(surfaceTransform);
             if (debugVisual != null)
             {
-                debugVisual.Configure(BigRedButtonColliderDebugVisual.VisualRole.PressTrigger);
+                if (enableRuntimeDebugVisuals)
+                {
+                    debugVisual.Configure(BigRedButtonColliderDebugVisual.VisualRole.PressTrigger);
+                }
+                else
+                {
+                    DisableDebugVisual(ref debugVisual);
+                }
             }
 
             return boxCollider;
@@ -1003,12 +1051,20 @@ namespace TheBigRedButtonInstitute
             _pressTriggerSurfaceAlignmentTool = ConfigureTriggerSurfaceAlignmentTool(surfaceTransform);
 
             debugVisual ??= _pressTriggerSurfaceCollider.GetComponent<BigRedButtonColliderDebugVisual>();
-            if (debugVisual == null)
+            if (enableRuntimeDebugVisuals && debugVisual == null)
             {
                 debugVisual = _pressTriggerSurfaceCollider.gameObject.AddComponent<BigRedButtonColliderDebugVisual>();
             }
 
-            debugVisual.Configure(BigRedButtonColliderDebugVisual.VisualRole.PressTrigger);
+            if (enableRuntimeDebugVisuals)
+            {
+                debugVisual.Configure(BigRedButtonColliderDebugVisual.VisualRole.PressTrigger);
+            }
+            else
+            {
+                DisableDebugVisual(ref debugVisual);
+            }
+
             ApplyTriggerSurfaceActivationState();
             return _pressTriggerSurfaceCollider;
         }
@@ -1034,7 +1090,7 @@ namespace TheBigRedButtonInstitute
 
             if (_pressTriggerSurfaceDebugVisual != null)
             {
-                _pressTriggerSurfaceDebugVisual.enabled = shouldEnablePresentation;
+                _pressTriggerSurfaceDebugVisual.enabled = shouldEnablePresentation && enableRuntimeDebugVisuals;
             }
 
             if (_pressTriggerSurfaceAlignmentTool != null)
