@@ -19,6 +19,15 @@ purpose broker sidecar.
 - The broker client can connect to the Quest broker sidecar, subscribe to drive
   streams, open the 2D broker console, and request that the broker console
   returns to the background.
+- A comparison-route controller records per-route sample counts, accepted
+  button pulses, sequence gaps, duplicate/out-of-order packets, and available
+  latency timestamps.
+- A direct Unity OSC receiver listens on UDP `9001` for
+  `/rusty-xr/drive/radius` so the same companion OSC utility can exercise a
+  direct app-owned route and the broker-routed OSC route on different ports.
+  When the companion includes a host send timestamp and reply port, Unity sends
+  `/rusty-xr/drive/ack` acknowledgements with receive/send timestamps for
+  round-trip and clock-alignment diagnostics.
 
 ## Comparison Goal
 
@@ -29,9 +38,9 @@ The public example should make each transport path explicit:
 | Manual hand/controller press | Present | Baseline interaction and visual counter validation. |
 | Direct Unity BLE/Polar | Present | App-owned sensor ingestion and button drive. |
 | Direct Unity LSL | Planned | App-owned LSL stream path for latency comparison. |
-| Direct Unity OSC | Planned | App-owned OSC path for creative-tool and diagnostics comparison. |
+| Direct Unity OSC | Present with ack timing | App-owned OSC path for creative-tool and diagnostics comparison. |
 | Broker WebSocket drive | Present | Broker-mediated stream drive into the Unity app. |
-| Broker LSL/OSC forwarding | Broker-side present | Sidecar-mediated latency and stream diagnostics. |
+| Broker LSL/OSC forwarding | Present and validated with the companion diagnostics | Sidecar-mediated latency and stream diagnostics. |
 
 All accepted input paths should converge on the same button press routine so
 latency counters, animation, visual feedback, and logs stay comparable.
@@ -47,6 +56,26 @@ the Unity side through:
 - broker status and stream counters
 - companion-side stream send/latency logs
 
+Current no-hardware OSC comparison:
+
+```powershell
+dotnet run --project src\RustyXr.Companion.Cli -- broker compare --quest-host <quest-lan-ip> --serial <serial> --count 16 --interval-ms 250 --out .\artifacts\broker-compare --json
+```
+
+The direct Unity OSC route uses port `9001`. The broker OSC ingress profile uses
+port `9000`, then publishes a broker `stream_event` to subscribed WebSocket
+clients. The Unity Android manifest declares network socket permissions so this
+direct LAN OSC route works on Quest builds.
+
+The direct route has been validated with companion-generated acknowledgements:
+Unity echoes host send time, Unity receive time, Unity acknowledgement send time,
+value, sequence, and accepted-pulse state. The companion report uses the
+four-timestamp exchange to estimate target-minus-host clock offset and writes
+JSON, Markdown, and CSV artifacts. The broker route is implemented in the same
+runner and has been validated on headset through the Rusty XR broker service,
+with the companion recording direct Unity OSC acknowledgements and broker
+stream-event counts in one comparison bundle.
+
 ADB keyboard input is useful for app command smoke tests. Physical controller
 testing is still required for Meta controller bindings because Android
 synthetic gamepad keys do not fully emulate the OVRInput/OpenXR controller
@@ -61,3 +90,5 @@ path.
   press-counter behavior before widening the public API.
 - Provide one complete Unity validation route and one complete Rust/Rusty XR
   route that can both consume the same broker test stream.
+- Keep the repository private until the public branch contains the full
+  comparison example, public-safe docs, and validation evidence on `main`.

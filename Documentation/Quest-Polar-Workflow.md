@@ -1,8 +1,7 @@
 # Quest And Polar Workflow
 
 This project uses a Quest-first runtime layout with an in-scene button,
-controller-driven HUD, and a Polar H10 connection stack derived from
-`C:\Users\tillh\source\repos\AstralKarateDojo`.
+controller-driven HUD, and a Polar H10-compatible BLE connection stack.
 
 ## Scene layout
 
@@ -44,7 +43,8 @@ The fix is:
 
 Manifest entries alone are not enough for Quest / Android BLE access.
 
-This project now follows the same split used in Astral:
+This project now follows a split that keeps permission handling, BLE readiness,
+Polar discovery, and app-level status coordination separate:
 
 - `BluetoothPermissionsBootstrap` owns runtime permission requests
 - `BleCentral` only probes runtime readiness

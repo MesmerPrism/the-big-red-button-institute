@@ -1,4 +1,5 @@
-using AstralKarateDojo.IndirectParticles.Biofeedback.Heartbeat;
+using System;
+using TheBigRedButtonInstitute.IndirectParticles.Biofeedback.Heartbeat;
 using UnityEngine;
 
 namespace TheBigRedButtonInstitute.Biofeedback
@@ -26,6 +27,7 @@ namespace TheBigRedButtonInstitute.Biofeedback
 
         public int TriggerCount => _triggerCount;
         public string DriveStateLabel => string.IsNullOrWhiteSpace(_driveState) ? "idle" : _driveState;
+        public event Action<float> HeartbeatPulseAccepted;
 
         void Awake()
         {
@@ -174,6 +176,7 @@ namespace TheBigRedButtonInstitute.Biofeedback
                     _lastAcceptedBeatTimestamp = sample.Timestamp;
                     _triggerCount++;
                     _driveState = $"pulsing @ {sample.Bpm:0} bpm";
+                    HeartbeatPulseAccepted?.Invoke(sample.Bpm);
                 }
 
                 return;
@@ -189,6 +192,7 @@ namespace TheBigRedButtonInstitute.Biofeedback
             _lastAcceptedBeatTimestamp = sample.Timestamp;
             _triggerCount++;
             _driveState = $"pulsing @ {sample.Bpm:0} bpm";
+            HeartbeatPulseAccepted?.Invoke(sample.Bpm);
         }
     }
 }

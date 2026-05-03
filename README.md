@@ -1,22 +1,71 @@
 # The Big Red Button Institute
 
-Unity 6 / URP / Meta Quest prototype centered on a large red button, a VR HUD,
-and Polar H10 biofeedback input.
+Unity 6 / URP / Meta Quest example centered on a large red button, a VR HUD,
+and stream-driven input diagnostics.
+
+This repository is the public Unity example for the
+[Rusty XR](https://github.com/MesmerPrism/Rusty-XR) broker and companion-app
+workflow. It provides a small Quest scene where direct Unity-owned inputs and
+Rusty XR broker-routed inputs drive the same visible button, making latency and
+stream-quality comparisons easy to inspect on-headset.
 
 ## Current state
 
 - Quest / OpenXR runtime is set up in `Assets/Scenes/SampleScene.unity`.
 - The big red button is imported into the scene and can be centered in front of
   the viewer from VR.
-- The HUD supports multiple pages, controller-driven terminal commands, and
-  Polar connection / permission status.
+- The HUD supports multiple pages, controller-driven terminal commands, input
+  status, broker status, and Polar connection / permission status.
 - A small world-space counter above the button shows accepted button presses
   without opening the HUD.
-- Polar H10 heartbeat can drive the button press animation when the connection
-  is live.
-- The Quest broker sidecar path can drive the same button press routine through
-  subscribed broker stream events.
+- Direct Unity OSC and direct Unity Polar/BLE input can drive the button press
+  animation.
+- The Rusty XR Quest broker sidecar can drive the same button press routine
+  through subscribed broker stream events.
+- The Rusty XR Companion CLI can send deterministic OSC, broker, LSL, and
+  Polar-shaped diagnostic streams and write JSON/CSV/Markdown/PDF reports.
 - Android APK builds are supported from `Tools > Big Red Button > Build Quest APK`.
+
+## Role in Rusty XR
+
+Use this repo when you want a complete Unity-side Quest target for comparing:
+
+- direct Unity OSC ingestion
+- direct Unity Polar-compatible BLE ingestion
+- broker-routed WebSocket stream events
+- broker-side OSC and LSL forwarding driven by the companion tools
+
+The matching Rusty XR components live in:
+
+- [Rusty XR](https://github.com/MesmerPrism/Rusty-XR), which owns the public
+  broker app source, schemas, Rust contracts, and Rust examples.
+- [Rusty XR Companion Apps](https://github.com/MesmerPrism/Rusty-XR-Companion-Apps),
+  which owns the Windows CLI/app used for Quest install, launch, stream
+  generation, and diagnostics output.
+
+Direct Unity LSL reception is the next comparison route; today, LSL is covered
+through the Rusty XR broker and companion diagnostics.
+
+## Validation
+
+Run the Unity edit-mode broker tests:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Tools\Run-BrokerEditModeTests.ps1
+```
+
+Build the Quest APK from Unity or batch mode through:
+
+```text
+TheBigRedButtonInstitute.Editor.QuestVrApkBuilder.InstallSceneAndBuildApk
+```
+
+With the Rusty XR Quest broker installed and a headset on the same LAN, the
+companion can compare direct Unity OSC against broker-routed OSC/WebSocket:
+
+```powershell
+dotnet run --project src\RustyXr.Companion.Cli -- broker compare --quest-host <quest-lan-ip> --serial <adb-serial> --count 16 --interval-ms 250 --out .\artifacts\broker-compare --json
+```
 
 ## Docs
 

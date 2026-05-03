@@ -3,12 +3,12 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using AstralKarateDojo.Biofeedback.Transport.BLE;
-using AstralKarateDojo.Biofeedback.Transport.BLE.Polar;
-using AstralKarateDojo.Biofeedback.Transport.Bluetooth;
-using AstralKarateDojo.IndirectParticles.Biofeedback.Breathing;
-using AstralKarateDojo.IndirectParticles.Biofeedback.Coherence;
-using AstralKarateDojo.IndirectParticles.Biofeedback.Heartbeat;
+using TheBigRedButtonInstitute.Biofeedback.Transport.BLE;
+using TheBigRedButtonInstitute.Biofeedback.Transport.BLE.Polar;
+using TheBigRedButtonInstitute.Biofeedback.Transport.Bluetooth;
+using TheBigRedButtonInstitute.IndirectParticles.Biofeedback.Breathing;
+using TheBigRedButtonInstitute.IndirectParticles.Biofeedback.Coherence;
+using TheBigRedButtonInstitute.IndirectParticles.Biofeedback.Heartbeat;
 
 namespace TheBigRedButtonInstitute.Editor
 {

@@ -7,6 +7,10 @@ namespace TheBigRedButtonInstitute.RustyXrBroker
         [SerializeField] string streamId = RustyXrBrokerDriveSignal.DefaultStream;
         [SerializeField, Range(0f, 1f)] float value01;
 
+        long _lastSequenceId;
+        long _lastBrokerTimeUnixNs;
+        string _lastStreamId = string.Empty;
+
         public string StreamId
         {
             get => streamId;
@@ -14,6 +18,9 @@ namespace TheBigRedButtonInstitute.RustyXrBroker
         }
 
         public float Value01 => value01;
+        public long LastSequenceId => _lastSequenceId;
+        public long LastBrokerTimeUnixNs => _lastBrokerTimeUnixNs;
+        public string LastStreamId => string.IsNullOrWhiteSpace(_lastStreamId) ? streamId : _lastStreamId;
 
         public bool ApplyStreamEventJson(string json)
         {
@@ -33,6 +40,9 @@ namespace TheBigRedButtonInstitute.RustyXrBroker
             }
 
             value01 = nextValue;
+            _lastSequenceId = streamEvent.sequence_id;
+            _lastBrokerTimeUnixNs = streamEvent.broker_time_unix_ns;
+            _lastStreamId = streamEvent.stream;
             return true;
         }
     }

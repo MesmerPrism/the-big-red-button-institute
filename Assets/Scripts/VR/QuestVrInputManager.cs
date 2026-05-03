@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using TheBigRedButtonInstitute.Biofeedback;
+using TheBigRedButtonInstitute.Diagnostics;
 using TheBigRedButtonInstitute.RustyXrBroker;
 using UnityEngine;
 using UnityEngine.XR;
@@ -127,6 +128,7 @@ namespace TheBigRedButtonInstitute.VR
         [SerializeField] RustyXrBrokerClient brokerClient;
         [SerializeField] RustyXrBrokerButtonDriver brokerButtonDriver;
         [SerializeField] QuestVrRustyXrBrokerButtonBridge brokerButtonBridge;
+        [SerializeField] BigRedButtonDiagnosticComparisonController diagnosticComparisonController;
 
         [Header("Behavior")]
         [SerializeField] bool autoResolveReferences = true;
@@ -241,6 +243,11 @@ namespace TheBigRedButtonInstitute.VR
             brokerClient = client;
             brokerButtonDriver = buttonDriver;
             brokerButtonBridge = buttonBridge;
+        }
+
+        public void ConfigureDiagnosticReferences(BigRedButtonDiagnosticComparisonController comparisonController)
+        {
+            diagnosticComparisonController = comparisonController;
         }
 
         public void EnsureConfiguration()
@@ -975,6 +982,8 @@ namespace TheBigRedButtonInstitute.VR
             builder.AppendLine($"<color=#AFC0CF>Status:</color> <color=#EAF6FF>{EscapeRichText(polarRuntimeManager.StatusMessage)}</color>");
             builder.AppendLine();
             AppendBrokerSection(builder);
+            builder.AppendLine();
+            AppendDiagnosticSection(builder);
         }
 
         void AppendBrokerSection(StringBuilder builder)
@@ -997,6 +1006,22 @@ namespace TheBigRedButtonInstitute.VR
             if (brokerButtonBridge != null)
             {
                 builder.AppendLine($"<color=#AFC0CF>Button bridge:</color> <color=#EAF6FF>{EscapeRichText(brokerButtonBridge.LastState)}</color>");
+            }
+        }
+
+        void AppendDiagnosticSection(StringBuilder builder)
+        {
+            builder.AppendLine("<b><color=#66FFCC>[COMPARISON ROUTES]</color></b>");
+            if (diagnosticComparisonController == null)
+            {
+                builder.AppendLine("<color=#AFC0CF>Status:</color> <color=#97A9B6>comparison controller unavailable</color>");
+                return;
+            }
+
+            var lines = diagnosticComparisonController.BuildHudLines();
+            for (var i = 0; i < lines.Count; i++)
+            {
+                builder.AppendLine($"<color=#AFC0CF>{EscapeRichText(lines[i])}</color>");
             }
         }
 
@@ -1606,6 +1631,15 @@ namespace TheBigRedButtonInstitute.VR
                 if (brokerButtonBridge == null)
                 {
                     brokerButtonBridge = FindAnyObjectByType<QuestVrRustyXrBrokerButtonBridge>();
+                }
+            }
+
+            if (diagnosticComparisonController == null || forceRefresh)
+            {
+                diagnosticComparisonController = GetComponent<BigRedButtonDiagnosticComparisonController>();
+                if (diagnosticComparisonController == null)
+                {
+                    diagnosticComparisonController = FindAnyObjectByType<BigRedButtonDiagnosticComparisonController>();
                 }
             }
         }

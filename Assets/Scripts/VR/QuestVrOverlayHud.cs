@@ -20,11 +20,11 @@ namespace TheBigRedButtonInstitute.VR
         static readonly FieldInfo DynamicResolutionField =
             typeof(OVROverlayCanvas).GetField("_dynamicResolution", BindingFlags.Instance | BindingFlags.NonPublic);
         static readonly Vector2 LegacyCanvasSize = new(1280f, 760f);
-        static readonly Vector2 AstralCanvasSize = new(1800f, 1275f);
-        static readonly Vector2 AstralTextPadding = new(64f, 56f);
-        static readonly Color AstralBackgroundColor = new(0.02f, 0.03f, 0.04f, 0.14f);
-        static readonly Color AstralTextColor = new(0.86f, 0.95f, 1f, 1f);
-        static readonly Color AstralBorderColor = new(0.38f, 0.74f, 0.94f, 0.92f);
+        static readonly Vector2 OverlayCanvasSize = new(1800f, 1275f);
+        static readonly Vector2 OverlayTextPadding = new(64f, 56f);
+        static readonly Color OverlayBackgroundColor = new(0.02f, 0.03f, 0.04f, 0.14f);
+        static readonly Color OverlayTextColor = new(0.86f, 0.95f, 1f, 1f);
+        static readonly Color OverlayBorderColor = new(0.38f, 0.74f, 0.94f, 0.92f);
 
         [Header("References")]
         [SerializeField] QuestVrInputManager inputManager;
@@ -78,7 +78,7 @@ namespace TheBigRedButtonInstitute.VR
 
         void Reset()
         {
-            ApplyAstralPresentationPresetIfNeeded();
+            ApplyOverlayPresentationPresetIfNeeded();
             ResolveReferences();
             EnsureVisualHierarchy();
             ApplyVisibility();
@@ -87,7 +87,7 @@ namespace TheBigRedButtonInstitute.VR
 
         void Awake()
         {
-            ApplyAstralPresentationPresetIfNeeded();
+            ApplyOverlayPresentationPresetIfNeeded();
             ResolveReferences();
             EnsureVisualHierarchy();
             ApplyVisibility();
@@ -96,7 +96,7 @@ namespace TheBigRedButtonInstitute.VR
 
         void OnEnable()
         {
-            ApplyAstralPresentationPresetIfNeeded();
+            ApplyOverlayPresentationPresetIfNeeded();
             ResolveReferences();
             EnsureVisualHierarchy();
             ApplyVisibility();
@@ -114,7 +114,7 @@ namespace TheBigRedButtonInstitute.VR
             lineSpacing = Mathf.Clamp(lineSpacing, 0f, 24f);
             borderThickness = Mathf.Clamp(borderThickness, 1f, 16f);
             borderInset = Mathf.Clamp(borderInset, 0f, 80f);
-            ApplyAstralPresentationPresetIfNeeded();
+            ApplyOverlayPresentationPresetIfNeeded();
         }
 
         void LateUpdate()
@@ -138,17 +138,17 @@ namespace TheBigRedButtonInstitute.VR
         {
             inputManager = manager;
             headTransform = head;
-            ApplyAstralPresentationPresetIfNeeded();
+            ApplyOverlayPresentationPresetIfNeeded();
             ResolveReferences();
             EnsureVisualHierarchy();
             ApplyVisibility();
             RefreshImmediately();
         }
 
-        public void ApplyAstralPresentationPreset()
+        public void ApplyOverlayPresentationPreset()
         {
-            canvasSize = AstralCanvasSize;
-            textPadding = AstralTextPadding;
+            canvasSize = OverlayCanvasSize;
+            textPadding = OverlayTextPadding;
             worldScale = 0.0012f;
             fontSize = 44f;
             lineSpacing = 2f;
@@ -157,14 +157,14 @@ namespace TheBigRedButtonInstitute.VR
             distanceFromHead = 2.8f;
             horizontalOffset = 0f;
             verticalOffset = -0.02f;
-            backgroundColor = AstralBackgroundColor;
-            textColor = AstralTextColor;
-            borderColor = AstralBorderColor;
+            backgroundColor = OverlayBackgroundColor;
+            textColor = OverlayTextColor;
+            borderColor = OverlayBorderColor;
         }
 
         public void EnsureSetupInEditor()
         {
-            ApplyAstralPresentationPresetIfNeeded();
+            ApplyOverlayPresentationPresetIfNeeded();
             ResolveReferences();
             EnsureVisualHierarchy();
             ApplyVisibility();
@@ -288,14 +288,14 @@ namespace TheBigRedButtonInstitute.VR
             return string.IsNullOrWhiteSpace(_transientMessage) ? null : _transientMessage;
         }
 
-        void ApplyAstralPresentationPresetIfNeeded()
+        void ApplyOverlayPresentationPresetIfNeeded()
         {
             if (!IsLegacyPresentation())
             {
                 return;
             }
 
-            ApplyAstralPresentationPreset();
+            ApplyOverlayPresentationPreset();
         }
 
         bool IsLegacyPresentation()

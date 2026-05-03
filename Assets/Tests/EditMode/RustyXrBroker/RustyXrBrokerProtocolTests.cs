@@ -1,3 +1,7 @@
+using System;
+using System.IO;
+using System.Text;
+using TheBigRedButtonInstitute.Diagnostics;
 using NUnit.Framework;
 using TheBigRedButtonInstitute.RustyXrBroker;
 using UnityEngine;
@@ -170,7 +174,7 @@ namespace TheBigRedButtonInstitute.RustyXrBroker.Tests
             }
             finally
             {
-                Object.DestroyImmediate(target);
+                UnityEngine.Object.DestroyImmediate(target);
             }
         }
 
@@ -191,7 +195,7 @@ namespace TheBigRedButtonInstitute.RustyXrBroker.Tests
             }
             finally
             {
-                Object.DestroyImmediate(target);
+                UnityEngine.Object.DestroyImmediate(target);
             }
         }
 
@@ -217,8 +221,88 @@ namespace TheBigRedButtonInstitute.RustyXrBroker.Tests
             }
             finally
             {
-                Object.DestroyImmediate(target);
+                UnityEngine.Object.DestroyImmediate(target);
             }
+        }
+
+        [Test]
+        public void DiagnosticRouteStatsCountDropsDuplicatesAndLatency()
+        {
+            var stats = new BigRedButtonDiagnosticRouteStats(BigRedButtonDiagnosticRouteId.DirectUnityOsc);
+
+            stats.RecordSample(
+                new BigRedButtonDiagnosticSample(1, 0.25f, 1_000_000_000L, 0L, 1_010_000_000L, "test"),
+                acceptedPulse: false);
+            stats.RecordSample(
+                new BigRedButtonDiagnosticSample(3, 1.25f, 1_020_000_000L, 1_025_000_000L, 1_030_000_000L, "test"),
+                acceptedPulse: true);
+            stats.RecordSample(
+                new BigRedButtonDiagnosticSample(3, 0.1f, 0L, 0L, 1_040_000_000L, "test"),
+                acceptedPulse: false);
+
+            Assert.That(stats.ReceivedSamples, Is.EqualTo(3));
+            Assert.That(stats.AcceptedPulses, Is.EqualTo(1));
+            Assert.That(stats.DroppedSamples, Is.EqualTo(1));
+            Assert.That(stats.DuplicateOrOutOfOrderSamples, Is.EqualTo(1));
+            Assert.That(stats.LastValue01, Is.EqualTo(0.1f).Within(0.0001f));
+            Assert.That(stats.LastSourceToUnityLatencyMs, Is.EqualTo(10d).Within(0.001d));
+            Assert.That(stats.LastBrokerToUnityLatencyMs, Is.EqualTo(5d).Within(0.001d));
+        }
+
+        [Test]
+        public void OscDriveParserAcceptsFloatValueAndSequence()
+        {
+            var packet = BuildOscPacket(
+                "/rusty-xr/drive/radius",
+                ",fisi",
+                0.75f,
+                42,
+                "123456789000",
+                19001);
+
+            Assert.That(
+                BigRedButtonOscDriveMessageParser.TryDecodeDriveMessage(
+                    packet,
+                    packet.Length,
+                    "/rusty-xr/drive/radius",
+                    "127.0.0.1:9000",
+                    "127.0.0.1",
+                    9000,
+                    123456789999L,
+                    out var message,
+                    out var error),
+                Is.True,
+                error);
+            Assert.That(message.Address, Is.EqualTo("/rusty-xr/drive/radius"));
+            Assert.That(message.Value01, Is.EqualTo(0.75f).Within(0.0001f));
+            Assert.That(message.SequenceId, Is.EqualTo(42));
+            Assert.That(message.ClientSendTimeUnixNs, Is.EqualTo(123456789000L));
+            Assert.That(message.ReceivedTimeUnixNs, Is.EqualTo(123456789999L));
+            Assert.That(message.ReplyPort, Is.EqualTo(19001));
+            Assert.That(message.FirstArgumentType, Is.EqualTo("f"));
+            Assert.That(message.Peer, Is.EqualTo("127.0.0.1:9000"));
+            Assert.That(message.PeerHost, Is.EqualTo("127.0.0.1"));
+            Assert.That(message.PeerPort, Is.EqualTo(9000));
+        }
+
+        [Test]
+        public void OscDriveAcknowledgementEncoderCarriesClockFields()
+        {
+            var packet = BigRedButtonOscDriveMessageParser.EncodeDriveAcknowledgement(
+                "/rusty-xr/drive/ack",
+                7,
+                0.6f,
+                1_000_000_000L,
+                1_005_000_000L,
+                1_006_000_000L,
+                acceptedPulse: true);
+
+            var address = ReadPaddedString(packet, 0, packet.Length, out var cursor);
+            var tags = ReadPaddedString(packet, cursor, packet.Length, out cursor);
+
+            Assert.That(address, Is.EqualTo("/rusty-xr/drive/ack"));
+            Assert.That(tags, Is.EqualTo(",isssfT"));
+            Assert.That(ReadInt32BigEndian(packet, cursor), Is.EqualTo(7));
         }
 
         static string StreamEventJson(string stream, float value01) =>
@@ -233,5 +317,57 @@ namespace TheBigRedButtonInstitute.RustyXrBroker.Tests
             $"\"value01\":{value01.ToString(System.Globalization.CultureInfo.InvariantCulture)}" +
             "}" +
             "}";
+
+        static byte[] BuildOscPacket(string address, string typeTags, float value, int sequence, string clientSendTimeUnixNs, int replyPort)
+        {
+            using var stream = new MemoryStream();
+            WritePaddedString(stream, address);
+            WritePaddedString(stream, typeTags);
+            WriteInt32BigEndian(stream, BitConverter.SingleToInt32Bits(value));
+            WriteInt32BigEndian(stream, sequence);
+            WritePaddedString(stream, clientSendTimeUnixNs);
+            WriteInt32BigEndian(stream, replyPort);
+            return stream.ToArray();
+        }
+
+        static string ReadPaddedString(byte[] data, int offset, int limit, out int nextOffset)
+        {
+            var cursor = offset;
+            while (cursor < limit && data[cursor] != 0)
+            {
+                cursor++;
+            }
+
+            var value = Encoding.UTF8.GetString(data, offset, cursor - offset);
+            nextOffset = offset + ((cursor - offset + 1) + ((4 - ((cursor - offset + 1) % 4)) % 4));
+            return value;
+        }
+
+        static void WritePaddedString(Stream stream, string value)
+        {
+            var bytes = Encoding.UTF8.GetBytes(value);
+            stream.Write(bytes, 0, bytes.Length);
+            stream.WriteByte(0);
+            while (stream.Length % 4 != 0)
+            {
+                stream.WriteByte(0);
+            }
+        }
+
+        static void WriteInt32BigEndian(Stream stream, int value)
+        {
+            stream.WriteByte((byte)((value >> 24) & 0xFF));
+            stream.WriteByte((byte)((value >> 16) & 0xFF));
+            stream.WriteByte((byte)((value >> 8) & 0xFF));
+            stream.WriteByte((byte)(value & 0xFF));
+        }
+
+        static int ReadInt32BigEndian(byte[] data, int offset)
+        {
+            return (data[offset] << 24) |
+                   (data[offset + 1] << 16) |
+                   (data[offset + 2] << 8) |
+                   data[offset + 3];
+        }
     }
 }

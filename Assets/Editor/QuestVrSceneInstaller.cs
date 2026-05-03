@@ -5,6 +5,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using TheBigRedButtonInstitute.Biofeedback;
+using TheBigRedButtonInstitute.Diagnostics;
 using TheBigRedButtonInstitute.RustyXrBroker;
 using TheBigRedButtonInstitute.VR;
 
@@ -77,14 +78,20 @@ namespace TheBigRedButtonInstitute.Editor
             var polarRuntimeManager = PolarH10SceneInstaller.InstallIntoScene(scene, runtimeRoot, headTransform);
             var polarHeartbeatButtonDriver = EnsurePolarHeartbeatButtonDriver(runtimeRoot);
             var brokerRuntime = EnsureRustyXrBrokerRuntime(runtimeRoot, inputManager);
+            var diagnosticRuntime = EnsureDiagnosticComparisonRuntime(
+                runtimeRoot,
+                inputManager,
+                polarHeartbeatButtonDriver,
+                brokerRuntime);
 
-            hud.ApplyAstralPresentationPreset();
+            hud.ApplyOverlayPresentationPreset();
             ConfigureHud(hud);
             hud.ConfigureReferences(inputManager, headTransform);
             hud.EnsureSetupInEditor();
             inputManager.ConfigureReferences(hud, headTransform, button != null ? button.transform : null, tester);
             inputManager.ConfigurePolarReferences(polarRuntimeManager, polarHeartbeatButtonDriver);
             inputManager.ConfigureBrokerReferences(brokerRuntime.Client, brokerRuntime.ButtonDriver, brokerRuntime.ButtonBridge);
+            inputManager.ConfigureDiagnosticReferences(diagnosticRuntime);
             polarHeartbeatButtonDriver.ConfigureReferences(polarRuntimeManager, inputManager, blinkController);
             inputManager.CenterButtonInFrontOfHead();
             var targetCamera = headTransform.GetComponent<Camera>() ?? Camera.main;
@@ -916,6 +923,30 @@ namespace TheBigRedButtonInstitute.Editor
             EditorUtility.SetDirty(buttonDriver);
             EditorUtility.SetDirty(buttonBridge);
             return new BrokerRuntimeComponents(client, router, driveReceiver, buttonDriver, buttonBridge);
+        }
+
+        static BigRedButtonDiagnosticComparisonController EnsureDiagnosticComparisonRuntime(
+            GameObject runtimeRoot,
+            QuestVrInputManager inputManager,
+            PolarHeartbeatButtonDriver polarHeartbeatButtonDriver,
+            BrokerRuntimeComponents brokerRuntime)
+        {
+            var comparison = runtimeRoot.GetComponent<BigRedButtonDiagnosticComparisonController>() ??
+                             runtimeRoot.AddComponent<BigRedButtonDiagnosticComparisonController>();
+            var directOsc = runtimeRoot.GetComponent<BigRedButtonDirectOscDriveReceiver>() ??
+                            runtimeRoot.AddComponent<BigRedButtonDirectOscDriveReceiver>();
+
+            directOsc.ConfigureReferences(inputManager, comparison);
+            comparison.ConfigureReferences(
+                inputManager,
+                polarHeartbeatButtonDriver,
+                brokerRuntime.ButtonDriver,
+                brokerRuntime.DriveReceiver,
+                directOsc);
+
+            EditorUtility.SetDirty(directOsc);
+            EditorUtility.SetDirty(comparison);
+            return comparison;
         }
     }
 }
