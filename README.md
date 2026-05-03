@@ -69,5 +69,6 @@ dotnet run --project src\RustyXr.Companion.Cli -- broker compare --quest-host <q
 
 ## Docs
 
+- `THIRD_PARTY_NOTICES.md`
 - `Documentation/Quest-Polar-Workflow.md`
 - `Documentation/Public-Broker-Latency-Example-Roadmap.md`
