@@ -77,7 +77,7 @@ namespace TheBigRedButtonInstitute.Editor
 
             var polarRuntimeManager = PolarH10SceneInstaller.InstallIntoScene(scene, runtimeRoot, headTransform);
             var polarHeartbeatButtonDriver = EnsurePolarHeartbeatButtonDriver(runtimeRoot);
-            var brokerRuntime = EnsureRustyXrBrokerRuntime(runtimeRoot, inputManager);
+            var brokerRuntime = EnsureRustyXrBrokerRuntime(runtimeRoot, inputManager, headTransform);
             var diagnosticRuntime = EnsureDiagnosticComparisonRuntime(
                 runtimeRoot,
                 inputManager,
@@ -883,12 +883,16 @@ namespace TheBigRedButtonInstitute.Editor
                 RustyXrBrokerClient client,
                 RustyXrBrokerEventRouter router,
                 RustyXrBrokerDriveSignalReceiver driveReceiver,
+                RustyXrBrokerScreenGazeReceiver screenGazeReceiver,
+                RustyXrBrokerScreenGazeVisualizer screenGazeVisualizer,
                 RustyXrBrokerButtonDriver buttonDriver,
                 QuestVrRustyXrBrokerButtonBridge buttonBridge)
             {
                 Client = client;
                 Router = router;
                 DriveReceiver = driveReceiver;
+                ScreenGazeReceiver = screenGazeReceiver;
+                ScreenGazeVisualizer = screenGazeVisualizer;
                 ButtonDriver = buttonDriver;
                 ButtonBridge = buttonBridge;
             }
@@ -896,20 +900,35 @@ namespace TheBigRedButtonInstitute.Editor
             public RustyXrBrokerClient Client { get; }
             public RustyXrBrokerEventRouter Router { get; }
             public RustyXrBrokerDriveSignalReceiver DriveReceiver { get; }
+            public RustyXrBrokerScreenGazeReceiver ScreenGazeReceiver { get; }
+            public RustyXrBrokerScreenGazeVisualizer ScreenGazeVisualizer { get; }
             public RustyXrBrokerButtonDriver ButtonDriver { get; }
             public QuestVrRustyXrBrokerButtonBridge ButtonBridge { get; }
         }
 
-        static BrokerRuntimeComponents EnsureRustyXrBrokerRuntime(GameObject runtimeRoot, QuestVrInputManager inputManager)
+        static BrokerRuntimeComponents EnsureRustyXrBrokerRuntime(
+            GameObject runtimeRoot,
+            QuestVrInputManager inputManager,
+            Transform headTransform)
         {
             var client = runtimeRoot.GetComponent<RustyXrBrokerClient>() ?? runtimeRoot.AddComponent<RustyXrBrokerClient>();
             client.ConfigureIdentity("org.thebigredbuttoninstitute.app", "The Big Red Button Institute", "0.1.0");
+            client.ConfigureDefaultStreams(
+                RustyXrBrokerDriveSignal.DefaultStream,
+                RustyXrBrokerScreenGazeReceiver.DefaultStream);
 
             var driveReceiver = runtimeRoot.GetComponent<RustyXrBrokerDriveSignalReceiver>() ?? runtimeRoot.AddComponent<RustyXrBrokerDriveSignalReceiver>();
             driveReceiver.StreamId = RustyXrBrokerDriveSignal.DefaultStream;
 
+            var screenGazeReceiver = runtimeRoot.GetComponent<RustyXrBrokerScreenGazeReceiver>() ?? runtimeRoot.AddComponent<RustyXrBrokerScreenGazeReceiver>();
+            screenGazeReceiver.StreamId = RustyXrBrokerScreenGazeReceiver.DefaultStream;
+
+            var screenGazeVisualizer = runtimeRoot.GetComponent<RustyXrBrokerScreenGazeVisualizer>() ?? runtimeRoot.AddComponent<RustyXrBrokerScreenGazeVisualizer>();
+            screenGazeVisualizer.ConfigureReferences(screenGazeReceiver, headTransform);
+
             var router = runtimeRoot.GetComponent<RustyXrBrokerEventRouter>() ?? runtimeRoot.AddComponent<RustyXrBrokerEventRouter>();
             router.ConfigureReferences(client, driveReceiver);
+            router.ConfigureScreenGazeReferences(screenGazeReceiver);
 
             var buttonDriver = runtimeRoot.GetComponent<RustyXrBrokerButtonDriver>() ?? runtimeRoot.AddComponent<RustyXrBrokerButtonDriver>();
             buttonDriver.ConfigureReferences(driveReceiver);
@@ -919,10 +938,19 @@ namespace TheBigRedButtonInstitute.Editor
 
             EditorUtility.SetDirty(client);
             EditorUtility.SetDirty(driveReceiver);
+            EditorUtility.SetDirty(screenGazeReceiver);
+            EditorUtility.SetDirty(screenGazeVisualizer);
             EditorUtility.SetDirty(router);
             EditorUtility.SetDirty(buttonDriver);
             EditorUtility.SetDirty(buttonBridge);
-            return new BrokerRuntimeComponents(client, router, driveReceiver, buttonDriver, buttonBridge);
+            return new BrokerRuntimeComponents(
+                client,
+                router,
+                driveReceiver,
+                screenGazeReceiver,
+                screenGazeVisualizer,
+                buttonDriver,
+                buttonBridge);
         }
 
         static BigRedButtonDiagnosticComparisonController EnsureDiagnosticComparisonRuntime(

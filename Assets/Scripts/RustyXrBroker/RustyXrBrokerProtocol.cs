@@ -6,10 +6,16 @@ namespace TheBigRedButtonInstitute.RustyXrBroker
     public static class RustyXrBrokerProtocol
     {
         public const string ContractVersion = "rusty.xr.broker.v1";
-        public const string HelloSchema = "rusty.xr.broker.hello.v1";
+        public const int ProtocolVersionMin = 1;
+        public const int ProtocolVersionMax = 1;
+        public const string HelloSchema = "rusty.xr.broker.client_hello.v1";
         public const string CommandSchema = "rusty.xr.broker.command.v1";
         public const string CommandAckSchema = "rusty.xr.broker.command_ack.v1";
         public const string StreamEventSchema = "rusty.xr.broker.stream_event.v1";
+        public const string ReplayRecordSchema = "rusty.xr.broker.replay_record.v1";
+        public const string StreamSampleHeaderSchema = "rusty.xr.broker.stream_sample_header.v1";
+        public const string SyntheticWavePayloadSchema = "rusty.xr.synthetic.wave.v1";
+        public const string EyeScreenGazePointSchema = "rusty.xr.eye.screen.gaze_point.v1";
 
         public static string BuildHelloJson(
             string clientId,
@@ -25,8 +31,8 @@ namespace TheBigRedButtonInstitute.RustyXrBroker
                 app_package = appPackage,
                 app_label = appLabel,
                 app_version = appVersion,
-                protocol_min = ContractVersion,
-                protocol_max = ContractVersion,
+                protocol_min = ProtocolVersionMin,
+                protocol_max = ProtocolVersionMax,
                 supports_commands = true
             };
 
@@ -163,12 +169,56 @@ namespace TheBigRedButtonInstitute.RustyXrBroker
                 if (parsed == null ||
                     parsed.type != "stream_event" ||
                     parsed.schema != StreamEventSchema ||
-                    string.IsNullOrWhiteSpace(parsed.stream))
+                    !parsed.NormalizeFromHeader())
                 {
                     return false;
                 }
 
                 streamEvent = parsed;
+                return true;
+            }
+            catch (ArgumentException)
+            {
+                return false;
+            }
+        }
+
+        public static bool TryParseReplayRecordAsStreamEvent(string json, out RustyXrBrokerStreamEvent streamEvent)
+        {
+            streamEvent = null;
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return false;
+            }
+
+            try
+            {
+                var parsed = JsonUtility.FromJson<RustyXrBrokerReplayRecordEnvelope>(json);
+                if (parsed == null ||
+                    parsed.type != "replay_record" ||
+                    parsed.schema != ReplayRecordSchema ||
+                    string.IsNullOrWhiteSpace(parsed.session_id) ||
+                    parsed.header == null ||
+                    parsed.payload == null)
+                {
+                    return false;
+                }
+
+                var normalized = new RustyXrBrokerStreamEvent
+                {
+                    type = "stream_event",
+                    schema = StreamEventSchema,
+                    stream = parsed.stream,
+                    header = parsed.header,
+                    payload = parsed.payload
+                };
+
+                if (!normalized.NormalizeFromHeader())
+                {
+                    return false;
+                }
+
+                streamEvent = normalized;
                 return true;
             }
             catch (ArgumentException)
@@ -187,8 +237,8 @@ namespace TheBigRedButtonInstitute.RustyXrBroker
         public string app_package;
         public string app_label;
         public string app_version;
-        public string protocol_min;
-        public string protocol_max;
+        public int protocol_min;
+        public int protocol_max;
         public bool supports_commands;
     }
 
@@ -240,23 +290,117 @@ namespace TheBigRedButtonInstitute.RustyXrBroker
     }
 
     [Serializable]
+    public sealed class RustyXrBrokerReplayRecordEnvelope
+    {
+        public string type;
+        public string schema;
+        public string session_id;
+        public string stream;
+        public RustyXrBrokerStreamSampleHeader header;
+        public RustyXrBrokerStreamPayload payload;
+    }
+
+    [Serializable]
     public sealed class RustyXrBrokerStreamEvent
     {
         public string type;
         public string schema;
         public string stream;
         public string subscription_id;
+        public RustyXrBrokerStreamSampleHeader header;
         public long sequence_id;
         public long broker_time_unix_ns;
         public long broker_time_elapsed_ns;
+        public long source_time_ns;
+        public long source_time_unix_ns;
+        public long dropped_before_sample;
+        public long late_before_sample;
+        public string payload_schema;
         public RustyXrBrokerStreamPayload payload;
+
+        public bool NormalizeFromHeader()
+        {
+            if (header != null)
+            {
+                if (string.IsNullOrWhiteSpace(stream))
+                {
+                    stream = header.stream_id;
+                }
+
+                if (sequence_id == 0L)
+                {
+                    sequence_id = header.sequence_number;
+                }
+
+                if (broker_time_unix_ns == 0L)
+                {
+                    broker_time_unix_ns = header.broker_time_unix_ns;
+                }
+
+                if (broker_time_elapsed_ns == 0L)
+                {
+                    broker_time_elapsed_ns = header.broker_time_elapsed_ns;
+                }
+
+                if (source_time_ns == 0L)
+                {
+                    source_time_ns = header.source_time_ns;
+                }
+
+                if (source_time_unix_ns == 0L)
+                {
+                    source_time_unix_ns = header.source_time_unix_ns;
+                }
+
+                if (dropped_before_sample == 0L)
+                {
+                    dropped_before_sample = header.dropped_before_sample;
+                }
+
+                if (late_before_sample == 0L)
+                {
+                    late_before_sample = header.late_before_sample;
+                }
+
+                if (string.IsNullOrWhiteSpace(payload_schema))
+                {
+                    payload_schema = header.payload_schema;
+                }
+            }
+
+            return !string.IsNullOrWhiteSpace(stream);
+        }
+    }
+
+    [Serializable]
+    public sealed class RustyXrBrokerStreamSampleHeader
+    {
+        public string schema;
+        public string stream_id;
+        public string session_id;
+        public string source_id;
+        public string payload_kind;
+        public string payload_schema;
+        public long sequence_number;
+        public long broker_time_elapsed_ns;
+        public long broker_time_unix_ns;
+        public long source_time_ns;
+        public long source_time_unix_ns;
+        public long dropped_before_sample;
+        public long late_before_sample;
     }
 
     [Serializable]
     public sealed class RustyXrBrokerStreamPayload
     {
+        public string schema;
         public string address;
         public float value01;
+        public RustyXrBrokerVec2 normalized_point;
+        public RustyXrBrokerVec2 screen_pixel;
+        public RustyXrBrokerEyeSampleBase @base;
+        public string display_id;
+        public float pupil_diameter_mm;
         public string peer;
         public string argument_type;
         public string path;
@@ -264,5 +408,36 @@ namespace TheBigRedButtonInstitute.RustyXrBroker
         public bool lsl_forwarded;
         public bool osc_forwarded;
         public string fallback_transport;
+    }
+
+    [Serializable]
+    public sealed class RustyXrBrokerVec2
+    {
+        public float x;
+        public float y;
+    }
+
+    [Serializable]
+    public sealed class RustyXrBrokerEyeSampleBase
+    {
+        public string provider_id;
+        public string source_device_id;
+        public long sequence_number;
+        public long sample_time_ns;
+        public long broker_receive_time_ns;
+        public RustyXrBrokerEyeValidityFlags validity;
+        public float confidence;
+        public string eye;
+        public string coordinate_space;
+    }
+
+    [Serializable]
+    public sealed class RustyXrBrokerEyeValidityFlags
+    {
+        public bool sample_valid;
+        public bool left_valid;
+        public bool right_valid;
+        public bool blink;
+        public bool tracking_lost;
     }
 }

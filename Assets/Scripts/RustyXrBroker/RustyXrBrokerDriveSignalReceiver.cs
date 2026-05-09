@@ -51,6 +51,7 @@ namespace TheBigRedButtonInstitute.RustyXrBroker
     {
         public const string DefaultStream = "osc:/rusty-xr/drive/radius";
         public const string DefaultAddress = "/rusty-xr/drive/radius";
+        public const string SyntheticWaveStream = "synthetic:wave";
 
         public static bool TryExtractValue01(
             RustyXrBrokerStreamEvent streamEvent,
@@ -60,7 +61,12 @@ namespace TheBigRedButtonInstitute.RustyXrBroker
             value01 = 0f;
             if (streamEvent == null ||
                 streamEvent.payload == null ||
-                streamEvent.stream != expectedStream ||
+                streamEvent.stream != expectedStream)
+            {
+                return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(streamEvent.payload.address) &&
                 streamEvent.payload.address != DefaultAddress)
             {
                 return false;

@@ -99,6 +99,29 @@ namespace TheBigRedButtonInstitute.RustyXrBroker
             appVersion = string.IsNullOrWhiteSpace(version) ? appVersion : version;
         }
 
+        public void ConfigureDefaultStreams(params string[] streams)
+        {
+            if (streams == null || streams.Length == 0)
+            {
+                defaultStreams = Array.Empty<string>();
+                return;
+            }
+
+            var sanitized = new List<string>(streams.Length);
+            for (var i = 0; i < streams.Length; i++)
+            {
+                var stream = streams[i];
+                if (string.IsNullOrWhiteSpace(stream) || sanitized.Contains(stream))
+                {
+                    continue;
+                }
+
+                sanitized.Add(stream);
+            }
+
+            defaultStreams = sanitized.ToArray();
+        }
+
         public void ConnectNow()
         {
             if (_loopTask != null && !_loopTask.IsCompleted)

@@ -19,6 +19,12 @@ purpose broker sidecar.
 - The broker client can connect to the Quest broker sidecar, subscribe to drive
   streams, open the 2D broker console, and request that the broker console
   returns to the background.
+- The broker adapter accepts both the current Quest broker app's top-level
+  `stream_event` fields and the newer public Rusty XR contract shape with a
+  nested stream sample header.
+- The broker adapter also consumes synthetic `eye.screen.gaze_point` events and
+  can visualize normalized screen gaze in the Unity scene, keeping real
+  eye-tracker providers outside this example.
 - A comparison-route controller records per-route sample counts, accepted
   button pulses, sequence gaps, duplicate/out-of-order packets, and available
   latency timestamps.
@@ -40,6 +46,7 @@ The public example should make each transport path explicit:
 | Direct Unity LSL | Planned | App-owned LSL stream path for latency comparison. |
 | Direct Unity OSC | Present with ack timing | App-owned OSC path for creative-tool and diagnostics comparison. |
 | Broker WebSocket drive | Present | Broker-mediated stream drive into the Unity app. |
+| Broker synthetic eye stream | Present | Provider-neutral Unity consumer for `eye.screen.gaze_point` samples. |
 | Broker LSL/OSC forwarding | Present and validated with the companion diagnostics | Sidecar-mediated latency and stream diagnostics. |
 
 All accepted input paths should converge on the same button press routine so

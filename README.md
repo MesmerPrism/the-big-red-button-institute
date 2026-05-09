@@ -22,6 +22,12 @@ stream-quality comparisons easy to inspect on-headset.
   animation.
 - The Rusty XR Quest broker sidecar can drive the same button press routine
   through subscribed broker stream events.
+- The broker adapter can also subscribe to synthetic `eye.screen.gaze_point`
+  events and map normalized screen gaze onto an in-scene marker without a
+  device-specific eye tracker SDK.
+- The broker edit-mode tests consume replay-record-shaped synthetic wave and
+  screen-gaze fixture payloads, so the adapter can be checked without a
+  headset or live broker.
 - The Rusty XR Companion CLI can send deterministic OSC, broker, LSL, and
   Polar-shaped diagnostic streams and write JSON/CSV/Markdown/PDF reports.
 - Android APK builds are supported from `Tools > Big Red Button > Build Quest APK`.
@@ -33,6 +39,7 @@ Use this repo when you want a complete Unity-side Quest target for comparing:
 - direct Unity OSC ingestion
 - direct Unity Polar-compatible BLE ingestion
 - broker-routed WebSocket stream events
+- broker-routed synthetic screen gaze events
 - broker-side OSC and LSL forwarding driven by the companion tools
 
 The matching Rusty XR components live in:
@@ -72,3 +79,4 @@ dotnet run --project src\RustyXr.Companion.Cli -- broker compare --quest-host <q
 - `THIRD_PARTY_NOTICES.md`
 - `Documentation/Quest-Polar-Workflow.md`
 - `Documentation/Public-Broker-Latency-Example-Roadmap.md`
+- `Documentation/Rusty-XR-Broker-Unity-Compatibility.md`

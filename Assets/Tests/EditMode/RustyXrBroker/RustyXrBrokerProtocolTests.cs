@@ -105,8 +105,8 @@ namespace TheBigRedButtonInstitute.RustyXrBroker.Tests
             Assert.That(hello.type, Is.EqualTo("hello"));
             Assert.That(hello.schema, Is.EqualTo(RustyXrBrokerProtocol.HelloSchema));
             Assert.That(hello.client_id, Is.EqualTo("unity-test-client"));
-            Assert.That(hello.protocol_min, Is.EqualTo(RustyXrBrokerProtocol.ContractVersion));
-            Assert.That(hello.protocol_max, Is.EqualTo(RustyXrBrokerProtocol.ContractVersion));
+            Assert.That(hello.protocol_min, Is.EqualTo(RustyXrBrokerProtocol.ProtocolVersionMin));
+            Assert.That(hello.protocol_max, Is.EqualTo(RustyXrBrokerProtocol.ProtocolVersionMax));
             Assert.That(hello.supports_commands, Is.True);
         }
 
@@ -159,6 +159,107 @@ namespace TheBigRedButtonInstitute.RustyXrBroker.Tests
         }
 
         [Test]
+        public void TryParseStreamEventAcceptsPublicBrokerHeaderShape()
+        {
+            const string json = @"{
+                ""type"": ""stream_event"",
+                ""schema"": ""rusty.xr.broker.stream_event.v1"",
+                ""stream"": ""osc:/rusty-xr/drive/radius"",
+                ""subscription_id"": ""sub-1"",
+                ""header"": {
+                    ""schema"": ""rusty.xr.broker.stream_sample_header.v1"",
+                    ""stream_id"": ""osc:/rusty-xr/drive/radius"",
+                    ""session_id"": ""session-001"",
+                    ""source_id"": ""broker-synthetic"",
+                    ""payload_kind"": ""Json"",
+                    ""payload_schema"": ""rusty.xr.synthetic.wave.v1"",
+                    ""sequence_number"": 8,
+                    ""broker_time_elapsed_ns"": 111000,
+                    ""broker_time_unix_ns"": 222000,
+                    ""source_time_ns"": 99000,
+                    ""source_time_unix_ns"": 220000,
+                    ""dropped_before_sample"": 1,
+                    ""late_before_sample"": 2
+                },
+                ""payload"": {
+                    ""value01"": 0.62
+                }
+            }";
+
+            Assert.That(RustyXrBrokerProtocol.TryParseStreamEvent(json, out var streamEvent), Is.True);
+            Assert.That(streamEvent.stream, Is.EqualTo(RustyXrBrokerDriveSignal.DefaultStream));
+            Assert.That(streamEvent.sequence_id, Is.EqualTo(8));
+            Assert.That(streamEvent.broker_time_unix_ns, Is.EqualTo(222000));
+            Assert.That(streamEvent.broker_time_elapsed_ns, Is.EqualTo(111000));
+            Assert.That(streamEvent.source_time_ns, Is.EqualTo(99000));
+            Assert.That(streamEvent.payload_schema, Is.EqualTo(RustyXrBrokerProtocol.SyntheticWavePayloadSchema));
+            Assert.That(streamEvent.dropped_before_sample, Is.EqualTo(1));
+            Assert.That(streamEvent.late_before_sample, Is.EqualTo(2));
+            Assert.That(streamEvent.payload.value01, Is.EqualTo(0.62f).Within(0.0001f));
+        }
+
+        [Test]
+        public void ReplayRecordFixtureShapeCanDriveSyntheticWaveReceiver()
+        {
+            Assert.That(
+                RustyXrBrokerProtocol.TryParseReplayRecordAsStreamEvent(
+                    SyntheticWaveReplayRecordJson,
+                    out var streamEvent),
+                Is.True);
+            Assert.That(streamEvent.stream, Is.EqualTo(RustyXrBrokerDriveSignal.SyntheticWaveStream));
+            Assert.That(streamEvent.sequence_id, Is.EqualTo(1));
+            Assert.That(streamEvent.payload_schema, Is.EqualTo(RustyXrBrokerProtocol.SyntheticWavePayloadSchema));
+
+            var target = new GameObject("broker-replay-wave-test");
+            try
+            {
+                var receiver = target.AddComponent<RustyXrBrokerDriveSignalReceiver>();
+                receiver.StreamId = RustyXrBrokerDriveSignal.SyntheticWaveStream;
+
+                Assert.That(receiver.ApplyStreamEvent(streamEvent), Is.True);
+                Assert.That(receiver.Value01, Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(receiver.LastSequenceId, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(target);
+            }
+        }
+
+        [Test]
+        public void ReplayRecordFixtureShapeCanDriveScreenGazeReceiver()
+        {
+            Assert.That(
+                RustyXrBrokerProtocol.TryParseReplayRecordAsStreamEvent(
+                    SyntheticEyeBlinkReplayRecordJson,
+                    out var streamEvent),
+                Is.True);
+            Assert.That(streamEvent.stream, Is.EqualTo(RustyXrBrokerScreenGazeReceiver.DefaultStream));
+            Assert.That(streamEvent.sequence_id, Is.EqualTo(5));
+            Assert.That(streamEvent.payload_schema, Is.EqualTo(RustyXrBrokerProtocol.EyeScreenGazePointSchema));
+
+            var target = new GameObject("broker-replay-eye-test");
+            try
+            {
+                var receiver = target.AddComponent<RustyXrBrokerScreenGazeReceiver>();
+
+                Assert.That(receiver.ApplyStreamEvent(streamEvent), Is.True);
+                Assert.That(receiver.NormalizedPoint.x, Is.EqualTo(0.5f).Within(0.0001f));
+                Assert.That(receiver.NormalizedPoint.y, Is.EqualTo(0.5f).Within(0.0001f));
+                Assert.That(receiver.SampleValid, Is.False);
+                Assert.That(receiver.Confidence01, Is.EqualTo(0f).Within(0.0001f));
+                Assert.That(receiver.LastSequenceNumber, Is.EqualTo(5));
+                Assert.That(receiver.LastSampleTimeNs, Is.EqualTo(55555555));
+                Assert.That(receiver.LastProviderId, Is.EqualTo("synthetic-eye-provider"));
+                Assert.That(receiver.LastSourceDeviceId, Is.EqualTo("desktop-eye-source"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(target);
+            }
+        }
+
+        [Test]
         public void DriveSignalReceiverAppliesTargetStreamOnly()
         {
             var target = new GameObject("broker-drive-receiver-test");
@@ -171,6 +272,107 @@ namespace TheBigRedButtonInstitute.RustyXrBroker.Tests
 
                 Assert.That(receiver.ApplyStreamEventJson(StreamEventJson("latency:sample", 0.1f)), Is.False);
                 Assert.That(receiver.Value01, Is.EqualTo(1f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(target);
+            }
+        }
+
+        [Test]
+        public void DriveSignalReceiverAppliesHeaderShapedSyntheticPayload()
+        {
+            var target = new GameObject("broker-header-drive-receiver-test");
+            try
+            {
+                var receiver = target.AddComponent<RustyXrBrokerDriveSignalReceiver>();
+
+                Assert.That(receiver.ApplyStreamEventJson(HeaderStreamEventJson(RustyXrBrokerDriveSignal.DefaultStream, 0.42f)), Is.True);
+                Assert.That(receiver.Value01, Is.EqualTo(0.42f).Within(0.0001f));
+                Assert.That(receiver.LastSequenceId, Is.EqualTo(9));
+                Assert.That(receiver.LastBrokerTimeUnixNs, Is.EqualTo(123456789000L));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(target);
+            }
+        }
+
+        [Test]
+        public void SyntheticWaveStreamCanDriveReceiverWhenConfigured()
+        {
+            var target = new GameObject("broker-synthetic-drive-receiver-test");
+            try
+            {
+                var receiver = target.AddComponent<RustyXrBrokerDriveSignalReceiver>();
+                receiver.StreamId = RustyXrBrokerDriveSignal.SyntheticWaveStream;
+
+                Assert.That(receiver.ApplyStreamEventJson(HeaderStreamEventJson(RustyXrBrokerDriveSignal.SyntheticWaveStream, 0.9f)), Is.True);
+                Assert.That(receiver.Value01, Is.EqualTo(0.9f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(target);
+            }
+        }
+
+        [Test]
+        public void ScreenGazeReceiverAppliesSyntheticEyePayload()
+        {
+            var target = new GameObject("broker-screen-gaze-receiver-test");
+            try
+            {
+                var receiver = target.AddComponent<RustyXrBrokerScreenGazeReceiver>();
+
+                Assert.That(receiver.ApplyStreamEventJson(EyeGazeStreamEventJson(0.25f, 0.75f, sampleValid: true)), Is.True);
+                Assert.That(receiver.NormalizedPoint.x, Is.EqualTo(0.25f).Within(0.0001f));
+                Assert.That(receiver.NormalizedPoint.y, Is.EqualTo(0.75f).Within(0.0001f));
+                Assert.That(receiver.SampleValid, Is.True);
+                Assert.That(receiver.Confidence01, Is.EqualTo(0.86f).Within(0.0001f));
+                Assert.That(receiver.LastSequenceNumber, Is.EqualTo(11));
+                Assert.That(receiver.LastSampleTimeNs, Is.EqualTo(555000));
+                Assert.That(receiver.LastBrokerTimeUnixNs, Is.EqualTo(777000));
+                Assert.That(receiver.LastProviderId, Is.EqualTo("synthetic-eye"));
+                Assert.That(receiver.LastSourceDeviceId, Is.EqualTo("synthetic-screen"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(target);
+            }
+        }
+
+        [Test]
+        public void ScreenGazeReceiverPreservesInvalidSyntheticSampleFlag()
+        {
+            var target = new GameObject("broker-screen-gaze-invalid-test");
+            try
+            {
+                var receiver = target.AddComponent<RustyXrBrokerScreenGazeReceiver>();
+
+                Assert.That(receiver.ApplyStreamEventJson(EyeGazeStreamEventJson(0.5f, 0.5f, sampleValid: false)), Is.True);
+                Assert.That(receiver.SampleValid, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(target);
+            }
+        }
+
+        [Test]
+        public void EventRouterAppliesBrokerEyeStreamToGazeReceiver()
+        {
+            var target = new GameObject("broker-eye-router-test");
+            try
+            {
+                var receiver = target.AddComponent<RustyXrBrokerScreenGazeReceiver>();
+                var router = target.AddComponent<RustyXrBrokerEventRouter>();
+                router.ConfigureReferences(null);
+                router.ConfigureScreenGazeReferences(receiver);
+
+                Assert.That(router.ApplyStreamEventJson(EyeGazeStreamEventJson(0.4f, 0.6f, sampleValid: true)), Is.True);
+                Assert.That(router.RoutedEvents, Is.EqualTo(1));
+                Assert.That(router.AppliedScreenGazeEvents, Is.EqualTo(1));
+                Assert.That(receiver.NormalizedPoint.x, Is.EqualTo(0.4f).Within(0.0001f));
             }
             finally
             {
@@ -317,6 +519,155 @@ namespace TheBigRedButtonInstitute.RustyXrBroker.Tests
             $"\"value01\":{value01.ToString(System.Globalization.CultureInfo.InvariantCulture)}" +
             "}" +
             "}";
+
+        static string HeaderStreamEventJson(string stream, float value01) =>
+            "{" +
+            "\"type\":\"stream_event\"," +
+            "\"schema\":\"rusty.xr.broker.stream_event.v1\"," +
+            $"\"stream\":\"{stream}\"," +
+            "\"subscription_id\":\"sub-1\"," +
+            "\"header\":{" +
+            "\"schema\":\"rusty.xr.broker.stream_sample_header.v1\"," +
+            $"\"stream_id\":\"{stream}\"," +
+            "\"session_id\":\"session-001\"," +
+            "\"source_id\":\"synthetic-provider\"," +
+            "\"payload_kind\":\"Json\"," +
+            "\"payload_schema\":\"rusty.xr.synthetic.wave.v1\"," +
+            "\"sequence_number\":9," +
+            "\"broker_time_elapsed_ns\":123456780000," +
+            "\"broker_time_unix_ns\":123456789000," +
+            "\"source_time_ns\":123450000000," +
+            "\"source_time_unix_ns\":123456700000," +
+            "\"dropped_before_sample\":0," +
+            "\"late_before_sample\":0" +
+            "}," +
+            "\"payload\":{" +
+            $"\"value01\":{value01.ToString(System.Globalization.CultureInfo.InvariantCulture)}" +
+            "}" +
+            "}";
+
+        static string EyeGazeStreamEventJson(float x, float y, bool sampleValid) =>
+            "{" +
+            "\"type\":\"stream_event\"," +
+            "\"schema\":\"rusty.xr.broker.stream_event.v1\"," +
+            "\"stream\":\"eye.screen.gaze_point\"," +
+            "\"subscription_id\":\"sub-eye\"," +
+            "\"header\":{" +
+            "\"schema\":\"rusty.xr.broker.stream_sample_header.v1\"," +
+            "\"stream_id\":\"eye.screen.gaze_point\"," +
+            "\"session_id\":\"session-001\"," +
+            "\"source_id\":\"synthetic-eye\"," +
+            "\"payload_kind\":\"Json\"," +
+            "\"payload_schema\":\"rusty.xr.eye.screen.gaze_point.v1\"," +
+            "\"sequence_number\":11," +
+            "\"broker_time_elapsed_ns\":666000," +
+            "\"broker_time_unix_ns\":777000," +
+            "\"source_time_ns\":555000," +
+            "\"source_time_unix_ns\":776000," +
+            "\"dropped_before_sample\":0," +
+            "\"late_before_sample\":0" +
+            "}," +
+            "\"payload\":{" +
+            "\"schema\":\"rusty.xr.eye.screen.gaze_point.v1\"," +
+            "\"base\":{" +
+            "\"provider_id\":\"synthetic-eye\"," +
+            "\"source_device_id\":\"synthetic-screen\"," +
+            "\"sequence_number\":11," +
+            "\"sample_time_ns\":555000," +
+            "\"broker_receive_time_ns\":666000," +
+            "\"validity\":{" +
+            $"\"sample_valid\":{(sampleValid ? "true" : "false")}," +
+            "\"left_valid\":true," +
+            "\"right_valid\":true," +
+            "\"blink\":false," +
+            $"\"tracking_lost\":{(sampleValid ? "false" : "true")}" +
+            "}," +
+            "\"confidence\":0.86," +
+            "\"eye\":\"Combined\"," +
+            "\"coordinate_space\":\"ScreenNormalized\"" +
+            "}," +
+            $"\"normalized_point\":{{\"x\":{x.ToString(System.Globalization.CultureInfo.InvariantCulture)},\"y\":{y.ToString(System.Globalization.CultureInfo.InvariantCulture)}}}," +
+            "\"display_id\":\"synthetic-display\"" +
+            "}" +
+            "}";
+
+        const string SyntheticWaveReplayRecordJson = @"{
+            ""type"": ""replay_record"",
+            ""schema"": ""rusty.xr.broker.replay_record.v1"",
+            ""session_id"": ""synthetic-broker-wave-session"",
+            ""stream"": ""synthetic:wave"",
+            ""header"": {
+                ""schema"": ""rusty.xr.broker.stream_sample_header.v1"",
+                ""stream_id"": ""synthetic:wave"",
+                ""session_id"": ""synthetic-broker-wave-session"",
+                ""source_id"": ""synthetic-wave-provider"",
+                ""payload_kind"": ""Json"",
+                ""payload_schema"": ""rusty.xr.synthetic.wave.v1"",
+                ""sequence_number"": 1,
+                ""broker_time_elapsed_ns"": 16666667,
+                ""broker_time_unix_ns"": 0,
+                ""source_time_ns"": 16666667,
+                ""source_time_unix_ns"": 0,
+                ""dropped_before_sample"": 0,
+                ""late_before_sample"": 0
+            },
+            ""payload"": {
+                ""sequence_number"": 1,
+                ""sample_time_elapsed_ns"": 16666667,
+                ""value01"": 1.0,
+                ""phase01"": 0.25,
+                ""valid"": true
+            }
+        }";
+
+        const string SyntheticEyeBlinkReplayRecordJson = @"{
+            ""type"": ""replay_record"",
+            ""schema"": ""rusty.xr.broker.replay_record.v1"",
+            ""session_id"": ""synthetic-eye-screen-gaze-session"",
+            ""stream"": ""eye.screen.gaze_point"",
+            ""header"": {
+                ""schema"": ""rusty.xr.broker.stream_sample_header.v1"",
+                ""stream_id"": ""eye.screen.gaze_point"",
+                ""session_id"": ""synthetic-eye-screen-gaze-session"",
+                ""source_id"": ""synthetic-eye-provider"",
+                ""payload_kind"": ""Json"",
+                ""payload_schema"": ""rusty.xr.eye.screen.gaze_point.v1"",
+                ""sequence_number"": 5,
+                ""broker_time_elapsed_ns"": 55555555,
+                ""broker_time_unix_ns"": 0,
+                ""source_time_ns"": 55555555,
+                ""source_time_unix_ns"": 0,
+                ""dropped_before_sample"": 0,
+                ""late_before_sample"": 0
+            },
+            ""payload"": {
+                ""schema"": ""rusty.xr.eye.screen.gaze_point.v1"",
+                ""base"": {
+                    ""provider_id"": ""synthetic-eye-provider"",
+                    ""source_device_id"": ""desktop-eye-source"",
+                    ""sequence_number"": 5,
+                    ""sample_time_ns"": 55555555,
+                    ""broker_receive_time_ns"": 55555555,
+                    ""validity"": {
+                        ""sample_valid"": false,
+                        ""left_valid"": false,
+                        ""right_valid"": false,
+                        ""blink"": true,
+                        ""tracking_lost"": true
+                    },
+                    ""confidence"": 0.0,
+                    ""eye"": ""Combined"",
+                    ""coordinate_space"": ""ScreenNormalized""
+                },
+                ""display_id"": ""primary-display"",
+                ""normalized_point"": {
+                    ""x"": 0.5,
+                    ""y"": 0.5
+                },
+                ""screen_pixel"": null,
+                ""pupil_diameter_mm"": null
+            }
+        }";
 
         static byte[] BuildOscPacket(string address, string typeTags, float value, int sequence, string clientSendTimeUnixNs, int replyPort)
         {
