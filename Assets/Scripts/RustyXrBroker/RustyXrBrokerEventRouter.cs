@@ -10,14 +10,17 @@ namespace TheBigRedButtonInstitute.RustyXrBroker
         [SerializeField] bool autoResolveReferences = true;
         [SerializeField] RustyXrBrokerDriveSignalReceiver[] driveReceivers;
         [SerializeField] RustyXrBrokerScreenGazeReceiver[] screenGazeReceivers;
+        [SerializeField] RustyXrBrokerBioSignalReceiver[] bioSignalReceivers;
 
         int _routedEvents;
         int _appliedDriveEvents;
         int _appliedScreenGazeEvents;
+        int _appliedBioSignalEvents;
 
         public int RoutedEvents => _routedEvents;
         public int AppliedDriveEvents => _appliedDriveEvents;
         public int AppliedScreenGazeEvents => _appliedScreenGazeEvents;
+        public int AppliedBioSignalEvents => _appliedBioSignalEvents;
 
         void Awake()
         {
@@ -50,6 +53,11 @@ namespace TheBigRedButtonInstitute.RustyXrBroker
         public void ConfigureScreenGazeReferences(params RustyXrBrokerScreenGazeReceiver[] receivers)
         {
             screenGazeReceivers = receivers;
+        }
+
+        public void ConfigureBioSignalReferences(params RustyXrBrokerBioSignalReceiver[] receivers)
+        {
+            bioSignalReceivers = receivers;
         }
 
         public bool ApplyStreamEventJson(string json)
@@ -94,6 +102,19 @@ namespace TheBigRedButtonInstitute.RustyXrBroker
                 }
             }
 
+            if (bioSignalReceivers != null)
+            {
+                for (var i = 0; i < bioSignalReceivers.Length; i++)
+                {
+                    var receiver = bioSignalReceivers[i];
+                    if (receiver != null && receiver.ApplyStreamEvent(streamEvent))
+                    {
+                        applied = true;
+                        _appliedBioSignalEvents++;
+                    }
+                }
+            }
+
             return applied;
         }
 
@@ -122,6 +143,11 @@ namespace TheBigRedButtonInstitute.RustyXrBroker
             if (screenGazeReceivers == null || screenGazeReceivers.Length == 0 || forceRefresh)
             {
                 screenGazeReceivers = GetComponentsInChildren<RustyXrBrokerScreenGazeReceiver>(true);
+            }
+
+            if (bioSignalReceivers == null || bioSignalReceivers.Length == 0 || forceRefresh)
+            {
+                bioSignalReceivers = GetComponentsInChildren<RustyXrBrokerBioSignalReceiver>(true);
             }
         }
     }

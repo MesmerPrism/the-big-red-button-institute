@@ -904,6 +904,7 @@ GameObject:
   - component: {fileID: 699112044}
   - component: {fileID: 699112049}
   - component: {fileID: 699112050}
+  - component: {fileID: 699112053}
   - component: {fileID: 699112052}
   - component: {fileID: 699112051}
   m_Layer: 0
@@ -1009,6 +1010,15 @@ MonoBehaviour:
   - command: broker_subscribe
     description: subscribe to broker test streams
     action: 11
+  - command: broker_polar_hr_start
+    description: start Gargoyle Polar HR/RR source
+    action: 15
+  - command: broker_polar_pmd_start
+    description: start Gargoyle Polar PMD ACC source
+    action: 16
+  - command: broker_polar_stop
+    description: stop Gargoyle Polar sources
+    action: 17
   - command: broker_drive_button
     description: drive the button from broker path
     action: 12
@@ -1188,6 +1198,10 @@ MonoBehaviour:
   defaultStreams:
   - osc:/rusty-xr/drive/radius
   - eye.screen.gaze_point
+  - bio:polar_hr_rr
+  - bio:polar_acc
+  - bio:polar_ecg
+  - bio:breath
   reconnectDelaySeconds: 1
   reconnectMaxDelaySeconds: 8
   receiveBufferBytes: 8192
@@ -1227,6 +1241,7 @@ MonoBehaviour:
   brokerButtonDriver: {fileID: 699112045}
   brokerDriveReceiver: {fileID: 699112046}
   directOscReceiver: {fileID: 699112050}
+  directLslReceiver: {fileID: 699112053}
   autoResolveReferences: 1
 --- !u!114 &699112050
 MonoBehaviour:
@@ -1248,6 +1263,40 @@ MonoBehaviour:
   acceptedAddress: /rusty-xr/drive/radius
   sendAcknowledgements: 1
   acknowledgementAddress: /rusty-xr/drive/ack
+  triggerThreshold01: 0.5
+  minimumTriggerIntervalSeconds: 0.25
+  triggerOnRisingEdgeOnly: 1
+--- !u!114 &699112053
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 699112038}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4f2dff802f35458da39ca06d181309da, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::TheBigRedButtonInstitute.Diagnostics.BigRedButtonDirectLslDriveReceiver
+  inputManager: {fileID: 699112039}
+  comparisonController: {fileID: 699112049}
+  autoResolveReferences: 1
+  startOnEnable: 1
+  streamName: HRV_Biofeedback
+  streamType: HRV
+  channelIndex: 0
+  valueMapping: 0
+  rawInputMin: 0
+  rawInputMax: 1
+  invert01: 0
+  autoReconnect: 1
+  resolveWaitSeconds: 1
+  openStreamTimeoutSeconds: 5
+  pullTimeoutSeconds: 0.05
+  reconnectDelaySeconds: 3
+  noSampleReconnectSeconds: 5
+  maxBufferedSeconds: 8
+  maxChunkLengthSamples: 1
   triggerThreshold01: 0.5
   minimumTriggerIntervalSeconds: 0.25
   triggerOnRisingEdgeOnly: 1

@@ -34,6 +34,15 @@ purpose broker sidecar.
   When the companion includes a host send timestamp and reply port, Unity sends
   `/rusty-xr/drive/ack` acknowledgements with receive/send timestamps for
   round-trip and clock-alignment diagnostics.
+- A direct Unity LSL receiver resolves the companion `HRV_Biofeedback / HRV`
+  one-channel normalized float stream, pulls samples on a worker thread, and
+  drives the same button routine used by direct OSC and broker-routed streams.
+- Direct Unity Polar diagnostics subscribe to the existing `PolarUnifiedModule`
+  events and record standard HR/RR notifications separately from decoded PMD
+  ACC/ECG frame receipt.
+- The broker client subscribes to `bio:polar_hr_rr`, `bio:polar_acc`,
+  `bio:polar_ecg`, and `bio:breath`; a broker bio receiver records Gargoyle
+  stream timing and counts without taking ownership of Unity's direct BLE graph.
 
 ## Comparison Goal
 
@@ -43,9 +52,11 @@ The public example should make each transport path explicit:
 | --- | --- | --- |
 | Manual hand/controller press | Present | Baseline interaction and visual counter validation. |
 | Direct Unity BLE/Polar | Present | App-owned sensor ingestion and button drive. |
-| Direct Unity LSL | Planned | App-owned LSL stream path for latency comparison. |
+| Direct Unity Polar PMD | Present | App-owned PMD ACC/ECG frame receipt diagnostics. |
+| Direct Unity LSL | Present | App-owned LSL stream path for latency comparison. |
 | Direct Unity OSC | Present with ack timing | App-owned OSC path for creative-tool and diagnostics comparison. |
 | Broker WebSocket drive | Present | Broker-mediated stream drive into the Unity app. |
+| Broker Polar/Breath WebSocket | Present | Gargoyle-managed Polar HR/RR, PMD, and breath-assessment diagnostics. |
 | Broker synthetic eye stream | Present | Provider-neutral Unity consumer for `eye.screen.gaze_point` samples. |
 | Broker LSL/OSC forwarding | Present and validated with the companion diagnostics | Sidecar-mediated latency and stream diagnostics. |
 

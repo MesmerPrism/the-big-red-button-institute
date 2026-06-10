@@ -2,6 +2,9 @@
 
 Status: public implementation note for the canonical Unity example.
 
+For the broader repository relationship and ownership boundary, see
+`Documentation/Rusty-XR-Project-Integration.md`.
+
 ## Purpose
 
 This project demonstrates that a Unity scene can consume Rusty XR broker-routed
@@ -41,6 +44,13 @@ Implemented Unity-side:
 - routing of compatible `value01` payloads into the same button-drive path used
   by direct Unity inputs.
 - optional world-space marker visualization for broker-routed screen gaze.
+- direct Unity OSC and LSL diagnostic receivers for comparing app-owned
+  ingestion against broker-managed forwarding.
+- broker bio stream reception for `bio:polar_hr_rr`, `bio:polar_acc`,
+  `bio:polar_ecg`, and `bio:breath`, including timing/count diagnostics for
+  Gargoyle-managed Polar sources.
+- terminal commands for broker-side Polar source control:
+  `broker_polar_hr_start`, `broker_polar_pmd_start`, and `broker_polar_stop`.
 
 ## Why Two Stream Shapes Are Accepted
 
@@ -55,18 +65,22 @@ new public contract is consumable by Unity.
 ## What Is Not Implemented Here
 
 - no Unity-owned broker runtime
-- no UDP stream receiver yet
-- no native eye-tracker SDK or LSL receiver
+- no native eye-tracker SDK
 - no EDIA/UXF trial semantics
 - no proprietary provider data forwarding
 
-UDP and TCP-like transport choices are currently represented by Rusty XR
-broker contracts and stream manifests. This Unity example currently consumes
-the WebSocket fallback/control path used by the Quest broker sidecar.
+Direct OSC and direct LSL are intentionally diagnostic app-owned routes. The
+broker adapter remains the reusable route for sidecar-managed stream events,
+timing metadata, and stream identity.
+
+Direct Polar BLE/PMD and broker-managed Polar BLE/PMD can both be visible in
+the diagnostic table, but a single Polar H10 PMD stream should still be treated
+as single-owner during live tests. Use one path as the PMD owner unless the
+test deliberately uses separate sensors or a non-PMD HR/RR-only split.
 
 The eye-stream path is intentionally synthetic/provider-neutral. It proves that
 Unity can consume the public eye-data contract and visualize broker-routed gaze
-without adding a Tobii, headset, LSL, or EDIA-specific provider to this project.
+without adding a Tobii, headset, or EDIA-specific provider to this project.
 
 ## Desktop Fixture Coverage
 

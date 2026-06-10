@@ -1,5 +1,17 @@
 # The Big Red Button Institute
 
+## Rusty XR Relationship
+
+- This repo is the public Unity comparison target for the Rusty XR broker and
+  companion workflows.
+- Start with `README.md`,
+  `Documentation/Rusty-XR-Project-Integration.md`, and
+  `Documentation/Rusty-XR-Broker-Unity-Compatibility.md` before changing the
+  broker adapter, replay fixtures, stream parsing, or validation docs.
+- Keep Unity scene behavior, Unity packages, and Quest build settings local to
+  this repo. Keep Rusty XR broker schemas and reusable Rust contracts in the
+  Rusty XR repo first.
+
 ## Unity / Quest Workflow
 
 - Use Unity `6000.3.8f1` or newer compatible Unity 6 builds.

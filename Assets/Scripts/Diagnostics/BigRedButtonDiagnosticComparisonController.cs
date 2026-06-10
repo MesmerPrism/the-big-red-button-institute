@@ -17,11 +17,15 @@ namespace TheBigRedButtonInstitute.Diagnostics
         [SerializeField] PolarHeartbeatButtonDriver polarHeartbeatButtonDriver;
         [SerializeField] RustyXrBrokerButtonDriver brokerButtonDriver;
         [SerializeField] RustyXrBrokerDriveSignalReceiver brokerDriveReceiver;
+        [SerializeField] RustyXrBrokerBioSignalReceiver brokerBioSignalReceiver;
+        [SerializeField] BigRedButtonDirectPolarDiagnosticReceiver directPolarReceiver;
         [SerializeField] BigRedButtonDirectOscDriveReceiver directOscReceiver;
+        [SerializeField] BigRedButtonDirectLslDriveReceiver directLslReceiver;
         [SerializeField] bool autoResolveReferences = true;
 
         long _polarSequence;
         bool _brokerSubscribed;
+        bool _brokerBioSubscribed;
         bool _polarSubscribed;
 
         public BigRedButtonDiagnosticRouteTable Routes => _routes;
@@ -50,13 +54,19 @@ namespace TheBigRedButtonInstitute.Diagnostics
             PolarHeartbeatButtonDriver polarDriver,
             RustyXrBrokerButtonDriver brokerDriver,
             RustyXrBrokerDriveSignalReceiver brokerReceiver,
-            BigRedButtonDirectOscDriveReceiver oscReceiver)
+            RustyXrBrokerBioSignalReceiver brokerBioReceiver,
+            BigRedButtonDirectPolarDiagnosticReceiver polarReceiver,
+            BigRedButtonDirectOscDriveReceiver oscReceiver,
+            BigRedButtonDirectLslDriveReceiver lslReceiver)
         {
             inputManager = manager;
             polarHeartbeatButtonDriver = polarDriver;
             brokerButtonDriver = brokerDriver;
             brokerDriveReceiver = brokerReceiver;
+            brokerBioSignalReceiver = brokerBioReceiver;
+            directPolarReceiver = polarReceiver;
             directOscReceiver = oscReceiver;
+            directLslReceiver = lslReceiver;
             ConfigureChildren();
         }
 
@@ -73,9 +83,14 @@ namespace TheBigRedButtonInstitute.Diagnostics
             var lines = new List<string>();
             AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.DirectUnityOsc);
             AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.DirectUnityBlePolar);
+            AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.DirectUnityBlePolarHeartRate);
+            AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.DirectUnityBlePolarPmd);
             AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.BrokerWebSocketOsc);
             AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.DirectUnityLsl);
             AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.BrokerWebSocketLsl);
+            AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.BrokerWebSocketPolarHeartRate);
+            AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.BrokerWebSocketPolarPmd);
+            AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.BrokerWebSocketBreath);
             AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.BrokerWebSocketSynthetic);
             return lines;
         }
@@ -94,6 +109,12 @@ namespace TheBigRedButtonInstitute.Diagnostics
                 _brokerSubscribed = true;
             }
 
+            if (!_brokerBioSubscribed && brokerBioSignalReceiver != null)
+            {
+                brokerBioSignalReceiver.BioSignalReceived += HandleBrokerBioSignalReceived;
+                _brokerBioSubscribed = true;
+            }
+
             if (!_polarSubscribed && polarHeartbeatButtonDriver != null)
             {
                 polarHeartbeatButtonDriver.HeartbeatPulseAccepted += HandlePolarHeartbeatPulseAccepted;
@@ -108,12 +129,18 @@ namespace TheBigRedButtonInstitute.Diagnostics
                 brokerButtonDriver.DrivePulseRequested -= HandleBrokerDrivePulseRequested;
             }
 
+            if (_brokerBioSubscribed && brokerBioSignalReceiver != null)
+            {
+                brokerBioSignalReceiver.BioSignalReceived -= HandleBrokerBioSignalReceived;
+            }
+
             if (_polarSubscribed && polarHeartbeatButtonDriver != null)
             {
                 polarHeartbeatButtonDriver.HeartbeatPulseAccepted -= HandlePolarHeartbeatPulseAccepted;
             }
 
             _brokerSubscribed = false;
+            _brokerBioSubscribed = false;
             _polarSubscribed = false;
         }
 
@@ -138,6 +165,20 @@ namespace TheBigRedButtonInstitute.Diagnostics
                 acceptedPulse: true);
         }
 
+        void HandleBrokerBioSignalReceived(RustyXrBrokerBioSignalSample sample)
+        {
+            RecordRouteSample(
+                ClassifyBrokerBioRoute(sample.StreamId),
+                new BigRedButtonDiagnosticSample(
+                    sample.SequenceId,
+                    sample.Value01,
+                    sample.SourceTimeUnixNs,
+                    sample.BrokerTimeUnixNs,
+                    UnixTimeNanoseconds(DateTimeOffset.UtcNow),
+                    string.IsNullOrWhiteSpace(sample.SourceLabel) ? sample.StreamId : sample.SourceLabel),
+                acceptedPulse: false);
+        }
+
         void HandlePolarHeartbeatPulseAccepted(float bpm)
         {
             RecordRouteSample(
@@ -152,6 +193,23 @@ namespace TheBigRedButtonInstitute.Diagnostics
                 acceptedPulse: true);
         }
 
+        static BigRedButtonDiagnosticRouteId ClassifyBrokerBioRoute(string streamId)
+        {
+            if (RustyXrBrokerBioSignalReceiver.IsPolarHeartRateStream(streamId))
+            {
+                return BigRedButtonDiagnosticRouteId.BrokerWebSocketPolarHeartRate;
+            }
+
+            if (RustyXrBrokerBioSignalReceiver.IsPolarPmdStream(streamId))
+            {
+                return BigRedButtonDiagnosticRouteId.BrokerWebSocketPolarPmd;
+            }
+
+            return RustyXrBrokerBioSignalReceiver.IsBreathStream(streamId)
+                ? BigRedButtonDiagnosticRouteId.BrokerWebSocketBreath
+                : BigRedButtonDiagnosticRouteId.BrokerWebSocketSynthetic;
+        }
+
         void AppendRouteLine(List<string> lines, BigRedButtonDiagnosticRouteId routeId)
         {
             var stats = _routes.GetStats(routeId);
@@ -161,9 +219,21 @@ namespace TheBigRedButtonInstitute.Diagnostics
 
         void ConfigureChildren()
         {
+            if (directPolarReceiver != null)
+            {
+                directPolarReceiver.ConfigureReferences(
+                    FindAnyObjectByType<PolarH10RuntimeManager>(),
+                    this);
+            }
+
             if (directOscReceiver != null)
             {
                 directOscReceiver.ConfigureReferences(inputManager, this);
+            }
+
+            if (directLslReceiver != null)
+            {
+                directLslReceiver.ConfigureReferences(inputManager, this);
             }
         }
 
@@ -194,9 +264,32 @@ namespace TheBigRedButtonInstitute.Diagnostics
                 brokerDriveReceiver = GetComponent<RustyXrBrokerDriveSignalReceiver>() ?? FindAnyObjectByType<RustyXrBrokerDriveSignalReceiver>();
             }
 
+            if (brokerBioSignalReceiver == null || forceRefresh)
+            {
+                brokerBioSignalReceiver = GetComponent<RustyXrBrokerBioSignalReceiver>() ?? FindAnyObjectByType<RustyXrBrokerBioSignalReceiver>();
+                if (brokerBioSignalReceiver == null && Application.isPlaying)
+                {
+                    brokerBioSignalReceiver = gameObject.AddComponent<RustyXrBrokerBioSignalReceiver>();
+                }
+            }
+
+            if (directPolarReceiver == null || forceRefresh)
+            {
+                directPolarReceiver = GetComponent<BigRedButtonDirectPolarDiagnosticReceiver>() ?? FindAnyObjectByType<BigRedButtonDirectPolarDiagnosticReceiver>();
+                if (directPolarReceiver == null && Application.isPlaying)
+                {
+                    directPolarReceiver = gameObject.AddComponent<BigRedButtonDirectPolarDiagnosticReceiver>();
+                }
+            }
+
             if (directOscReceiver == null || forceRefresh)
             {
                 directOscReceiver = GetComponent<BigRedButtonDirectOscDriveReceiver>() ?? FindAnyObjectByType<BigRedButtonDirectOscDriveReceiver>();
+            }
+
+            if (directLslReceiver == null || forceRefresh)
+            {
+                directLslReceiver = GetComponent<BigRedButtonDirectLslDriveReceiver>() ?? FindAnyObjectByType<BigRedButtonDirectLslDriveReceiver>();
             }
         }
     }

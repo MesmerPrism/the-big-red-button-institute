@@ -8,11 +8,16 @@ namespace TheBigRedButtonInstitute.Diagnostics
     {
         ManualHandOrController = 0,
         DirectUnityBlePolar = 10,
+        DirectUnityBlePolarHeartRate = 11,
+        DirectUnityBlePolarPmd = 12,
         DirectUnityOsc = 20,
         DirectUnityLsl = 30,
         BrokerWebSocketOsc = 40,
         BrokerWebSocketLsl = 50,
-        BrokerWebSocketSynthetic = 60
+        BrokerWebSocketSynthetic = 60,
+        BrokerWebSocketPolarHeartRate = 70,
+        BrokerWebSocketPolarPmd = 71,
+        BrokerWebSocketBreath = 72
     }
 
     public readonly struct BigRedButtonDiagnosticSample
@@ -221,12 +226,17 @@ namespace TheBigRedButtonInstitute.Diagnostics
             return routeId switch
             {
                 BigRedButtonDiagnosticRouteId.ManualHandOrController => "manual",
-                BigRedButtonDiagnosticRouteId.DirectUnityBlePolar => "direct BLE/Polar",
+                BigRedButtonDiagnosticRouteId.DirectUnityBlePolar => "direct BLE/Polar button",
+                BigRedButtonDiagnosticRouteId.DirectUnityBlePolarHeartRate => "direct BLE/Polar HR",
+                BigRedButtonDiagnosticRouteId.DirectUnityBlePolarPmd => "direct BLE/Polar PMD",
                 BigRedButtonDiagnosticRouteId.DirectUnityOsc => "direct OSC",
                 BigRedButtonDiagnosticRouteId.DirectUnityLsl => "direct LSL",
                 BigRedButtonDiagnosticRouteId.BrokerWebSocketOsc => "broker OSC/WebSocket",
                 BigRedButtonDiagnosticRouteId.BrokerWebSocketLsl => "broker LSL/WebSocket",
                 BigRedButtonDiagnosticRouteId.BrokerWebSocketSynthetic => "broker synthetic/WebSocket",
+                BigRedButtonDiagnosticRouteId.BrokerWebSocketPolarHeartRate => "broker Polar HR/WebSocket",
+                BigRedButtonDiagnosticRouteId.BrokerWebSocketPolarPmd => "broker Polar PMD/WebSocket",
+                BigRedButtonDiagnosticRouteId.BrokerWebSocketBreath => "broker breath/WebSocket",
                 _ => routeId.ToString()
             };
         }

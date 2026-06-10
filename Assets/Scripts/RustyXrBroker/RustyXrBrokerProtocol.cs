@@ -45,7 +45,7 @@ namespace TheBigRedButtonInstitute.RustyXrBroker
             string appPackage,
             string appLabel,
             string appVersion) =>
-            BuildCommandJson("status_request", requestId, clientId, appPackage, appLabel, appVersion, null);
+            BuildCommandJson("status_request", requestId, clientId, appPackage, appLabel, appVersion, (string)null);
 
         public static string BuildSubscribeCommandJson(
             string requestId,
@@ -71,7 +71,7 @@ namespace TheBigRedButtonInstitute.RustyXrBroker
             string appPackage,
             string appLabel,
             string appVersion) =>
-            BuildCommandJson("list_streams", requestId, clientId, appPackage, appLabel, appVersion, null);
+            BuildCommandJson("list_streams", requestId, clientId, appPackage, appLabel, appVersion, (string)null);
 
         public static string BuildListCapabilitiesCommandJson(
             string requestId,
@@ -79,7 +79,7 @@ namespace TheBigRedButtonInstitute.RustyXrBroker
             string appPackage,
             string appLabel,
             string appVersion) =>
-            BuildCommandJson("list_capabilities", requestId, clientId, appPackage, appLabel, appVersion, null);
+            BuildCommandJson("list_capabilities", requestId, clientId, appPackage, appLabel, appVersion, (string)null);
 
         public static string BuildOpenUiCommandJson(
             string requestId,
@@ -87,7 +87,7 @@ namespace TheBigRedButtonInstitute.RustyXrBroker
             string appPackage,
             string appLabel,
             string appVersion) =>
-            BuildCommandJson("open_ui", requestId, clientId, appPackage, appLabel, appVersion, null);
+            BuildCommandJson("open_ui", requestId, clientId, appPackage, appLabel, appVersion, (string)null);
 
         public static string BuildCloseUiCommandJson(
             string requestId,
@@ -95,7 +95,70 @@ namespace TheBigRedButtonInstitute.RustyXrBroker
             string appPackage,
             string appLabel,
             string appVersion) =>
-            BuildCommandJson("close_ui", requestId, clientId, appPackage, appLabel, appVersion, null);
+            BuildCommandJson("close_ui", requestId, clientId, appPackage, appLabel, appVersion, (string)null);
+
+        public static string BuildPolarStartCommandJson(
+            string requestId,
+            string clientId,
+            string appPackage,
+            string appLabel,
+            string appVersion,
+            bool includeHeartRate,
+            bool includePmd,
+            int scanTimeoutMs) =>
+            BuildCommandJson(
+                "polar.start",
+                requestId,
+                clientId,
+                appPackage,
+                appLabel,
+                appVersion,
+                new RustyXrBrokerCommandParams
+                {
+                    include_hr = includeHeartRate,
+                    include_pmd = includePmd,
+                    scan_timeout_ms = scanTimeoutMs
+                });
+
+        public static string BuildPolarPmdStartCommandJson(
+            string requestId,
+            string clientId,
+            string appPackage,
+            string appLabel,
+            string appVersion,
+            int scanTimeoutMs) =>
+            BuildCommandJson(
+                "polar_pmd.start",
+                requestId,
+                clientId,
+                appPackage,
+                appLabel,
+                appVersion,
+                new RustyXrBrokerCommandParams
+                {
+                    scan_timeout_ms = scanTimeoutMs
+                });
+
+        public static string BuildPolarStopCommandJson(
+            string requestId,
+            string clientId,
+            string appPackage,
+            string appLabel,
+            string appVersion,
+            bool stopHeartRate,
+            bool stopPmd) =>
+            BuildCommandJson(
+                "polar.stop",
+                requestId,
+                clientId,
+                appPackage,
+                appLabel,
+                appVersion,
+                new RustyXrBrokerCommandParams
+                {
+                    stop_hr = stopHeartRate,
+                    stop_pmd = stopPmd
+                });
 
         public static string BuildCommandJson(
             string command,
@@ -122,6 +185,31 @@ namespace TheBigRedButtonInstitute.RustyXrBroker
                     {
                         stream = stream
                     }
+            };
+
+            return JsonUtility.ToJson(envelope);
+        }
+
+        static string BuildCommandJson(
+            string command,
+            string requestId,
+            string clientId,
+            string appPackage,
+            string appLabel,
+            string appVersion,
+            RustyXrBrokerCommandParams parameters)
+        {
+            var envelope = new RustyXrBrokerCommandEnvelope
+            {
+                type = "command",
+                schema = CommandSchema,
+                request_id = string.IsNullOrWhiteSpace(requestId) ? Guid.NewGuid().ToString("N") : requestId,
+                command = command,
+                client_id = clientId,
+                app_package = appPackage,
+                app_label = appLabel,
+                app_version = appVersion,
+                @params = parameters
             };
 
             return JsonUtility.ToJson(envelope);
@@ -260,6 +348,11 @@ namespace TheBigRedButtonInstitute.RustyXrBroker
     public sealed class RustyXrBrokerCommandParams
     {
         public string stream;
+        public bool include_hr;
+        public bool include_pmd;
+        public bool stop_hr;
+        public bool stop_pmd;
+        public int scan_timeout_ms;
     }
 
     [Serializable]
@@ -408,6 +501,32 @@ namespace TheBigRedButtonInstitute.RustyXrBroker
         public bool lsl_forwarded;
         public bool osc_forwarded;
         public string fallback_transport;
+        public string stream_id;
+        public string source;
+        public string source_detail;
+        public string input_stream;
+        public string output_stream;
+        public string device_address;
+        public string device_name;
+        public string payload_base64;
+        public float heart_rate_bpm;
+        public int rr_count;
+        public int sample_count;
+        public long sample_time_unix_ns;
+        public long sample_time_elapsed_ns;
+        public long sensor_timestamp_ns;
+        public long broker_receive_time_unix_ns;
+        public long broker_receive_time_elapsed_ns;
+        public long broker_publish_time_unix_ns;
+        public long broker_publish_time_elapsed_ns;
+        public float volume01;
+        public float state01;
+        public float tracking01;
+        public float quality01;
+        public bool has_volume;
+        public bool is_calibrated;
+        public bool is_calibrating;
+        public bool compressed;
     }
 
     [Serializable]

@@ -22,6 +22,9 @@ stream-quality comparisons easy to inspect on-headset.
   animation.
 - The Rusty XR Quest broker sidecar can drive the same button press routine
   through subscribed broker stream events.
+- The diagnostic route table now records direct Unity Polar HR/RR and PMD frame
+  receipt separately from broker-routed `bio:polar_hr_rr`, `bio:polar_acc`,
+  `bio:polar_ecg`, and `bio:breath` stream events.
 - The broker adapter can also subscribe to synthetic `eye.screen.gaze_point`
   events and map normalized screen gaze onto an in-scene marker without a
   device-specific eye tracker SDK.
@@ -37,8 +40,11 @@ stream-quality comparisons easy to inspect on-headset.
 Use this repo when you want a complete Unity-side Quest target for comparing:
 
 - direct Unity OSC ingestion
+- direct Unity LSL ingestion
 - direct Unity Polar-compatible BLE ingestion
+- direct Unity Polar-compatible PMD frame receipt
 - broker-routed WebSocket stream events
+- broker-routed Polar HR/RR, PMD, and breath assessment streams
 - broker-routed synthetic screen gaze events
 - broker-side OSC and LSL forwarding driven by the companion tools
 
@@ -50,8 +56,13 @@ The matching Rusty XR components live in:
   which owns the Windows CLI/app used for Quest install, launch, stream
   generation, and diagnostics output.
 
-Direct Unity LSL reception is the next comparison route; today, LSL is covered
-through the Rusty XR broker and companion diagnostics.
+Direct Unity LSL reception resolves the companion `HRV_Biofeedback / HRV`
+test stream and drives the same button path used by the broker-managed LSL
+route, so both LSL routes can be compared in one scene.
+
+The bidirectional repository boundary is documented in
+`Documentation/Rusty-XR-Project-Integration.md`. The Rusty XR counterpart is
+`docs/UNITY_EXAMPLE_INTEGRATION.md` in the Rusty XR repository.
 
 ## Validation
 
@@ -79,4 +90,5 @@ dotnet run --project src\RustyXr.Companion.Cli -- broker compare --quest-host <q
 - `THIRD_PARTY_NOTICES.md`
 - `Documentation/Quest-Polar-Workflow.md`
 - `Documentation/Public-Broker-Latency-Example-Roadmap.md`
+- `Documentation/Rusty-XR-Project-Integration.md`
 - `Documentation/Rusty-XR-Broker-Unity-Compatibility.md`

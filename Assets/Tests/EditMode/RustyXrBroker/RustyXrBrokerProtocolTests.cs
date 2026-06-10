@@ -92,6 +92,24 @@ namespace TheBigRedButtonInstitute.RustyXrBroker.Tests
         }
 
         [Test]
+        public void BuildPolarPmdStartCommandJsonCarriesScanTimeout()
+        {
+            var json = RustyXrBrokerProtocol.BuildPolarPmdStartCommandJson(
+                "polar-pmd-1",
+                "unity-test-client",
+                "com.example.targetapp",
+                "Unity Test Client",
+                "1.0",
+                45000);
+
+            var envelope = JsonUtility.FromJson<RustyXrBrokerCommandEnvelope>(json);
+
+            Assert.That(envelope.type, Is.EqualTo("command"));
+            Assert.That(envelope.command, Is.EqualTo("polar_pmd.start"));
+            Assert.That(envelope.@params.scan_timeout_ms, Is.EqualTo(45000));
+        }
+
+        [Test]
         public void BuildHelloJsonAdvertisesBrokerContract()
         {
             var json = RustyXrBrokerProtocol.BuildHelloJson(
@@ -402,6 +420,57 @@ namespace TheBigRedButtonInstitute.RustyXrBroker.Tests
         }
 
         [Test]
+        public void BioSignalReceiverAcceptsBrokerBreathEvents()
+        {
+            var target = new GameObject("broker-bio-receiver-test");
+            try
+            {
+                var receiver = target.AddComponent<RustyXrBrokerBioSignalReceiver>();
+                var received = false;
+                RustyXrBrokerBioSignalSample lastSample = default;
+                receiver.BioSignalReceived += sample =>
+                {
+                    received = true;
+                    lastSample = sample;
+                };
+
+                Assert.That(receiver.ApplyStreamEventJson(BioBreathStreamEventJson()), Is.True);
+                Assert.That(received, Is.True);
+                Assert.That(lastSample.StreamId, Is.EqualTo(RustyXrBrokerBioSignalReceiver.BreathStream));
+                Assert.That(lastSample.SourceLabel, Is.EqualTo("polar_acc"));
+                Assert.That(lastSample.Value01, Is.EqualTo(0.42f).Within(0.0001f));
+                Assert.That(lastSample.SourceTimeUnixNs, Is.EqualTo(1234000L));
+                Assert.That(lastSample.BrokerTimeUnixNs, Is.EqualTo(1235000L));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(target);
+            }
+        }
+
+        [Test]
+        public void EventRouterAppliesBrokerBioStreamToReceiver()
+        {
+            var target = new GameObject("broker-bio-router-test");
+            try
+            {
+                var receiver = target.AddComponent<RustyXrBrokerBioSignalReceiver>();
+                var router = target.AddComponent<RustyXrBrokerEventRouter>();
+                router.ConfigureReferences(null);
+                router.ConfigureBioSignalReferences(receiver);
+
+                Assert.That(router.ApplyStreamEventJson(BioBreathStreamEventJson()), Is.True);
+                Assert.That(router.RoutedEvents, Is.EqualTo(1));
+                Assert.That(router.AppliedBioSignalEvents, Is.EqualTo(1));
+                Assert.That(receiver.LastStreamId, Is.EqualTo(RustyXrBrokerBioSignalReceiver.BreathStream));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(target);
+            }
+        }
+
+        [Test]
         public void ButtonDriverTriggersOnRisingThresholdCrossing()
         {
             Assert.That(RustyXrBrokerButtonDriver.ShouldTrigger(0.49f, 0.5f, 0.5f, true), Is.True);
@@ -543,6 +612,23 @@ namespace TheBigRedButtonInstitute.RustyXrBroker.Tests
             "}," +
             "\"payload\":{" +
             $"\"value01\":{value01.ToString(System.Globalization.CultureInfo.InvariantCulture)}" +
+            "}" +
+            "}";
+
+        static string BioBreathStreamEventJson() =>
+            "{" +
+            "\"type\":\"stream_event\"," +
+            "\"schema\":\"rusty.xr.broker.stream_event.v1\"," +
+            $"\"stream\":\"{RustyXrBrokerBioSignalReceiver.BreathStream}\"," +
+            "\"sequence_id\":12," +
+            "\"broker_time_unix_ns\":1235000," +
+            "\"payload_schema\":\"rusty.xr.bio.breath.v1\"," +
+            "\"payload\":{" +
+            "\"schema\":\"rusty.xr.bio.breath.v1\"," +
+            "\"source\":\"polar_acc\"," +
+            "\"sample_time_unix_ns\":1234000," +
+            "\"volume01\":0.42," +
+            "\"has_volume\":true" +
             "}" +
             "}";
 

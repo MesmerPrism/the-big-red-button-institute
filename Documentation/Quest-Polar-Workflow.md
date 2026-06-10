@@ -81,6 +81,9 @@ Current useful terminal commands:
 - `broker_status`
 - `broker_connect`
 - `broker_subscribe`
+- `broker_polar_hr_start`
+- `broker_polar_pmd_start`
+- `broker_polar_stop`
 - `broker_drive_button`
 - `broker_open_ui`
 - `broker_close_ui`
@@ -100,6 +103,16 @@ Current useful terminal commands:
 - Broker drive pulses use the same button press method, so the visible counter,
   HUD press count, and button animation remain comparable across direct and
   broker-routed paths.
+- `BigRedButtonDirectPolarDiagnosticReceiver` records direct Unity Polar HR/RR
+  notifications and decoded PMD ACC/ECG frames in the diagnostic route table.
+- `RustyXrBrokerBioSignalReceiver` records Gargoyle `bio:polar_hr_rr`,
+  `bio:polar_acc`, `bio:polar_ecg`, and `bio:breath` stream events without
+  owning Unity's direct BLE connection.
+
+Treat Polar PMD as single-owner during live sensor tests. The direct Unity PMD
+path and the broker-owned PMD path are both instrumented for comparison, but
+they should not both attempt to own the same H10 PMD stream unless that is the
+specific contention test.
 
 ## Build workflow
 
@@ -131,6 +144,8 @@ adb shell am start -W -n org.thebigredbuttoninstitute.app/com.unity3d.player.Uni
 
 - `Assets/Scripts/Biofeedback/PolarH10RuntimeManager.cs`
 - `Assets/Scripts/Biofeedback/PolarHeartbeatButtonDriver.cs`
+- `Assets/Scripts/Diagnostics/BigRedButtonDirectPolarDiagnosticReceiver.cs`
+- `Assets/Scripts/RustyXrBroker/RustyXrBrokerBioSignalReceiver.cs`
 - `Assets/Scripts/VR/QuestVrInputManager.cs`
 - `Assets/Scripts/VR/QuestVrButtonPressCounterCanvas.cs`
 - `Assets/Scripts/VR/QuestVrOverlayHud.cs`

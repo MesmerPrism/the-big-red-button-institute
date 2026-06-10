@@ -17,6 +17,7 @@
 /.vs/
 /.vscode/
 /.idea/
+/ProjectSettings/Packages/com.unity.ai.assistant/
 *.csproj
 *.sln
 *.slnx

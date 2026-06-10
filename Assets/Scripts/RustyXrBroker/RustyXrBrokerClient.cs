@@ -188,6 +188,57 @@ namespace TheBigRedButtonInstitute.RustyXrBroker
             return SendCommand("close_ui", null);
         }
 
+        public bool StartPolarHeartRate(int scanTimeoutMs = 60000)
+        {
+            return SendPolarStart(includeHeartRate: true, includePmd: false, scanTimeoutMs);
+        }
+
+        public bool StartPolarPmd(int scanTimeoutMs = 60000)
+        {
+            if (!IsConnected)
+            {
+                _lastError = "broker not connected";
+                return false;
+            }
+
+            var requestId = NextRequestId("polar-pmd-start");
+            var json = RustyXrBrokerProtocol.BuildPolarPmdStartCommandJson(
+                requestId,
+                clientId,
+                appPackage,
+                appLabel,
+                appVersion,
+                scanTimeoutMs);
+            _ = SendAndReportAsync(json);
+            return true;
+        }
+
+        public bool StartPolarHeartRateAndPmd(int scanTimeoutMs = 60000)
+        {
+            return SendPolarStart(includeHeartRate: true, includePmd: true, scanTimeoutMs);
+        }
+
+        public bool StopPolarSources(bool stopHeartRate = true, bool stopPmd = true)
+        {
+            if (!IsConnected)
+            {
+                _lastError = "broker not connected";
+                return false;
+            }
+
+            var requestId = NextRequestId("polar-stop");
+            var json = RustyXrBrokerProtocol.BuildPolarStopCommandJson(
+                requestId,
+                clientId,
+                appPackage,
+                appLabel,
+                appVersion,
+                stopHeartRate,
+                stopPmd);
+            _ = SendAndReportAsync(json);
+            return true;
+        }
+
         public int SubscribeToDefaultStreams()
         {
             var sent = 0;
@@ -215,6 +266,28 @@ namespace TheBigRedButtonInstitute.RustyXrBroker
         public bool Unsubscribe(string stream)
         {
             return SendCommand("unsubscribe", stream);
+        }
+
+        bool SendPolarStart(bool includeHeartRate, bool includePmd, int scanTimeoutMs)
+        {
+            if (!IsConnected)
+            {
+                _lastError = "broker not connected";
+                return false;
+            }
+
+            var requestId = NextRequestId("polar-start");
+            var json = RustyXrBrokerProtocol.BuildPolarStartCommandJson(
+                requestId,
+                clientId,
+                appPackage,
+                appLabel,
+                appVersion,
+                includeHeartRate,
+                includePmd,
+                scanTimeoutMs);
+            _ = SendAndReportAsync(json);
+            return true;
         }
 
         public string BuildStatusLabel()

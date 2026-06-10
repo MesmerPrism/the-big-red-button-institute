@@ -81,6 +81,7 @@ namespace TheBigRedButtonInstitute.Editor
             var diagnosticRuntime = EnsureDiagnosticComparisonRuntime(
                 runtimeRoot,
                 inputManager,
+                polarRuntimeManager,
                 polarHeartbeatButtonDriver,
                 brokerRuntime);
 
@@ -883,6 +884,7 @@ namespace TheBigRedButtonInstitute.Editor
                 RustyXrBrokerClient client,
                 RustyXrBrokerEventRouter router,
                 RustyXrBrokerDriveSignalReceiver driveReceiver,
+                RustyXrBrokerBioSignalReceiver bioSignalReceiver,
                 RustyXrBrokerScreenGazeReceiver screenGazeReceiver,
                 RustyXrBrokerScreenGazeVisualizer screenGazeVisualizer,
                 RustyXrBrokerButtonDriver buttonDriver,
@@ -891,6 +893,7 @@ namespace TheBigRedButtonInstitute.Editor
                 Client = client;
                 Router = router;
                 DriveReceiver = driveReceiver;
+                BioSignalReceiver = bioSignalReceiver;
                 ScreenGazeReceiver = screenGazeReceiver;
                 ScreenGazeVisualizer = screenGazeVisualizer;
                 ButtonDriver = buttonDriver;
@@ -900,6 +903,7 @@ namespace TheBigRedButtonInstitute.Editor
             public RustyXrBrokerClient Client { get; }
             public RustyXrBrokerEventRouter Router { get; }
             public RustyXrBrokerDriveSignalReceiver DriveReceiver { get; }
+            public RustyXrBrokerBioSignalReceiver BioSignalReceiver { get; }
             public RustyXrBrokerScreenGazeReceiver ScreenGazeReceiver { get; }
             public RustyXrBrokerScreenGazeVisualizer ScreenGazeVisualizer { get; }
             public RustyXrBrokerButtonDriver ButtonDriver { get; }
@@ -915,10 +919,21 @@ namespace TheBigRedButtonInstitute.Editor
             client.ConfigureIdentity("org.thebigredbuttoninstitute.app", "The Big Red Button Institute", "0.1.0");
             client.ConfigureDefaultStreams(
                 RustyXrBrokerDriveSignal.DefaultStream,
-                RustyXrBrokerScreenGazeReceiver.DefaultStream);
+                RustyXrBrokerScreenGazeReceiver.DefaultStream,
+                RustyXrBrokerBioSignalReceiver.PolarHeartRateStream,
+                RustyXrBrokerBioSignalReceiver.PolarAccStream,
+                RustyXrBrokerBioSignalReceiver.PolarEcgStream,
+                RustyXrBrokerBioSignalReceiver.BreathStream);
 
             var driveReceiver = runtimeRoot.GetComponent<RustyXrBrokerDriveSignalReceiver>() ?? runtimeRoot.AddComponent<RustyXrBrokerDriveSignalReceiver>();
             driveReceiver.StreamId = RustyXrBrokerDriveSignal.DefaultStream;
+
+            var bioSignalReceiver = runtimeRoot.GetComponent<RustyXrBrokerBioSignalReceiver>() ?? runtimeRoot.AddComponent<RustyXrBrokerBioSignalReceiver>();
+            bioSignalReceiver.ConfigureStreams(
+                RustyXrBrokerBioSignalReceiver.PolarHeartRateStream,
+                RustyXrBrokerBioSignalReceiver.PolarAccStream,
+                RustyXrBrokerBioSignalReceiver.PolarEcgStream,
+                RustyXrBrokerBioSignalReceiver.BreathStream);
 
             var screenGazeReceiver = runtimeRoot.GetComponent<RustyXrBrokerScreenGazeReceiver>() ?? runtimeRoot.AddComponent<RustyXrBrokerScreenGazeReceiver>();
             screenGazeReceiver.StreamId = RustyXrBrokerScreenGazeReceiver.DefaultStream;
@@ -929,6 +944,7 @@ namespace TheBigRedButtonInstitute.Editor
             var router = runtimeRoot.GetComponent<RustyXrBrokerEventRouter>() ?? runtimeRoot.AddComponent<RustyXrBrokerEventRouter>();
             router.ConfigureReferences(client, driveReceiver);
             router.ConfigureScreenGazeReferences(screenGazeReceiver);
+            router.ConfigureBioSignalReferences(bioSignalReceiver);
 
             var buttonDriver = runtimeRoot.GetComponent<RustyXrBrokerButtonDriver>() ?? runtimeRoot.AddComponent<RustyXrBrokerButtonDriver>();
             buttonDriver.ConfigureReferences(driveReceiver);
@@ -938,6 +954,7 @@ namespace TheBigRedButtonInstitute.Editor
 
             EditorUtility.SetDirty(client);
             EditorUtility.SetDirty(driveReceiver);
+            EditorUtility.SetDirty(bioSignalReceiver);
             EditorUtility.SetDirty(screenGazeReceiver);
             EditorUtility.SetDirty(screenGazeVisualizer);
             EditorUtility.SetDirty(router);
@@ -947,6 +964,7 @@ namespace TheBigRedButtonInstitute.Editor
                 client,
                 router,
                 driveReceiver,
+                bioSignalReceiver,
                 screenGazeReceiver,
                 screenGazeVisualizer,
                 buttonDriver,
@@ -956,6 +974,7 @@ namespace TheBigRedButtonInstitute.Editor
         static BigRedButtonDiagnosticComparisonController EnsureDiagnosticComparisonRuntime(
             GameObject runtimeRoot,
             QuestVrInputManager inputManager,
+            PolarH10RuntimeManager polarRuntimeManager,
             PolarHeartbeatButtonDriver polarHeartbeatButtonDriver,
             BrokerRuntimeComponents brokerRuntime)
         {
@@ -963,16 +982,27 @@ namespace TheBigRedButtonInstitute.Editor
                              runtimeRoot.AddComponent<BigRedButtonDiagnosticComparisonController>();
             var directOsc = runtimeRoot.GetComponent<BigRedButtonDirectOscDriveReceiver>() ??
                             runtimeRoot.AddComponent<BigRedButtonDirectOscDriveReceiver>();
+            var directPolar = runtimeRoot.GetComponent<BigRedButtonDirectPolarDiagnosticReceiver>() ??
+                              runtimeRoot.AddComponent<BigRedButtonDirectPolarDiagnosticReceiver>();
+            var directLsl = runtimeRoot.GetComponent<BigRedButtonDirectLslDriveReceiver>() ??
+                            runtimeRoot.AddComponent<BigRedButtonDirectLslDriveReceiver>();
 
+            directPolar.ConfigureReferences(polarRuntimeManager, comparison);
             directOsc.ConfigureReferences(inputManager, comparison);
+            directLsl.ConfigureReferences(inputManager, comparison);
             comparison.ConfigureReferences(
                 inputManager,
                 polarHeartbeatButtonDriver,
                 brokerRuntime.ButtonDriver,
                 brokerRuntime.DriveReceiver,
-                directOsc);
+                brokerRuntime.BioSignalReceiver,
+                directPolar,
+                directOsc,
+                directLsl);
 
+            EditorUtility.SetDirty(directPolar);
             EditorUtility.SetDirty(directOsc);
+            EditorUtility.SetDirty(directLsl);
             EditorUtility.SetDirty(comparison);
             return comparison;
         }

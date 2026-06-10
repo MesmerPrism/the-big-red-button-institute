@@ -81,6 +81,8 @@ namespace TheBigRedButtonInstitute.Biofeedback
             ? polarUnifiedModule.ConnectedAddress
             : "n/a";
         public string StatusMessage => string.IsNullOrWhiteSpace(_statusMessage) ? "idle" : _statusMessage;
+        public PolarUnifiedModule PolarUnifiedModule => polarUnifiedModule;
+        public PolarPmdAdapter PolarPmdAdapter => polarPmdAdapter;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void EnsureRuntimeAfterSceneLoad()

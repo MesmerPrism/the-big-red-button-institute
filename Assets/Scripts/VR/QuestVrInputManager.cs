@@ -51,7 +51,10 @@ namespace TheBigRedButtonInstitute.VR
             BrokerSubscribe = 11,
             BrokerDriveButton = 12,
             BrokerOpenUi = 13,
-            BrokerCloseUi = 14
+            BrokerCloseUi = 14,
+            BrokerPolarHeartRateStart = 15,
+            BrokerPolarPmdStart = 16,
+            BrokerPolarStop = 17
         }
 
         public enum VrControllerButtonId
@@ -678,6 +681,57 @@ namespace TheBigRedButtonInstitute.VR
                     break;
                 case VrTerminalCommandId.BrokerCloseUi:
                     CloseBrokerConsole("terminal");
+                    break;
+                case VrTerminalCommandId.BrokerPolarHeartRateStart:
+                    if (brokerClient == null)
+                    {
+                        hud?.SetTransientMessage("broker_polar_hr_start failed: client missing");
+                        break;
+                    }
+
+                    if (brokerClient.StartPolarHeartRate())
+                    {
+                        hud?.SetTransientMessage("broker_polar_hr_start requested");
+                    }
+                    else
+                    {
+                        hud?.SetTransientMessage($"broker_polar_hr_start failed: {brokerClient.LastError}");
+                    }
+
+                    break;
+                case VrTerminalCommandId.BrokerPolarPmdStart:
+                    if (brokerClient == null)
+                    {
+                        hud?.SetTransientMessage("broker_polar_pmd_start failed: client missing");
+                        break;
+                    }
+
+                    if (brokerClient.StartPolarPmd())
+                    {
+                        hud?.SetTransientMessage("broker_polar_pmd_start requested");
+                    }
+                    else
+                    {
+                        hud?.SetTransientMessage($"broker_polar_pmd_start failed: {brokerClient.LastError}");
+                    }
+
+                    break;
+                case VrTerminalCommandId.BrokerPolarStop:
+                    if (brokerClient == null)
+                    {
+                        hud?.SetTransientMessage("broker_polar_stop failed: client missing");
+                        break;
+                    }
+
+                    if (brokerClient.StopPolarSources())
+                    {
+                        hud?.SetTransientMessage("broker_polar_stop requested");
+                    }
+                    else
+                    {
+                        hud?.SetTransientMessage($"broker_polar_stop failed: {brokerClient.LastError}");
+                    }
+
                     break;
                 case VrTerminalCommandId.BrokerDriveButton:
                     if (brokerButtonDriver == null)
@@ -1332,6 +1386,9 @@ namespace TheBigRedButtonInstitute.VR
                 new() { command = "broker_open_ui", description = "open the broker 2D console", action = VrTerminalCommandId.BrokerOpenUi },
                 new() { command = "broker_close_ui", description = "close the broker 2D console", action = VrTerminalCommandId.BrokerCloseUi },
                 new() { command = "broker_subscribe", description = "subscribe to broker test streams", action = VrTerminalCommandId.BrokerSubscribe },
+                new() { command = "broker_polar_hr_start", description = "start Gargoyle Polar HR/RR source", action = VrTerminalCommandId.BrokerPolarHeartRateStart },
+                new() { command = "broker_polar_pmd_start", description = "start Gargoyle Polar PMD ACC source", action = VrTerminalCommandId.BrokerPolarPmdStart },
+                new() { command = "broker_polar_stop", description = "stop Gargoyle Polar sources", action = VrTerminalCommandId.BrokerPolarStop },
                 new() { command = "broker_drive_button", description = "drive the button from broker path", action = VrTerminalCommandId.BrokerDriveButton },
                 new() { command = "center_button", description = "place the button in front of the viewer", action = VrTerminalCommandId.CenterButton },
                 new() { command = "press_button", description = "play the imported press animation once", action = VrTerminalCommandId.PressButton },
