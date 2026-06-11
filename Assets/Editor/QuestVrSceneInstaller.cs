@@ -6,6 +6,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using TheBigRedButtonInstitute.Biofeedback;
 using TheBigRedButtonInstitute.Diagnostics;
+using TheBigRedButtonInstitute.Questionnaire;
 using TheBigRedButtonInstitute.RustyXrBroker;
 using TheBigRedButtonInstitute.VR;
 
@@ -46,6 +47,7 @@ namespace TheBigRedButtonInstitute.Editor
             }
 
             var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            EnsureOculusHandsAndControllersProjectConfig();
             var cameraRig = EnsureCameraRig(scene);
             ConfigureCameraRigTracking(cameraRig);
             EnsureTrackedVisuals(cameraRig);
@@ -84,6 +86,7 @@ namespace TheBigRedButtonInstitute.Editor
                 polarRuntimeManager,
                 polarHeartbeatButtonDriver,
                 brokerRuntime);
+            var questionnaireLauncher = EnsureQuestionnaireLauncher(runtimeRoot);
 
             hud.ApplyOverlayPresentationPreset();
             ConfigureHud(hud);
@@ -93,6 +96,7 @@ namespace TheBigRedButtonInstitute.Editor
             inputManager.ConfigurePolarReferences(polarRuntimeManager, polarHeartbeatButtonDriver);
             inputManager.ConfigureBrokerReferences(brokerRuntime.Client, brokerRuntime.ButtonDriver, brokerRuntime.ButtonBridge);
             inputManager.ConfigureDiagnosticReferences(diagnosticRuntime);
+            inputManager.ConfigureQuestionnaireReferences(questionnaireLauncher);
             polarHeartbeatButtonDriver.ConfigureReferences(polarRuntimeManager, inputManager, blinkController);
             inputManager.CenterButtonInFrontOfHead();
             var targetCamera = headTransform.GetComponent<Camera>() ?? Camera.main;
@@ -108,6 +112,7 @@ namespace TheBigRedButtonInstitute.Editor
             EditorUtility.SetDirty(hud.gameObject);
             EditorUtility.SetDirty(hud);
             EditorUtility.SetDirty(inputManager);
+            EditorUtility.SetDirty(questionnaireLauncher);
             if (pressCounter != null)
             {
                 EditorUtility.SetDirty(pressCounter);
@@ -401,6 +406,26 @@ namespace TheBigRedButtonInstitute.Editor
             serializedManager.FindProperty("SimultaneousHandsAndControllersEnabled").boolValue = true;
             serializedManager.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(manager);
+        }
+
+        static void EnsureOculusHandsAndControllersProjectConfig()
+        {
+            var config = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>("Assets/Oculus/OculusProjectConfig.asset");
+            if (config == null)
+            {
+                Debug.LogWarning("OculusProjectConfig.asset is missing; cannot enforce Controllers And Hands profile.");
+                return;
+            }
+
+            var serializedConfig = new SerializedObject(config);
+            var handTrackingSupport = serializedConfig.FindProperty("handTrackingSupport");
+            if (handTrackingSupport != null)
+            {
+                handTrackingSupport.enumValueIndex = 1; // OVRProjectConfig.HandTrackingSupport.ControllersAndHands
+            }
+
+            serializedConfig.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(config);
         }
 
         static void EnsureTrackedVisuals(OVRCameraRig cameraRig)
@@ -876,6 +901,12 @@ namespace TheBigRedButtonInstitute.Editor
         static PolarHeartbeatButtonDriver EnsurePolarHeartbeatButtonDriver(GameObject runtimeRoot)
         {
             return runtimeRoot.GetComponent<PolarHeartbeatButtonDriver>() ?? runtimeRoot.AddComponent<PolarHeartbeatButtonDriver>();
+        }
+
+        static QuestQuestionnairePanelLauncher EnsureQuestionnaireLauncher(GameObject runtimeRoot)
+        {
+            return runtimeRoot.GetComponent<QuestQuestionnairePanelLauncher>() ??
+                   runtimeRoot.AddComponent<QuestQuestionnairePanelLauncher>();
         }
 
         readonly struct BrokerRuntimeComponents

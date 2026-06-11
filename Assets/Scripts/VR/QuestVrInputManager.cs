@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using TheBigRedButtonInstitute.Biofeedback;
 using TheBigRedButtonInstitute.Diagnostics;
+using TheBigRedButtonInstitute.Questionnaire;
 using TheBigRedButtonInstitute.RustyXrBroker;
 using UnityEngine;
 using UnityEngine.XR;
@@ -54,7 +55,8 @@ namespace TheBigRedButtonInstitute.VR
             BrokerCloseUi = 14,
             BrokerPolarHeartRateStart = 15,
             BrokerPolarPmdStart = 16,
-            BrokerPolarStop = 17
+            BrokerPolarStop = 17,
+            QuestionnaireOpen = 18
         }
 
         public enum VrControllerButtonId
@@ -132,6 +134,7 @@ namespace TheBigRedButtonInstitute.VR
         [SerializeField] RustyXrBrokerButtonDriver brokerButtonDriver;
         [SerializeField] QuestVrRustyXrBrokerButtonBridge brokerButtonBridge;
         [SerializeField] BigRedButtonDiagnosticComparisonController diagnosticComparisonController;
+        [SerializeField] QuestQuestionnairePanelLauncher questionnaireLauncher;
 
         [Header("Behavior")]
         [SerializeField] bool autoResolveReferences = true;
@@ -251,6 +254,11 @@ namespace TheBigRedButtonInstitute.VR
         public void ConfigureDiagnosticReferences(BigRedButtonDiagnosticComparisonController comparisonController)
         {
             diagnosticComparisonController = comparisonController;
+        }
+
+        public void ConfigureQuestionnaireReferences(QuestQuestionnairePanelLauncher launcher)
+        {
+            questionnaireLauncher = launcher;
         }
 
         public void EnsureConfiguration()
@@ -750,7 +758,22 @@ namespace TheBigRedButtonInstitute.VR
                     }
 
                     break;
+                case VrTerminalCommandId.QuestionnaireOpen:
+                    OpenQuestionnairePanel();
+                    break;
             }
+        }
+
+        void OpenQuestionnairePanel()
+        {
+            if (questionnaireLauncher == null)
+            {
+                hud?.SetTransientMessage("questionnaire_open failed: launcher missing");
+                return;
+            }
+
+            var status = questionnaireLauncher.LaunchDemographicsFromTrigger("hud_terminal", debugAutoSubmit: false);
+            hud?.SetTransientMessage(status);
         }
 
         void ReplayButtonPress()
@@ -976,6 +999,12 @@ namespace TheBigRedButtonInstitute.VR
                 summary.Append(brokerClient.BuildStatusLabel());
             }
 
+            if (questionnaireLauncher != null)
+            {
+                summary.Append(" / questionnaire ");
+                summary.Append(questionnaireLauncher.LatestStatus);
+            }
+
             return summary.ToString();
         }
 
@@ -984,6 +1013,8 @@ namespace TheBigRedButtonInstitute.VR
             AppendButtonSection(builder);
             builder.AppendLine();
             AppendBrokerSection(builder);
+            builder.AppendLine();
+            AppendQuestionnaireSection(builder);
             builder.AppendLine();
             builder.AppendLine("<b><color=#FFB56B>[POLAR SNAPSHOT]</color></b>");
             if (polarRuntimeManager == null)
@@ -1061,6 +1092,18 @@ namespace TheBigRedButtonInstitute.VR
             {
                 builder.AppendLine($"<color=#AFC0CF>Button bridge:</color> <color=#EAF6FF>{EscapeRichText(brokerButtonBridge.LastState)}</color>");
             }
+        }
+
+        void AppendQuestionnaireSection(StringBuilder builder)
+        {
+            builder.AppendLine("<b><color=#66FFCC>[QUESTIONNAIRE PANEL]</color></b>");
+            if (questionnaireLauncher == null)
+            {
+                builder.AppendLine("<color=#AFC0CF>Status:</color> <color=#97A9B6>launcher unavailable</color>");
+                return;
+            }
+
+            builder.AppendLine($"<color=#AFC0CF>Status:</color> <color=#EAF6FF>{EscapeRichText(questionnaireLauncher.LatestStatus)}</color>");
         }
 
         void AppendDiagnosticSection(StringBuilder builder)
@@ -1390,6 +1433,7 @@ namespace TheBigRedButtonInstitute.VR
                 new() { command = "broker_polar_pmd_start", description = "start Gargoyle Polar PMD ACC source", action = VrTerminalCommandId.BrokerPolarPmdStart },
                 new() { command = "broker_polar_stop", description = "stop Gargoyle Polar sources", action = VrTerminalCommandId.BrokerPolarStop },
                 new() { command = "broker_drive_button", description = "drive the button from broker path", action = VrTerminalCommandId.BrokerDriveButton },
+                new() { command = "questionnaire_open", description = "open the standalone questionnaire panel", action = VrTerminalCommandId.QuestionnaireOpen },
                 new() { command = "center_button", description = "place the button in front of the viewer", action = VrTerminalCommandId.CenterButton },
                 new() { command = "press_button", description = "play the imported press animation once", action = VrTerminalCommandId.PressButton },
                 new() { command = "toggle_hud", description = "show or hide the overlay", action = VrTerminalCommandId.ToggleHud },
@@ -1697,6 +1741,15 @@ namespace TheBigRedButtonInstitute.VR
                 if (diagnosticComparisonController == null)
                 {
                     diagnosticComparisonController = FindAnyObjectByType<BigRedButtonDiagnosticComparisonController>();
+                }
+            }
+
+            if (questionnaireLauncher == null || forceRefresh)
+            {
+                questionnaireLauncher = GetComponent<QuestQuestionnairePanelLauncher>();
+                if (questionnaireLauncher == null)
+                {
+                    questionnaireLauncher = FindAnyObjectByType<QuestQuestionnairePanelLauncher>();
                 }
             }
         }

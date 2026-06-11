@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools" android:installLocation="auto" xmlns:horizonos="http://schemas.horizonos/sdk">
+  <queries>
+    <package android:name="io.github.mesmerprism.questquestionnaire.panel" />
+    <intent>
+      <action android:name="io.github.mesmerprism.questquestionnaire.action.START" />
+      <data android:mimeType="application/vnd.quest-questionnaire.request+json" />
+    </intent>
+  </queries>
   <application android:label="@string/app_name" android:icon="@mipmap/app_icon" android:allowBackup="false">
     <activity android:theme="@style/Theme.AppCompat.DayNight.NoActionBar" android:configChanges="locale|fontScale|keyboard|keyboardHidden|mcc|mnc|navigation|orientation|screenLayout|screenSize|smallestScreenSize|touchscreen|uiMode" android:launchMode="singleTask" android:name="com.unity3d.player.UnityPlayerGameActivity" android:excludeFromRecents="true" android:exported="true">
       <intent-filter>
@@ -14,6 +21,10 @@
     <meta-data android:name="com.oculus.ossplash.background" android:value="black" />
     <meta-data android:name="com.oculus.telemetry.project_guid" android:value="3519a943-2897-4966-9a47-718251c25ea5" />
     <meta-data android:name="com.oculus.supportedDevices" android:value="quest2|questpro|quest3|quest3s" tools:replace="android:value" />
+    <provider android:name="org.thebigredbuttoninstitute.questionnaire.QuestionnaireResultProvider" android:authorities="org.thebigredbuttoninstitute.app.questionnaire.results" android:exported="false" android:grantUriPermissions="true">
+      <grant-uri-permission android:pathPrefix="/result/" />
+    </provider>
+    <receiver android:name="org.thebigredbuttoninstitute.questionnaire.QuestionnaireReturnReceiver" android:exported="false" />
   </application>
   <uses-feature android:name="android.hardware.vr.headtracking" android:version="1" android:required="true" />
   <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
