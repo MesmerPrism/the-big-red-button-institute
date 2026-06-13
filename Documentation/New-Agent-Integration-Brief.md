@@ -138,38 +138,138 @@ Prerequisites:
 - Confirm the Unity branch includes the questionnaire bridge if the work has
   not been merged to `main`.
 
-Development launch example:
+CLI launch examples:
 
 ```powershell
+# Initial language/demographics/prior-experience panel sequence.
+adb shell am start -W `
+  -n org.thebigredbuttoninstitute.app/com.unity3d.player.UnityPlayerGameActivity `
+  --es brb.questionnaireTrigger initial
+
+# Post-condition questionnaire after condition 1.
+adb shell am start -W `
+  -n org.thebigredbuttoninstitute.app/com.unity3d.player.UnityPlayerGameActivity `
+  --es brb.questionnaireTrigger post_condition_1
+
+# Post-condition questionnaire after condition 2.
+adb shell am start -W `
+  -n org.thebigredbuttoninstitute.app/com.unity3d.player.UnityPlayerGameActivity `
+  --es brb.questionnaireTrigger post_condition_2
+
+# Final end-confirmation / extra-presses sequence.
+adb shell am start -W `
+  -n org.thebigredbuttoninstitute.app/com.unity3d.player.UnityPlayerGameActivity `
+  --es brb.questionnaireTrigger final
+
+# Backwards-compatible initial launch.
 adb shell am start -W `
   -n org.thebigredbuttoninstitute.app/com.unity3d.player.UnityPlayerGameActivity `
   --ez brb.questionnaireOpen true
 ```
 
-Debug smoke-test launch, if the installed Unity build includes the debug path:
+For debug smoke tests, add this boolean to any launch above:
 
 ```powershell
-adb shell am start -W `
-  -n org.thebigredbuttoninstitute.app/com.unity3d.player.UnityPlayerGameActivity `
-  --ez brb.questionnaireOpen true `
   --ez brb.questionnaireDebugAutoSubmit true
 ```
 
 The debug auto-submit path is for validation only. For real interaction, launch
 without `brb.questionnaireDebugAutoSubmit`.
 
+For agentic UI-flow checks, pass a debug command script through the Unity
+launcher to the panel. The script sets the same panel state that visible
+Compose controls set, then uses the same Next/Submit handlers that write the
+caller-owned result URI.
+
+```powershell
+# Complete the initial panel sequence through scripted UI-equivalent actions.
+adb shell am start -W `
+  -n org.thebigredbuttoninstitute.app/com.unity3d.player.UnityPlayerGameActivity `
+  --es brb.questionnaireTrigger initial `
+  --es brb.questionnaireCommandScript "language:en-US,next,participant_code:QA001,age:30,next,prior:no,next" `
+  --ei brb.questionnaireCommandIntervalMs 500
+
+# Exercise the final non-10 branch into the extra-presses prompt.
+adb shell am start -W `
+  -n org.thebigredbuttoninstitute.app/com.unity3d.player.UnityPlayerGameActivity `
+  --es brb.questionnaireTrigger final `
+  --es brb.questionnaireCommandScript "final:1,next,submit" `
+  --ei brb.questionnaireCommandIntervalMs 700
+
+# Exercise the final 10 branch, which skips the extra-presses prompt.
+adb shell am start -W `
+  -n org.thebigredbuttoninstitute.app/com.unity3d.player.UnityPlayerGameActivity `
+  --es brb.questionnaireTrigger final `
+  --es brb.questionnaireCommandScript "final:10,next,submit" `
+  --ei brb.questionnaireCommandIntervalMs 700
+```
+
+Separate script commands with commas for ADB shell calls; semicolons and
+newlines are also accepted when the shell transport preserves them. Useful
+panel command tokens include `language:<en-US|ja-JP>`,
+`participant_code:<value>`, `age:<0-100>`, `prior:<yes|no>`,
+`presence_slider:<0-100>`, `redness_vas:<0-100>`, `redness_likert:<1-7>`,
+`ipq_all:<0-6>`, `lost_opportunity_ack`, `final:<1-10>`, `next`, `back`,
+`replay_audio`, `submit`, and `cancel`.
+
+Unity runtime command extras are separate from panel commands and drive the 3D
+scene directly:
+
+```powershell
+# Play the imported press animation once and increment the world-space counter.
+adb shell am start -W `
+  -n org.thebigredbuttoninstitute.app/com.unity3d.player.UnityPlayerGameActivity `
+  --es brb.runtimeCommand press_button
+
+# Press three times with a visible gap between count increments.
+adb shell am start -W `
+  -n org.thebigredbuttoninstitute.app/com.unity3d.player.UnityPlayerGameActivity `
+  --es brb.runtimeCommand press_button `
+  --ei brb.runtimeCommandRepeat 3 `
+  --ei brb.runtimeCommandIntervalMs 700
+
+# Show the heartbeat-style continuous blink for six seconds.
+adb shell am start -W `
+  -n org.thebigredbuttoninstitute.app/com.unity3d.player.UnityPlayerGameActivity `
+  --es brb.runtimeCommand "blink_button:6"
+
+# Chain scene actions in one launch-extra script.
+adb shell am start -W `
+  -n org.thebigredbuttoninstitute.app/com.unity3d.player.UnityPlayerGameActivity `
+  --es brb.runtimeCommandScript "center_button,blink_button:6,press_button,status" `
+  --ei brb.runtimeCommandIntervalMs 700
+```
+
+The runtime commands call `QuestVrInputManager` methods shared with HUD and
+controller paths: `press_button` uses `TriggerButtonPressFromRuntime()` and
+increments the visible counter; `blink_button:<seconds>` uses
+`BigRedButtonBlinkController.SetBlinking(true)` and auto-stops after the
+duration.
+
 Inside Unity, future button or timer triggers should call the same wrapper used
 by the CLI path:
 
 ```csharp
-QuestQuestionnairePanelLauncher.LaunchDemographicsFromTrigger(
+QuestQuestionnairePanelLauncher.LaunchInitialStudyQuestionnairesFromTrigger(
     "button",
+    debugAutoSubmit: false);
+QuestQuestionnairePanelLauncher.LaunchPostConditionQuestionnairesFromTrigger(
+    conditionNumber: 1,
+    triggerName: "condition_1_complete",
+    debugAutoSubmit: false);
+QuestQuestionnairePanelLauncher.LaunchFinalQuestionnairesFromTrigger(
+    "final_session_complete",
     debugAutoSubmit: false);
 ```
 
 Use another trigger label such as `"timer"` when the source is a timed event.
 The important property is that all triggers share the same Android contract
 implementation.
+
+The split-app study scene keeps the Rusty XR broker and broker screen-gaze
+visualizer off by default. The broker adapter source remains available for
+future comparison work, but this branch should not require a broker sidecar or
+show the `eye.screen.gaze_point` marker during normal questionnaire validation.
 
 ## Direct Polar route without Rusty XR broker
 

@@ -22,6 +22,7 @@ namespace TheBigRedButtonInstitute.Diagnostics
         [SerializeField] BigRedButtonDirectOscDriveReceiver directOscReceiver;
         [SerializeField] BigRedButtonDirectLslDriveReceiver directLslReceiver;
         [SerializeField] bool autoResolveReferences = true;
+        [SerializeField] bool enableBrokerRoutes = false;
 
         long _polarSequence;
         bool _brokerSubscribed;
@@ -85,13 +86,16 @@ namespace TheBigRedButtonInstitute.Diagnostics
             AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.DirectUnityBlePolar);
             AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.DirectUnityBlePolarHeartRate);
             AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.DirectUnityBlePolarPmd);
-            AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.BrokerWebSocketOsc);
             AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.DirectUnityLsl);
-            AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.BrokerWebSocketLsl);
-            AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.BrokerWebSocketPolarHeartRate);
-            AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.BrokerWebSocketPolarPmd);
-            AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.BrokerWebSocketBreath);
-            AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.BrokerWebSocketSynthetic);
+            if (enableBrokerRoutes)
+            {
+                AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.BrokerWebSocketOsc);
+                AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.BrokerWebSocketLsl);
+                AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.BrokerWebSocketPolarHeartRate);
+                AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.BrokerWebSocketPolarPmd);
+                AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.BrokerWebSocketBreath);
+                AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.BrokerWebSocketSynthetic);
+            }
             return lines;
         }
 
@@ -103,13 +107,13 @@ namespace TheBigRedButtonInstitute.Diagnostics
 
         void Subscribe()
         {
-            if (!_brokerSubscribed && brokerButtonDriver != null)
+            if (enableBrokerRoutes && !_brokerSubscribed && brokerButtonDriver != null)
             {
                 brokerButtonDriver.DrivePulseRequested += HandleBrokerDrivePulseRequested;
                 _brokerSubscribed = true;
             }
 
-            if (!_brokerBioSubscribed && brokerBioSignalReceiver != null)
+            if (enableBrokerRoutes && !_brokerBioSubscribed && brokerBioSignalReceiver != null)
             {
                 brokerBioSignalReceiver.BioSignalReceived += HandleBrokerBioSignalReceived;
                 _brokerBioSubscribed = true;
@@ -254,17 +258,23 @@ namespace TheBigRedButtonInstitute.Diagnostics
                 polarHeartbeatButtonDriver = GetComponent<PolarHeartbeatButtonDriver>() ?? FindAnyObjectByType<PolarHeartbeatButtonDriver>();
             }
 
-            if (brokerButtonDriver == null || forceRefresh)
+            if (!enableBrokerRoutes)
+            {
+                brokerButtonDriver = null;
+                brokerDriveReceiver = null;
+                brokerBioSignalReceiver = null;
+            }
+            else if (brokerButtonDriver == null || forceRefresh)
             {
                 brokerButtonDriver = GetComponent<RustyXrBrokerButtonDriver>() ?? FindAnyObjectByType<RustyXrBrokerButtonDriver>();
             }
 
-            if (brokerDriveReceiver == null || forceRefresh)
+            if (enableBrokerRoutes && (brokerDriveReceiver == null || forceRefresh))
             {
                 brokerDriveReceiver = GetComponent<RustyXrBrokerDriveSignalReceiver>() ?? FindAnyObjectByType<RustyXrBrokerDriveSignalReceiver>();
             }
 
-            if (brokerBioSignalReceiver == null || forceRefresh)
+            if (enableBrokerRoutes && (brokerBioSignalReceiver == null || forceRefresh))
             {
                 brokerBioSignalReceiver = GetComponent<RustyXrBrokerBioSignalReceiver>() ?? FindAnyObjectByType<RustyXrBrokerBioSignalReceiver>();
                 if (brokerBioSignalReceiver == null && Application.isPlaying)

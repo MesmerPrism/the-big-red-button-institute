@@ -24,6 +24,7 @@ namespace TheBigRedButtonInstitute.Editor
         const string HudName = "VR Overlay HUD";
         const string LegacyGeneratedCounterCanvasName = "Button Press Counter Canvas";
         const string SessionKey = "TheBigRedButtonInstitute.QuestVrInstalled.v2";
+        const bool EnableBrokerRuntimeByDefault = false;
         static readonly Vector3 RigPosition = new(0f, 1.65f, -1.7f);
 
         [MenuItem("Tools/Big Red Button/Install Quest VR Runtime")]
@@ -79,7 +80,9 @@ namespace TheBigRedButtonInstitute.Editor
 
             var polarRuntimeManager = PolarH10SceneInstaller.InstallIntoScene(scene, runtimeRoot, headTransform);
             var polarHeartbeatButtonDriver = EnsurePolarHeartbeatButtonDriver(runtimeRoot);
-            var brokerRuntime = EnsureRustyXrBrokerRuntime(runtimeRoot, inputManager, headTransform);
+            var brokerRuntime = EnableBrokerRuntimeByDefault
+                ? EnsureRustyXrBrokerRuntime(runtimeRoot, inputManager, headTransform)
+                : DisableRustyXrBrokerRuntime(runtimeRoot);
             var diagnosticRuntime = EnsureDiagnosticComparisonRuntime(
                 runtimeRoot,
                 inputManager,
@@ -94,7 +97,10 @@ namespace TheBigRedButtonInstitute.Editor
             hud.EnsureSetupInEditor();
             inputManager.ConfigureReferences(hud, headTransform, button != null ? button.transform : null, tester);
             inputManager.ConfigurePolarReferences(polarRuntimeManager, polarHeartbeatButtonDriver);
-            inputManager.ConfigureBrokerReferences(brokerRuntime.Client, brokerRuntime.ButtonDriver, brokerRuntime.ButtonBridge);
+            inputManager.ConfigureBrokerReferences(
+                brokerRuntime?.Client,
+                brokerRuntime?.ButtonDriver,
+                brokerRuntime?.ButtonBridge);
             inputManager.ConfigureDiagnosticReferences(diagnosticRuntime);
             inputManager.ConfigureQuestionnaireReferences(questionnaireLauncher);
             polarHeartbeatButtonDriver.ConfigureReferences(polarRuntimeManager, inputManager, blinkController);
@@ -368,8 +374,10 @@ namespace TheBigRedButtonInstitute.Editor
             serializedInputManager.FindProperty("enableSimultaneousHandsAndControllers").boolValue = true;
             serializedInputManager.FindProperty("startupPlacementDelay").floatValue = 0.2f;
             serializedInputManager.FindProperty("buttonDistanceFromHead").floatValue = 0.48f;
-            serializedInputManager.FindProperty("buttonVerticalOffset").floatValue = -0.62f;
+            serializedInputManager.FindProperty("buttonVerticalOffset").floatValue = -0.32f;
             serializedInputManager.FindProperty("minimumButtonHeight").floatValue = 0.54f;
+            serializedInputManager.FindProperty("enableBrokerControls").boolValue = false;
+            serializedInputManager.FindProperty("allowBrokerOpenUiLaunchExtra").boolValue = false;
             serializedInputManager.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(inputManager);
         }
@@ -941,7 +949,7 @@ namespace TheBigRedButtonInstitute.Editor
             public QuestVrRustyXrBrokerButtonBridge ButtonBridge { get; }
         }
 
-        static BrokerRuntimeComponents EnsureRustyXrBrokerRuntime(
+        static BrokerRuntimeComponents? EnsureRustyXrBrokerRuntime(
             GameObject runtimeRoot,
             QuestVrInputManager inputManager,
             Transform headTransform)
@@ -1002,12 +1010,54 @@ namespace TheBigRedButtonInstitute.Editor
                 buttonBridge);
         }
 
+        static BrokerRuntimeComponents? DisableRustyXrBrokerRuntime(GameObject runtimeRoot)
+        {
+            RemoveBrokerScreenGazeMarker(runtimeRoot);
+            DestroyComponentIfPresent<RustyXrBrokerScreenGazeVisualizer>(runtimeRoot);
+            DestroyComponentIfPresent<RustyXrBrokerScreenGazeReceiver>(runtimeRoot);
+            DestroyComponentIfPresent<QuestVrRustyXrBrokerButtonBridge>(runtimeRoot);
+            DestroyComponentIfPresent<RustyXrBrokerButtonDriver>(runtimeRoot);
+            DestroyComponentIfPresent<RustyXrBrokerBioSignalReceiver>(runtimeRoot);
+            DestroyComponentIfPresent<RustyXrBrokerDriveSignalReceiver>(runtimeRoot);
+            DestroyComponentIfPresent<RustyXrBrokerEventRouter>(runtimeRoot);
+            DestroyComponentIfPresent<RustyXrBrokerClient>(runtimeRoot);
+            return null;
+        }
+
+        static void RemoveBrokerScreenGazeMarker(GameObject runtimeRoot)
+        {
+            if (runtimeRoot == null)
+            {
+                return;
+            }
+
+            var marker = runtimeRoot.transform.Find("Broker Screen Gaze Marker");
+            if (marker != null)
+            {
+                UnityEngine.Object.DestroyImmediate(marker.gameObject);
+            }
+        }
+
+        static void DestroyComponentIfPresent<T>(GameObject gameObject) where T : Component
+        {
+            if (gameObject == null)
+            {
+                return;
+            }
+
+            var component = gameObject.GetComponent<T>();
+            if (component != null)
+            {
+                UnityEngine.Object.DestroyImmediate(component);
+            }
+        }
+
         static BigRedButtonDiagnosticComparisonController EnsureDiagnosticComparisonRuntime(
             GameObject runtimeRoot,
             QuestVrInputManager inputManager,
             PolarH10RuntimeManager polarRuntimeManager,
             PolarHeartbeatButtonDriver polarHeartbeatButtonDriver,
-            BrokerRuntimeComponents brokerRuntime)
+            BrokerRuntimeComponents? brokerRuntime)
         {
             var comparison = runtimeRoot.GetComponent<BigRedButtonDiagnosticComparisonController>() ??
                              runtimeRoot.AddComponent<BigRedButtonDiagnosticComparisonController>();
@@ -1024,9 +1074,9 @@ namespace TheBigRedButtonInstitute.Editor
             comparison.ConfigureReferences(
                 inputManager,
                 polarHeartbeatButtonDriver,
-                brokerRuntime.ButtonDriver,
-                brokerRuntime.DriveReceiver,
-                brokerRuntime.BioSignalReceiver,
+                brokerRuntime?.ButtonDriver,
+                brokerRuntime?.DriveReceiver,
+                brokerRuntime?.BioSignalReceiver,
                 directPolar,
                 directOsc,
                 directLsl);

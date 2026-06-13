@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 using TheBigRedButtonInstitute.Biofeedback;
 using TheBigRedButtonInstitute.Diagnostics;
@@ -23,6 +24,15 @@ namespace TheBigRedButtonInstitute.VR
         const string CommandMoveControlLabel = "R Stick Up/Down / Up Arrow / Down Arrow";
         const string CommandActivateControlLabel = "R Trigger / Enter";
         const string BrokerOpenUiLaunchExtra = "rustyxr.brokerOpenUi";
+        const string RuntimeCommandLaunchExtra = "brb.runtimeCommand";
+        const string RuntimeCommandScriptLaunchExtra = "brb.runtimeCommandScript";
+        const string RuntimeCommandRepeatLaunchExtra = "brb.runtimeCommandRepeat";
+        const string RuntimeCommandIntervalMsLaunchExtra = "brb.runtimeCommandIntervalMs";
+        const int MaxCliRuntimeCommands = 64;
+        const double RuntimeCommandPollSeconds = 0.5d;
+        const double RuntimeCommandInitialDelaySeconds = 0.75d;
+        const double DefaultRuntimeCommandIntervalSeconds = 0.35d;
+        const float DefaultTimedBlinkSeconds = 5f;
 
         public enum VrActionId
         {
@@ -56,7 +66,9 @@ namespace TheBigRedButtonInstitute.VR
             BrokerPolarHeartRateStart = 15,
             BrokerPolarPmdStart = 16,
             BrokerPolarStop = 17,
-            QuestionnaireOpen = 18
+            QuestionnaireOpen = 18,
+            BlinkButton = 19,
+            StopButtonBlink = 20
         }
 
         public enum VrControllerButtonId
@@ -112,6 +124,18 @@ namespace TheBigRedButtonInstitute.VR
             public string Name { get; }
         }
 
+        readonly struct RuntimeCommandParts
+        {
+            public RuntimeCommandParts(string command, string argument)
+            {
+                Command = command;
+                Argument = argument;
+            }
+
+            public string Command { get; }
+            public string Argument { get; }
+        }
+
         static readonly HudPageDefinition[] HudPages =
         {
             new(HudPageId.Dashboard, "Dashboard"),
@@ -143,11 +167,13 @@ namespace TheBigRedButtonInstitute.VR
         [SerializeField] bool enableSimultaneousHandsAndControllers = true;
         [SerializeField, Min(0f)] float startupPlacementDelay = 0.2f;
         [SerializeField, Min(0.2f)] float buttonDistanceFromHead = 0.48f;
-        [SerializeField] float buttonVerticalOffset = -0.62f;
+        [SerializeField] float buttonVerticalOffset = -0.32f;
         [SerializeField, Min(0.4f)] float minimumButtonHeight = 0.54f;
         [SerializeField, Min(0.1f)] float targetButtonHeight = 0.36f;
+        [SerializeField, Min(0.1f)] float defaultTimedBlinkSeconds = DefaultTimedBlinkSeconds;
         [SerializeField] Vector3 buttonRotationOffsetEuler;
-        [SerializeField] bool allowBrokerOpenUiLaunchExtra = true;
+        [SerializeField] bool enableBrokerControls = false;
+        [SerializeField] bool allowBrokerOpenUiLaunchExtra = false;
 
         [Header("HUD Page Flick")]
         [SerializeField] bool enableHudPageFlickNavigation = true;
@@ -170,6 +196,7 @@ namespace TheBigRedButtonInstitute.VR
         bool _rightThumbstickVerticalArmed = true;
         bool _rightThumbstickHorizontalArmed = true;
         int _buttonPressCount;
+        readonly Queue<string> _runtimeCommandQueue = new();
         bool _hasPlacedButtonOnStartup;
         bool _hasConfiguredSimultaneousHandsAndControllers;
         bool _brokerOpenUiLaunchExtraChecked;
@@ -177,6 +204,11 @@ namespace TheBigRedButtonInstitute.VR
         bool _rightPrimaryBrokerOpenWasPressed;
         bool _brokerConsoleCloseProbeArmed;
         float _startupPlacementTime;
+        double _nextRuntimeCommandPollTime;
+        double _nextRuntimeCommandExecuteTime;
+        double _runtimeCommandIntervalSeconds = DefaultRuntimeCommandIntervalSeconds;
+        bool _timedButtonBlinkActive;
+        double _buttonBlinkStopTime;
         double _nextBrokerOpenUiLaunchAttempt;
         int _brokerOpenShortcutFrame = -1;
 
@@ -216,9 +248,15 @@ namespace TheBigRedButtonInstitute.VR
             TryConfigureSimultaneousHandsAndControllers();
             TryPlaceButtonOnStartup();
             TryKeepButtonInFrontOfHead();
+            TryQueueRuntimeCommandLaunchExtra();
+            ProcessRuntimeCommandQueue();
+            ProcessTimedButtonBlink();
             TryHandleBrokerOpenUiLaunchExtra();
             ProcessHudNavigation();
-            ProcessBrokerOpenUiPrimaryShortcut();
+            if (enableBrokerControls)
+            {
+                ProcessBrokerOpenUiPrimaryShortcut();
+            }
             ProcessBindings();
         }
 
@@ -268,8 +306,19 @@ namespace TheBigRedButtonInstitute.VR
             MigrateLegacyBindings();
             RemoveLegacyCommandCursorBindings();
             MergeMissingBindings();
-            EnsureBrokerOpenUiPrimaryButtonBinding();
+            if (enableBrokerControls)
+            {
+                EnsureBrokerOpenUiPrimaryButtonBinding();
+            }
+            else
+            {
+                RemoveBrokerOpenUiBindings();
+            }
             MergeMissingCommands();
+            if (!enableBrokerControls)
+            {
+                RemoveBrokerCommands();
+            }
         }
 
         public int GetHudPageCount() => HudPages.Length;
@@ -589,7 +638,14 @@ namespace TheBigRedButtonInstitute.VR
                     ReplayButtonPress();
                     break;
                 case VrActionId.OpenBrokerConsole:
-                    ToggleBrokerConsoleShortcut("binding", primaryShortcut: false);
+                    if (enableBrokerControls)
+                    {
+                        ToggleBrokerConsoleShortcut("binding", primaryShortcut: false);
+                    }
+                    else
+                    {
+                        hud?.SetTransientMessage("broker controls disabled");
+                    }
                     break;
             }
         }
@@ -603,6 +659,12 @@ namespace TheBigRedButtonInstitute.VR
                     break;
                 case VrTerminalCommandId.PressButton:
                     ReplayButtonPress();
+                    break;
+                case VrTerminalCommandId.BlinkButton:
+                    StartTimedButtonBlink(defaultTimedBlinkSeconds, "hud_terminal");
+                    break;
+                case VrTerminalCommandId.StopButtonBlink:
+                    StopTimedButtonBlink("hud_terminal");
                     break;
                 case VrTerminalCommandId.ToggleHud:
                     ExecuteAction(VrActionId.ToggleHud);
@@ -787,6 +849,50 @@ namespace TheBigRedButtonInstitute.VR
             hud?.SetTransientMessage("press_button executed");
         }
 
+        bool StartTimedButtonBlink(float durationSeconds, string source)
+        {
+            ResolveReferences(forceRefresh: false);
+            if (buttonBlinkController == null)
+            {
+                hud?.SetTransientMessage("blink_button failed: no blink controller");
+                Debug.LogWarning($"[QuestVrInputManager] blink_button failed source={source}: no blink controller", this);
+                return false;
+            }
+
+            var seconds = Mathf.Clamp(durationSeconds, 0.1f, 120f);
+            buttonAnimationTester?.StopAndReset();
+            buttonBlinkController.SetBlinking(true);
+            _timedButtonBlinkActive = true;
+            _buttonBlinkStopTime = Time.unscaledTimeAsDouble + seconds;
+            hud?.SetTransientMessage($"blink_button executing: {seconds:0.#}s");
+            hud?.RefreshImmediately();
+            Debug.Log($"[QuestVrInputManager] blink_button source={source} duration={seconds:0.###}s", this);
+            return true;
+        }
+
+        void StopTimedButtonBlink(string source)
+        {
+            _timedButtonBlinkActive = false;
+            if (buttonBlinkController != null)
+            {
+                buttonBlinkController.SetBlinking(false);
+            }
+
+            hud?.SetTransientMessage("blink_button stopped");
+            hud?.RefreshImmediately();
+            Debug.Log($"[QuestVrInputManager] blink_button stopped source={source}", this);
+        }
+
+        void ProcessTimedButtonBlink()
+        {
+            if (!_timedButtonBlinkActive || Time.unscaledTimeAsDouble < _buttonBlinkStopTime)
+            {
+                return;
+            }
+
+            StopTimedButtonBlink("timer");
+        }
+
         void OpenBrokerConsole()
         {
             if (brokerClient == null)
@@ -895,6 +1001,283 @@ namespace TheBigRedButtonInstitute.VR
             return false;
         }
 
+        void TryQueueRuntimeCommandLaunchExtra()
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            if (Time.unscaledTimeAsDouble < _nextRuntimeCommandPollTime)
+            {
+                return;
+            }
+
+            _nextRuntimeCommandPollTime = Time.unscaledTimeAsDouble + RuntimeCommandPollSeconds;
+            var commandsFromIntent = ReadRuntimeCommandLaunchExtras(out var intervalSeconds);
+            if (commandsFromIntent.Count == 0)
+            {
+                return;
+            }
+
+            _runtimeCommandIntervalSeconds = intervalSeconds;
+            var queued = 0;
+            for (var i = 0; i < commandsFromIntent.Count && _runtimeCommandQueue.Count < MaxCliRuntimeCommands; i++)
+            {
+                var command = commandsFromIntent[i];
+                if (string.IsNullOrWhiteSpace(command))
+                {
+                    continue;
+                }
+
+                _runtimeCommandQueue.Enqueue(command.Trim());
+                queued++;
+            }
+
+            if (queued > 0)
+            {
+                _nextRuntimeCommandExecuteTime = Time.unscaledTimeAsDouble + RuntimeCommandInitialDelaySeconds;
+                Debug.Log(
+                    $"[QuestVrInputManager] queued {queued} CLI runtime command(s), interval={_runtimeCommandIntervalSeconds:0.###}s",
+                    this);
+            }
+#endif
+        }
+
+        void ProcessRuntimeCommandQueue()
+        {
+            if (_runtimeCommandQueue.Count == 0 ||
+                Time.unscaledTimeAsDouble < _nextRuntimeCommandExecuteTime)
+            {
+                return;
+            }
+
+            var command = _runtimeCommandQueue.Dequeue();
+            ExecuteRuntimeCommand(command);
+            _nextRuntimeCommandExecuteTime = Time.unscaledTimeAsDouble + _runtimeCommandIntervalSeconds;
+        }
+
+        bool ExecuteRuntimeCommand(string rawCommand)
+        {
+            var parsed = ParseRuntimeCommand(rawCommand);
+            var command = parsed.Command;
+            if (string.IsNullOrWhiteSpace(command))
+            {
+                return false;
+            }
+
+            switch (command)
+            {
+                case "center":
+                case "center_button":
+                    return CenterButtonInFrontOfHead(reportToHud: true);
+                case "press":
+                case "press_button":
+                case "button_press":
+                    ReplayButtonPress();
+                    Debug.Log($"[QuestVrInputManager] CLI command press_button count={_buttonPressCount}", this);
+                    return true;
+                case "blink":
+                case "blink_button":
+                case "button_blink":
+                case "heartbeat_blink":
+                    return StartTimedButtonBlink(
+                        ParseDurationSeconds(parsed.Argument, defaultTimedBlinkSeconds),
+                        "cli");
+                case "stop_blink":
+                case "blink_stop":
+                case "button_blink_stop":
+                    StopTimedButtonBlink("cli");
+                    return true;
+                case "toggle_hud":
+                case "hud_toggle":
+                    ExecuteAction(VrActionId.ToggleHud);
+                    return true;
+                case "status":
+                case "status_snapshot":
+                    var snapshot = BuildStatusSummary();
+                    Debug.Log($"[QuestVrInputManager] CLI status: {snapshot}", this);
+                    hud?.SetTransientMessage($"status: {snapshot}");
+                    return true;
+                case "questionnaire_open":
+                case "questionnaire_initial":
+                case "initial":
+                    return LaunchQuestionnaireFromRuntimeCommand(
+                        "cli:initial",
+                        route => route.LaunchInitialStudyQuestionnairesFromTrigger("cli:initial", false));
+                case "questionnaire_initial_debug":
+                case "initial_debug":
+                    return LaunchQuestionnaireFromRuntimeCommand(
+                        "cli:initial_debug",
+                        route => route.LaunchInitialStudyQuestionnairesFromTrigger("cli:initial_debug", true));
+                case "questionnaire_post_1":
+                case "post_condition_1":
+                case "post1":
+                    return LaunchQuestionnaireFromRuntimeCommand(
+                        "cli:post_condition_1",
+                        route => route.LaunchPostConditionQuestionnairesFromTrigger(1, "cli:post_condition_1", false));
+                case "questionnaire_post_2":
+                case "post_condition_2":
+                case "post2":
+                    return LaunchQuestionnaireFromRuntimeCommand(
+                        "cli:post_condition_2",
+                        route => route.LaunchPostConditionQuestionnairesFromTrigger(2, "cli:post_condition_2", false));
+                case "questionnaire_final":
+                case "final":
+                    return LaunchQuestionnaireFromRuntimeCommand(
+                        "cli:final",
+                        route => route.LaunchFinalQuestionnairesFromTrigger("cli:final", false));
+                case "questionnaire_final_debug":
+                case "final_debug":
+                    return LaunchQuestionnaireFromRuntimeCommand(
+                        "cli:final_debug",
+                        route => route.LaunchFinalQuestionnairesFromTrigger("cli:final_debug", true));
+                default:
+                    Debug.LogWarning($"[QuestVrInputManager] unknown CLI runtime command '{rawCommand}'", this);
+                    hud?.SetTransientMessage($"unknown CLI command: {rawCommand}");
+                    return false;
+            }
+        }
+
+        bool LaunchQuestionnaireFromRuntimeCommand(
+            string source,
+            Func<QuestQuestionnairePanelLauncher, string> launch)
+        {
+            ResolveReferences(forceRefresh: false);
+            if (questionnaireLauncher == null)
+            {
+                hud?.SetTransientMessage("questionnaire command failed: launcher missing");
+                Debug.LogWarning($"[QuestVrInputManager] questionnaire command failed source={source}: launcher missing", this);
+                return false;
+            }
+
+            var status = launch(questionnaireLauncher);
+            hud?.SetTransientMessage(status);
+            Debug.Log($"[QuestVrInputManager] questionnaire command source={source} {status}", this);
+            return true;
+        }
+
+        static RuntimeCommandParts ParseRuntimeCommand(string rawCommand)
+        {
+            if (string.IsNullOrWhiteSpace(rawCommand))
+            {
+                return new RuntimeCommandParts(string.Empty, string.Empty);
+            }
+
+            var trimmed = rawCommand.Trim();
+            var separatorIndex = trimmed.IndexOfAny(new[] { ':', '=' });
+            var command = separatorIndex >= 0 ? trimmed[..separatorIndex] : trimmed;
+            var argument = separatorIndex >= 0 && separatorIndex < trimmed.Length - 1
+                ? trimmed[(separatorIndex + 1)..]
+                : string.Empty;
+
+            return new RuntimeCommandParts(NormalizeRuntimeCommandName(command), argument.Trim());
+        }
+
+        static string NormalizeRuntimeCommandName(string value)
+        {
+            return string.IsNullOrWhiteSpace(value)
+                ? string.Empty
+                : value.Trim().ToLowerInvariant().Replace('-', '_').Replace(' ', '_');
+        }
+
+        float ParseDurationSeconds(string argument, float fallbackSeconds)
+        {
+            if (string.IsNullOrWhiteSpace(argument))
+            {
+                return Mathf.Max(0.1f, fallbackSeconds);
+            }
+
+            var value = argument.Trim();
+            if (value.EndsWith("s", StringComparison.OrdinalIgnoreCase))
+            {
+                value = value[..^1];
+            }
+
+            return float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var seconds)
+                ? Mathf.Clamp(seconds, 0.1f, 120f)
+                : Mathf.Max(0.1f, fallbackSeconds);
+        }
+
+        static List<string> SplitRuntimeCommandScript(string script)
+        {
+            var commands = new List<string>();
+            if (string.IsNullOrWhiteSpace(script))
+            {
+                return commands;
+            }
+
+            var parts = script.Split(new[] { ';', ',', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+            for (var i = 0; i < parts.Length; i++)
+            {
+                var command = parts[i].Trim();
+                if (!string.IsNullOrWhiteSpace(command))
+                {
+                    commands.Add(command);
+                }
+            }
+
+            return commands;
+        }
+
+        static List<string> ReadRuntimeCommandLaunchExtras(out double intervalSeconds)
+        {
+            intervalSeconds = DefaultRuntimeCommandIntervalSeconds;
+            var commands = new List<string>();
+#if UNITY_ANDROID && !UNITY_EDITOR
+            try
+            {
+                using var unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer");
+                using var activity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity");
+                using var intent = activity?.Call<AndroidJavaObject>("getIntent");
+                if (intent == null)
+                {
+                    return commands;
+                }
+
+                var hasCommand = intent.Call<bool>("hasExtra", RuntimeCommandLaunchExtra);
+                var hasScript = intent.Call<bool>("hasExtra", RuntimeCommandScriptLaunchExtra);
+                var hasRepeat = intent.Call<bool>("hasExtra", RuntimeCommandRepeatLaunchExtra);
+                var hasInterval = intent.Call<bool>("hasExtra", RuntimeCommandIntervalMsLaunchExtra);
+                if (!hasCommand && !hasScript && !hasRepeat && !hasInterval)
+                {
+                    return commands;
+                }
+
+                var command = hasCommand
+                    ? intent.Call<string>("getStringExtra", RuntimeCommandLaunchExtra)
+                    : string.Empty;
+                var script = hasScript
+                    ? intent.Call<string>("getStringExtra", RuntimeCommandScriptLaunchExtra)
+                    : string.Empty;
+                var repeat = Mathf.Clamp(
+                    intent.Call<int>("getIntExtra", RuntimeCommandRepeatLaunchExtra, 1),
+                    1,
+                    MaxCliRuntimeCommands);
+                var intervalMs = Mathf.Clamp(
+                    intent.Call<int>("getIntExtra", RuntimeCommandIntervalMsLaunchExtra, 350),
+                    50,
+                    10000);
+
+                intent.Call("removeExtra", RuntimeCommandLaunchExtra);
+                intent.Call("removeExtra", RuntimeCommandScriptLaunchExtra);
+                intent.Call("removeExtra", RuntimeCommandRepeatLaunchExtra);
+                intent.Call("removeExtra", RuntimeCommandIntervalMsLaunchExtra);
+
+                intervalSeconds = intervalMs / 1000d;
+                commands.AddRange(SplitRuntimeCommandScript(script));
+                if (!string.IsNullOrWhiteSpace(command))
+                {
+                    for (var i = 0; i < repeat && commands.Count < MaxCliRuntimeCommands; i++)
+                    {
+                        commands.Add(command);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[QuestVrInputManager] runtime command launch extra check failed: {ex.Message}");
+            }
+#endif
+            return commands;
+        }
+
         void TryHandleBrokerOpenUiLaunchExtra()
         {
             if (!allowBrokerOpenUiLaunchExtra)
@@ -993,7 +1376,7 @@ namespace TheBigRedButtonInstitute.VR
                 summary.Append(polarRuntimeManager.BuildPlainStatusSummary());
             }
 
-            if (brokerClient != null)
+            if (enableBrokerControls && brokerClient != null)
             {
                 summary.Append(" / broker ");
                 summary.Append(brokerClient.BuildStatusLabel());
@@ -1012,8 +1395,11 @@ namespace TheBigRedButtonInstitute.VR
         {
             AppendButtonSection(builder);
             builder.AppendLine();
-            AppendBrokerSection(builder);
-            builder.AppendLine();
+            if (enableBrokerControls)
+            {
+                AppendBrokerSection(builder);
+                builder.AppendLine();
+            }
             AppendQuestionnaireSection(builder);
             builder.AppendLine();
             builder.AppendLine("<b><color=#FFB56B>[POLAR SNAPSHOT]</color></b>");
@@ -1066,8 +1452,11 @@ namespace TheBigRedButtonInstitute.VR
             builder.AppendLine($"<color=#AFC0CF>Press count:</color> <color=#EAF6FF>{_buttonPressCount:N0}</color>");
             builder.AppendLine($"<color=#AFC0CF>Status:</color> <color=#EAF6FF>{EscapeRichText(polarRuntimeManager.StatusMessage)}</color>");
             builder.AppendLine();
-            AppendBrokerSection(builder);
-            builder.AppendLine();
+            if (enableBrokerControls)
+            {
+                AppendBrokerSection(builder);
+                builder.AppendLine();
+            }
             AppendDiagnosticSection(builder);
         }
 
@@ -1225,7 +1614,7 @@ namespace TheBigRedButtonInstitute.VR
 
         string GetButtonDriveLabel()
         {
-            if (brokerButtonDriver != null)
+            if (enableBrokerControls && brokerButtonDriver != null)
             {
                 return $"broker {brokerButtonDriver.DriveStateLabel}";
             }
@@ -1299,7 +1688,7 @@ namespace TheBigRedButtonInstitute.VR
                 new() { controllerButton = VrControllerButtonId.RightSecondaryButtonB, keyboardKey = KeyCode.C, action = VrActionId.CenterButton, label = "center_button" },
                 new() { controllerButton = VrControllerButtonId.RightGripTrigger, keyboardKey = KeyCode.H, action = VrActionId.ToggleHud, label = "toggle_hud" },
                 new() { controllerButton = VrControllerButtonId.RightIndexTrigger, keyboardKey = KeyCode.Return, action = VrActionId.ExecuteSelectedCommand, label = "execute_command" },
-                new() { controllerButton = VrControllerButtonId.RightPrimaryButtonA, keyboardKey = KeyCode.O, action = VrActionId.OpenBrokerConsole, label = "broker_open_ui" }
+                new() { controllerButton = VrControllerButtonId.RightPrimaryButtonA, keyboardKey = KeyCode.P, action = VrActionId.ReplayButtonPress, label = "press_button" }
             };
         }
 
@@ -1372,6 +1761,17 @@ namespace TheBigRedButtonInstitute.VR
             }
         }
 
+        void RemoveBrokerOpenUiBindings()
+        {
+            for (var i = bindings.Count - 1; i >= 0; i--)
+            {
+                if (bindings[i].action == VrActionId.OpenBrokerConsole)
+                {
+                    bindings.RemoveAt(i);
+                }
+            }
+        }
+
         void MergeMissingBindings()
         {
             var defaults = BuildDefaultBindings();
@@ -1424,21 +1824,38 @@ namespace TheBigRedButtonInstitute.VR
                 new() { command = "polar_connect", description = "request BLE permissions and reconnect to Polar", action = VrTerminalCommandId.PolarConnect },
                 new() { command = "polar_scan", description = "scan for nearby Polar H10 devices", action = VrTerminalCommandId.PolarScan },
                 new() { command = "polar_clear_saved_device", description = "forget the saved Polar device address", action = VrTerminalCommandId.PolarClearSavedDevice },
-                new() { command = "broker_status", description = "request broker status", action = VrTerminalCommandId.BrokerStatus },
-                new() { command = "broker_connect", description = "connect the localhost broker client", action = VrTerminalCommandId.BrokerConnect },
-                new() { command = "broker_open_ui", description = "open the broker 2D console", action = VrTerminalCommandId.BrokerOpenUi },
-                new() { command = "broker_close_ui", description = "close the broker 2D console", action = VrTerminalCommandId.BrokerCloseUi },
-                new() { command = "broker_subscribe", description = "subscribe to broker test streams", action = VrTerminalCommandId.BrokerSubscribe },
-                new() { command = "broker_polar_hr_start", description = "start Gargoyle Polar HR/RR source", action = VrTerminalCommandId.BrokerPolarHeartRateStart },
-                new() { command = "broker_polar_pmd_start", description = "start Gargoyle Polar PMD ACC source", action = VrTerminalCommandId.BrokerPolarPmdStart },
-                new() { command = "broker_polar_stop", description = "stop Gargoyle Polar sources", action = VrTerminalCommandId.BrokerPolarStop },
-                new() { command = "broker_drive_button", description = "drive the button from broker path", action = VrTerminalCommandId.BrokerDriveButton },
                 new() { command = "questionnaire_open", description = "open the standalone questionnaire panel", action = VrTerminalCommandId.QuestionnaireOpen },
                 new() { command = "center_button", description = "place the button in front of the viewer", action = VrTerminalCommandId.CenterButton },
                 new() { command = "press_button", description = "play the imported press animation once", action = VrTerminalCommandId.PressButton },
+                new() { command = "blink_button", description = "blink the button for the default timed interval", action = VrTerminalCommandId.BlinkButton },
+                new() { command = "stop_blink", description = "stop the timed button blink", action = VrTerminalCommandId.StopButtonBlink },
                 new() { command = "toggle_hud", description = "show or hide the overlay", action = VrTerminalCommandId.ToggleHud },
                 new() { command = "status", description = "log the button and Polar sensor status snapshot", action = VrTerminalCommandId.StatusSnapshot }
             };
+        }
+
+        void RemoveBrokerCommands()
+        {
+            for (var i = commands.Count - 1; i >= 0; i--)
+            {
+                if (IsBrokerCommand(commands[i].action))
+                {
+                    commands.RemoveAt(i);
+                }
+            }
+        }
+
+        static bool IsBrokerCommand(VrTerminalCommandId action)
+        {
+            return action == VrTerminalCommandId.BrokerStatus ||
+                   action == VrTerminalCommandId.BrokerConnect ||
+                   action == VrTerminalCommandId.BrokerSubscribe ||
+                   action == VrTerminalCommandId.BrokerDriveButton ||
+                   action == VrTerminalCommandId.BrokerOpenUi ||
+                   action == VrTerminalCommandId.BrokerCloseUi ||
+                   action == VrTerminalCommandId.BrokerPolarHeartRateStart ||
+                   action == VrTerminalCommandId.BrokerPolarPmdStart ||
+                   action == VrTerminalCommandId.BrokerPolarStop;
         }
 
         bool WasPressed(ActionBinding binding)
@@ -1708,30 +2125,41 @@ namespace TheBigRedButtonInstitute.VR
                 }
             }
 
-            if (brokerClient == null || forceRefresh)
+            if (!enableBrokerControls)
             {
-                brokerClient = GetComponent<RustyXrBrokerClient>();
-                if (brokerClient == null)
-                {
-                    brokerClient = FindAnyObjectByType<RustyXrBrokerClient>();
-                }
+                brokerClient = null;
+                brokerButtonDriver = null;
+                brokerButtonBridge = null;
+                _brokerConsoleCloseProbeArmed = false;
+                _brokerOpenUiLaunchExtraPending = false;
             }
-
-            if (brokerButtonDriver == null || forceRefresh)
+            else
             {
-                brokerButtonDriver = GetComponent<RustyXrBrokerButtonDriver>();
-                if (brokerButtonDriver == null)
+                if (brokerClient == null || forceRefresh)
                 {
-                    brokerButtonDriver = FindAnyObjectByType<RustyXrBrokerButtonDriver>();
+                    brokerClient = GetComponent<RustyXrBrokerClient>();
+                    if (brokerClient == null)
+                    {
+                        brokerClient = FindAnyObjectByType<RustyXrBrokerClient>();
+                    }
                 }
-            }
 
-            if (brokerButtonBridge == null || forceRefresh)
-            {
-                brokerButtonBridge = GetComponent<QuestVrRustyXrBrokerButtonBridge>();
-                if (brokerButtonBridge == null)
+                if (brokerButtonDriver == null || forceRefresh)
                 {
-                    brokerButtonBridge = FindAnyObjectByType<QuestVrRustyXrBrokerButtonBridge>();
+                    brokerButtonDriver = GetComponent<RustyXrBrokerButtonDriver>();
+                    if (brokerButtonDriver == null)
+                    {
+                        brokerButtonDriver = FindAnyObjectByType<RustyXrBrokerButtonDriver>();
+                    }
+                }
+
+                if (brokerButtonBridge == null || forceRefresh)
+                {
+                    brokerButtonBridge = GetComponent<QuestVrRustyXrBrokerButtonBridge>();
+                    if (brokerButtonBridge == null)
+                    {
+                        brokerButtonBridge = FindAnyObjectByType<QuestVrRustyXrBrokerButtonBridge>();
+                    }
                 }
             }
 

@@ -51,6 +51,11 @@ final class QuestionnaireResultValidation {
 final class QuestionnaireResultValidator {
     private static final Set<String> KnownStatuses = new HashSet<>(Arrays.asList("completed", "cancelled", "error"));
     private static final Set<String> PlaceholderAnswers = new HashSet<>(Arrays.asList("yes", "no", "not_answered"));
+    private static final Set<String> RequiredStructuredAnswerObjects = new HashSet<>(Arrays.asList(
+            "demographics",
+            "prior_button_experience",
+            "post_condition",
+            "final"));
 
     private QuestionnaireResultValidator() {
     }
@@ -112,9 +117,19 @@ final class QuestionnaireResultValidator {
             return QuestionnaireResultValidation.invalid("answer_stage_mismatch");
         }
 
-        String placeholderAnswer = answers.optString("placeholder_answer");
-        if (!PlaceholderAnswers.contains(placeholderAnswer)) {
-            return QuestionnaireResultValidation.invalid("invalid_placeholder_answer");
+        String placeholderAnswer = answers.optString("placeholder_answer", "");
+        if (!placeholderAnswer.trim().isEmpty()) {
+            if (!PlaceholderAnswers.contains(placeholderAnswer)) {
+                return QuestionnaireResultValidation.invalid("invalid_placeholder_answer");
+            }
+
+            return QuestionnaireResultValidation.valid(status);
+        }
+
+        for (String requiredObject : RequiredStructuredAnswerObjects) {
+            if (answers.optJSONObject(requiredObject) == null) {
+                return QuestionnaireResultValidation.invalid("missing_" + requiredObject);
+            }
         }
 
         return QuestionnaireResultValidation.valid(status);

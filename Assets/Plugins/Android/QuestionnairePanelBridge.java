@@ -17,8 +17,19 @@ import org.json.JSONObject;
 public final class QuestionnairePanelBridge {
     private static final String BrbLaunchExtraOpen = "brb.questionnaireOpen";
     private static final String BrbLaunchExtraDebugAutoSubmit = "brb.questionnaireDebugAutoSubmit";
+    private static final String BrbLaunchExtraTrigger = "brb.questionnaireTrigger";
+    private static final String BrbLaunchExtraConditionNumber = "brb.questionnaireConditionNumber";
+    private static final String BrbLaunchExtraCommandScript = "brb.questionnaireCommandScript";
+    private static final String BrbLaunchExtraCommandIntervalMs = "brb.questionnaireCommandIntervalMs";
     private static final int LaunchExtraOpenBit = 1;
     private static final int LaunchExtraDebugAutoSubmitBit = 2;
+    private static final int LaunchExtraInitialBit = 4;
+    private static final int LaunchExtraPostConditionOneBit = 8;
+    private static final int LaunchExtraPostConditionTwoBit = 16;
+    private static final int LaunchExtraFinalBit = 32;
+    private static final int LaunchExtraInvalidBit = 64;
+    private static String pendingDebugCommandScript = "";
+    private static int pendingDebugCommandIntervalMs = 350;
 
     private QuestionnairePanelBridge() {
     }
@@ -28,7 +39,53 @@ public final class QuestionnairePanelBridge {
     }
 
     public static String launchDemographics(Activity activity, boolean debugAutoSubmit) {
-        return launch(activity, QuestionnaireContract.DefaultStage, debugAutoSubmit);
+        return launchInitialStudyQuestionnaires(activity, debugAutoSubmit);
+    }
+
+    public static String launchInitialStudyQuestionnaires(Activity activity) {
+        return launchInitialStudyQuestionnaires(activity, false);
+    }
+
+    public static String launchInitialStudyQuestionnaires(Activity activity, boolean debugAutoSubmit) {
+        return launch(
+                activity,
+                QuestionnaireContract.DefaultStage,
+                QuestionnaireContract.InitialStudySequence,
+                -1,
+                debugAutoSubmit);
+    }
+
+    public static String launchPostConditionQuestionnaires(Activity activity, int conditionNumber) {
+        return launchPostConditionQuestionnaires(activity, conditionNumber, false);
+    }
+
+    public static String launchPostConditionQuestionnaires(Activity activity, int conditionNumber, boolean debugAutoSubmit) {
+        if (conditionNumber != 1 && conditionNumber != 2) {
+            return "questionnaire_open failed: unsupported condition.";
+        }
+
+        String[] sequence = conditionNumber == 1
+                ? QuestionnaireContract.ConditionOnePostSequence
+                : QuestionnaireContract.PostConditionSequence;
+        return launch(
+                activity,
+                QuestionnaireContract.StagePostConditionPictographic,
+                sequence,
+                conditionNumber,
+                debugAutoSubmit);
+    }
+
+    public static String launchFinalQuestionnaires(Activity activity) {
+        return launchFinalQuestionnaires(activity, false);
+    }
+
+    public static String launchFinalQuestionnaires(Activity activity, boolean debugAutoSubmit) {
+        return launch(
+                activity,
+                QuestionnaireContract.StageFinalEndConfirmation,
+                QuestionnaireContract.FinalSequence,
+                -1,
+                debugAutoSubmit);
     }
 
     public static int consumeQuestionnaireLaunchExtra(Activity activity) {
@@ -39,16 +96,46 @@ public final class QuestionnairePanelBridge {
         Intent intent = activity.getIntent();
         boolean open = intent.getBooleanExtra(BrbLaunchExtraOpen, false);
         boolean debugAutoSubmit = intent.getBooleanExtra(BrbLaunchExtraDebugAutoSubmit, false);
-        if (open || debugAutoSubmit) {
+        String trigger = intent.getStringExtra(BrbLaunchExtraTrigger);
+        int conditionNumber = intent.getIntExtra(BrbLaunchExtraConditionNumber, -1);
+        String commandScript = intent.getStringExtra(BrbLaunchExtraCommandScript);
+        int commandIntervalMs = intent.getIntExtra(BrbLaunchExtraCommandIntervalMs, 350);
+        boolean hasTrigger = trigger != null && !trigger.trim().isEmpty();
+        boolean hasCommandScript = commandScript != null && !commandScript.trim().isEmpty();
+        if (open ||
+                debugAutoSubmit ||
+                hasTrigger ||
+                hasCommandScript ||
+                intent.hasExtra(BrbLaunchExtraConditionNumber) ||
+                intent.hasExtra(BrbLaunchExtraCommandIntervalMs)) {
             intent.removeExtra(BrbLaunchExtraOpen);
             intent.removeExtra(BrbLaunchExtraDebugAutoSubmit);
+            intent.removeExtra(BrbLaunchExtraTrigger);
+            intent.removeExtra(BrbLaunchExtraConditionNumber);
+            intent.removeExtra(BrbLaunchExtraCommandScript);
+            intent.removeExtra(BrbLaunchExtraCommandIntervalMs);
         }
 
-        if (!open) {
+        if (!open && !hasTrigger && !hasCommandScript) {
             return 0;
         }
 
-        return LaunchExtraOpenBit | (debugAutoSubmit ? LaunchExtraDebugAutoSubmitBit : 0);
+        if (hasCommandScript) {
+            pendingDebugCommandScript = commandScript.trim();
+            pendingDebugCommandIntervalMs = Math.max(0, Math.min(commandIntervalMs, 10000));
+        } else {
+            pendingDebugCommandScript = "";
+            pendingDebugCommandIntervalMs = 350;
+        }
+
+        int route = launchRouteBits(trigger, conditionNumber);
+        if (route == 0) {
+            pendingDebugCommandScript = "";
+            pendingDebugCommandIntervalMs = 350;
+            return LaunchExtraOpenBit | LaunchExtraInvalidBit | (debugAutoSubmit ? LaunchExtraDebugAutoSubmitBit : 0);
+        }
+
+        return LaunchExtraOpenBit | route | (debugAutoSubmit ? LaunchExtraDebugAutoSubmitBit : 0);
     }
 
     public static String readLatestResultSummary(Activity activity) {
@@ -60,25 +147,36 @@ public final class QuestionnairePanelBridge {
         return QuestionnaireResultStore.readLatestResultSummary(activity);
     }
 
-    private static String launch(Activity activity, String stage, boolean debugAutoSubmit) {
+    private static String launch(
+            Activity activity,
+            String stage,
+            String[] screenSequence,
+            int conditionNumber,
+            boolean debugAutoSubmit) {
         if (activity == null) {
             return "questionnaire_open failed: missing Unity activity.";
         }
 
-        if (!QuestionnaireContract.DefaultStage.equals(stage)) {
-            return "questionnaire_open failed: unsupported stage.";
+        if (stage == null || stage.trim().isEmpty() || screenSequence == null || screenSequence.length == 0) {
+            return "questionnaire_open failed: invalid stage sequence.";
         }
 
         String requestId = UUID.randomUUID().toString();
         String nonce = UUID.randomUUID().toString();
         String sessionId = "brb-unity-" + System.currentTimeMillis();
-        String[] screenSequence = new String[] { stage };
 
         try {
             File resultFile = QuestionnaireResultProvider.prepareResultFile(activity, requestId);
             Uri resultUri = QuestionnaireResultProvider.resultUri(requestId);
             PendingIntent returnToCaller = buildReturnPendingIntent(activity, requestId);
-            JSONObject requestJson = buildRequestJson(activity, sessionId, requestId, nonce, stage, screenSequence);
+            JSONObject requestJson = buildRequestJson(
+                    activity,
+                    sessionId,
+                    requestId,
+                    nonce,
+                    stage,
+                    screenSequence,
+                    conditionNumber);
 
             QuestionnaireResultStore.rememberPending(
                     activity,
@@ -102,6 +200,12 @@ public final class QuestionnairePanelBridge {
             intent.putExtra(QuestionnaireContract.ExtraReturnToCaller, returnToCaller);
             if (debugAutoSubmit) {
                 intent.putExtra(QuestionnaireContract.ExtraDebugAutoSubmit, true);
+            }
+            if (pendingDebugCommandScript != null && !pendingDebugCommandScript.trim().isEmpty()) {
+                intent.putExtra(QuestionnaireContract.ExtraDebugCommandScript, pendingDebugCommandScript);
+                intent.putExtra(QuestionnaireContract.ExtraDebugCommandIntervalMs, pendingDebugCommandIntervalMs);
+                pendingDebugCommandScript = "";
+                pendingDebugCommandIntervalMs = 350;
             }
 
             activity.startActivity(intent);
@@ -138,7 +242,8 @@ public final class QuestionnairePanelBridge {
             String requestId,
             String nonce,
             String stage,
-            String[] screenSequence) throws JSONException {
+            String[] screenSequence,
+            int conditionNumber) throws JSONException {
         JSONArray sequenceJson = new JSONArray();
         for (String screen : screenSequence) {
             sequenceJson.put(screen);
@@ -157,7 +262,7 @@ public final class QuestionnairePanelBridge {
                 .put("study_id", "brb")
                 .put("schema_id", QuestionnaireContract.QuestionnaireId)
                 .put("open_stage", stage)
-                .put("condition_number", JSONObject.NULL)
+                .put("condition_number", conditionNumber >= 0 ? conditionNumber : JSONObject.NULL)
                 .put("screen_sequence", sequenceJson)
                 .put("caller", callerJson);
     }
@@ -184,5 +289,52 @@ public final class QuestionnairePanelBridge {
         }
 
         return message;
+    }
+
+    private static int launchRouteBits(String trigger, int conditionNumber) {
+        String normalized = trigger == null
+                ? ""
+                : trigger.trim().toLowerCase().replace('-', '_').replace(' ', '_');
+
+        if (normalized.isEmpty()
+                || "initial".equals(normalized)
+                || "demographics".equals(normalized)
+                || "language_select".equals(normalized)) {
+            return LaunchExtraInitialBit;
+        }
+
+        if ("post_condition_1".equals(normalized)
+                || "post_condition:1".equals(normalized)
+                || "post1".equals(normalized)
+                || "condition_1_post".equals(normalized)
+                || "condition_1".equals(normalized)) {
+            return LaunchExtraPostConditionOneBit;
+        }
+
+        if ("post_condition_2".equals(normalized)
+                || "post_condition:2".equals(normalized)
+                || "post2".equals(normalized)
+                || "condition_2_post".equals(normalized)
+                || "condition_2".equals(normalized)) {
+            return LaunchExtraPostConditionTwoBit;
+        }
+
+        if ("post_condition".equals(normalized) || "post".equals(normalized)) {
+            if (conditionNumber == 1) {
+                return LaunchExtraPostConditionOneBit;
+            }
+            if (conditionNumber == 2) {
+                return LaunchExtraPostConditionTwoBit;
+            }
+            return 0;
+        }
+
+        if ("final".equals(normalized)
+                || "final_questionnaires".equals(normalized)
+                || "final_end_confirmation".equals(normalized)) {
+            return LaunchExtraFinalBit;
+        }
+
+        return 0;
     }
 }

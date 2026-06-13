@@ -1,13 +1,13 @@
 # The Big Red Button Institute
 
 Unity 6 / URP / Meta Quest example centered on a large red button, a VR HUD,
-and stream-driven input diagnostics.
+and split-app questionnaire validation.
 
 This repository is the public Unity example for the
 [Rusty XR](https://github.com/MesmerPrism/Rusty-XR) broker and companion-app
-workflow. It provides a small Quest scene where direct Unity-owned inputs and
-Rusty XR broker-routed inputs drive the same visible button, making latency and
-stream-quality comparisons easy to inspect on-headset.
+workflow. This branch keeps the broker adapter source available, but the normal
+study scene is configured for direct Unity-owned input and the standalone
+questionnaire panel rather than requiring a broker sidecar.
 
 ## Current state
 
@@ -15,19 +15,17 @@ stream-quality comparisons easy to inspect on-headset.
 - The big red button is imported into the scene and can be centered in front of
   the viewer from VR.
 - The HUD supports multiple pages, controller-driven terminal commands, input
-  status, broker status, and Polar connection / permission status.
+  status, questionnaire status, and Polar connection / permission status.
 - A small world-space counter above the button shows accepted button presses
   without opening the HUD.
-- Direct Unity OSC and direct Unity Polar/BLE input can drive the button press
-  animation.
-- The Rusty XR Quest broker sidecar can drive the same button press routine
-  through subscribed broker stream events.
-- The diagnostic route table now records direct Unity Polar HR/RR and PMD frame
-  receipt separately from broker-routed `bio:polar_hr_rr`, `bio:polar_acc`,
-  `bio:polar_ecg`, and `bio:breath` stream events.
-- The broker adapter can also subscribe to synthetic `eye.screen.gaze_point`
-  events and map normalized screen gaze onto an in-scene marker without a
-  device-specific eye tracker SDK.
+- Direct Unity runtime commands can center the button, play the imported press
+  animation, increment the counter, and run a timed heartbeat-style blink.
+- The standalone Quest questionnaire panel can be launched for initial,
+  post-condition, and final sequences through the Android bridge.
+- The Rusty XR broker and synthetic `eye.screen.gaze_point` visualizer are off
+  by default in the study scene.
+- Direct Unity OSC, LSL, and Polar/BLE diagnostics remain available for
+  non-broker input checks.
 - The broker edit-mode tests consume replay-record-shaped synthetic wave and
   screen-gaze fixture payloads, so the adapter can be checked without a
   headset or live broker.
@@ -92,3 +90,9 @@ dotnet run --project src\RustyXr.Companion.Cli -- broker compare --quest-host <q
 - `Documentation/Public-Broker-Latency-Example-Roadmap.md`
 - `Documentation/Rusty-XR-Project-Integration.md`
 - `Documentation/Rusty-XR-Broker-Unity-Compatibility.md`
+
+## License
+
+This project is distributed under the MIT License. The BRB study audio assets
+were generated with ElevenLabs for this project; confirm the generating account
+and subscription terms before publishing release APKs or asset bundles.

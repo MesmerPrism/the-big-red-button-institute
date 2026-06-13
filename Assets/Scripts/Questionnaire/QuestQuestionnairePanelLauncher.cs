@@ -9,6 +9,11 @@ namespace TheBigRedButtonInstitute.Questionnaire
         const string BridgeClassName = "org.thebigredbuttoninstitute.questionnaire.QuestionnairePanelBridge";
         const int LaunchExtraOpenBit = 1;
         const int LaunchExtraDebugAutoSubmitBit = 2;
+        const int LaunchExtraInitialBit = 4;
+        const int LaunchExtraPostConditionOneBit = 8;
+        const int LaunchExtraPostConditionTwoBit = 16;
+        const int LaunchExtraFinalBit = 32;
+        const int LaunchExtraInvalidBit = 64;
         const float LaunchExtraDelaySeconds = 1.0f;
         const float LaunchExtraPollSeconds = 0.5f;
 
@@ -18,6 +23,7 @@ namespace TheBigRedButtonInstitute.Questionnaire
 
         bool _launchExtraPending;
         bool _launchExtraDebugAutoSubmit;
+        LaunchExtraRoute _launchExtraRoute;
         float _launchExtraDueTime;
         double _nextLaunchExtraPollTime;
 
@@ -63,12 +69,33 @@ namespace TheBigRedButtonInstitute.Questionnaire
 
         public string LaunchDemographics(bool debugAutoSubmit)
         {
-            return LaunchDemographicsFromTrigger("direct", debugAutoSubmit);
+            return LaunchInitialStudyQuestionnairesFromTrigger("direct", debugAutoSubmit);
         }
 
         public string LaunchDemographicsFromTrigger(string triggerName, bool debugAutoSubmit)
         {
-            latestStatus = CallBridge("launchDemographics", debugAutoSubmit);
+            return LaunchInitialStudyQuestionnairesFromTrigger(triggerName, debugAutoSubmit);
+        }
+
+        public string LaunchInitialStudyQuestionnairesFromTrigger(string triggerName, bool debugAutoSubmit)
+        {
+            latestStatus = CallBridge("launchInitialStudyQuestionnaires", debugAutoSubmit);
+            Debug.Log($"[QuestQuestionnairePanelLauncher] trigger={triggerName} debugAutoSubmit={debugAutoSubmit} {latestStatus}", this);
+            return latestStatus;
+        }
+
+        public string LaunchPostConditionQuestionnairesFromTrigger(int conditionNumber, string triggerName, bool debugAutoSubmit)
+        {
+            latestStatus = CallPostConditionBridge(conditionNumber, debugAutoSubmit);
+            Debug.Log(
+                $"[QuestQuestionnairePanelLauncher] trigger={triggerName} condition={conditionNumber} debugAutoSubmit={debugAutoSubmit} {latestStatus}",
+                this);
+            return latestStatus;
+        }
+
+        public string LaunchFinalQuestionnairesFromTrigger(string triggerName, bool debugAutoSubmit)
+        {
+            latestStatus = CallBridge("launchFinalQuestionnaires", debugAutoSubmit);
             Debug.Log($"[QuestQuestionnairePanelLauncher] trigger={triggerName} debugAutoSubmit={debugAutoSubmit} {latestStatus}", this);
             return latestStatus;
         }
@@ -105,11 +132,18 @@ namespace TheBigRedButtonInstitute.Questionnaire
                 return;
             }
 
+            if ((flags & LaunchExtraInvalidBit) != 0)
+            {
+                Debug.LogWarning("[QuestQuestionnairePanelLauncher] ignored invalid questionnaire launch extra", this);
+                return;
+            }
+
             _launchExtraDebugAutoSubmit = (flags & LaunchExtraDebugAutoSubmitBit) != 0;
+            _launchExtraRoute = DecodeLaunchExtraRoute(flags);
             _launchExtraDueTime = Time.unscaledTime + LaunchExtraDelaySeconds;
             _launchExtraPending = true;
             Debug.Log(
-                $"[QuestQuestionnairePanelLauncher] questionnaire launch extra received debugAutoSubmit={_launchExtraDebugAutoSubmit}",
+                $"[QuestQuestionnairePanelLauncher] questionnaire launch extra received route={_launchExtraRoute} debugAutoSubmit={_launchExtraDebugAutoSubmit}",
                 this);
 #endif
         }
@@ -122,7 +156,21 @@ namespace TheBigRedButtonInstitute.Questionnaire
             }
 
             _launchExtraPending = false;
-            LaunchDemographicsFromTrigger("launch_extra", _launchExtraDebugAutoSubmit);
+            switch (_launchExtraRoute)
+            {
+                case LaunchExtraRoute.PostConditionOne:
+                    LaunchPostConditionQuestionnairesFromTrigger(1, "launch_extra:post_condition_1", _launchExtraDebugAutoSubmit);
+                    break;
+                case LaunchExtraRoute.PostConditionTwo:
+                    LaunchPostConditionQuestionnairesFromTrigger(2, "launch_extra:post_condition_2", _launchExtraDebugAutoSubmit);
+                    break;
+                case LaunchExtraRoute.Final:
+                    LaunchFinalQuestionnairesFromTrigger("launch_extra:final", _launchExtraDebugAutoSubmit);
+                    break;
+                default:
+                    LaunchInitialStudyQuestionnairesFromTrigger("launch_extra:initial", _launchExtraDebugAutoSubmit);
+                    break;
+            }
         }
 
         static string CallBridge(string methodName)
@@ -143,9 +191,44 @@ namespace TheBigRedButtonInstitute.Questionnaire
                 }
 
                 using var bridge = new AndroidJavaClass(BridgeClassName);
-                return methodName == "launchDemographics"
+                return AcceptsDebugAutoSubmit(methodName)
                     ? bridge.CallStatic<string>(methodName, activity, debugAutoSubmit)
                     : bridge.CallStatic<string>(methodName, activity);
+            }
+            catch (Exception ex)
+            {
+                return $"Questionnaire panel bridge failed: {ex.Message}";
+            }
+#else
+            return "Questionnaire panel bridge requires an Android player build.";
+#endif
+        }
+
+        static bool AcceptsDebugAutoSubmit(string methodName)
+        {
+            return string.Equals(methodName, "launchDemographics", StringComparison.Ordinal)
+                || string.Equals(methodName, "launchInitialStudyQuestionnaires", StringComparison.Ordinal)
+                || string.Equals(methodName, "launchFinalQuestionnaires", StringComparison.Ordinal);
+        }
+
+        static string CallPostConditionBridge(int conditionNumber, bool debugAutoSubmit)
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            try
+            {
+                using var unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer");
+                using var activity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity");
+                if (activity == null)
+                {
+                    return "Questionnaire panel bridge unavailable: missing Unity activity.";
+                }
+
+                using var bridge = new AndroidJavaClass(BridgeClassName);
+                return bridge.CallStatic<string>(
+                    "launchPostConditionQuestionnaires",
+                    activity,
+                    conditionNumber,
+                    debugAutoSubmit);
             }
             catch (Exception ex)
             {
@@ -179,6 +262,34 @@ namespace TheBigRedButtonInstitute.Questionnaire
 #else
             return 0;
 #endif
+        }
+
+        static LaunchExtraRoute DecodeLaunchExtraRoute(int flags)
+        {
+            if ((flags & LaunchExtraPostConditionOneBit) != 0)
+            {
+                return LaunchExtraRoute.PostConditionOne;
+            }
+
+            if ((flags & LaunchExtraPostConditionTwoBit) != 0)
+            {
+                return LaunchExtraRoute.PostConditionTwo;
+            }
+
+            if ((flags & LaunchExtraFinalBit) != 0)
+            {
+                return LaunchExtraRoute.Final;
+            }
+
+            return LaunchExtraRoute.Initial;
+        }
+
+        enum LaunchExtraRoute
+        {
+            Initial,
+            PostConditionOne,
+            PostConditionTwo,
+            Final
         }
     }
 }
