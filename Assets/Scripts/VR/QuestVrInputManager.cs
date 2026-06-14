@@ -429,12 +429,6 @@ namespace TheBigRedButtonInstitute.VR
                 triggered = true;
             }
 
-            if (buttonBlinkController != null)
-            {
-                buttonBlinkController.PulseOnce();
-                triggered = true;
-            }
-
             if (!triggered)
             {
                 return false;

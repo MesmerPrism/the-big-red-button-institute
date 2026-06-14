@@ -349,8 +349,8 @@ Runtime flow:
    threshold.
 4. Accepted threshold crossings call
    `QuestVrInputManager.TriggerButtonPressFromRuntime()`.
-5. `QuestVrInputManager` plays the button press animation, pulses
-   `BigRedButtonBlinkController`, and increments the press counter.
+5. `QuestVrInputManager` plays the button press animation and increments the
+   press counter.
 
 This path drives button presses from LSL. It does not need the broker, and it
 does not need a Polar sensor unless the chosen LSL outlet is itself fed by
@@ -371,16 +371,16 @@ There are two important runtime entry points:
 - `QuestVrInputManager.TriggerButtonBlinkFromRuntime()` blinks the button
   without counting it as a user press.
 - `QuestVrInputManager.TriggerButtonPressFromRuntime()` plays the press
-  animation, blinks the button, updates diagnostics, and increments the press
-  counter.
+  animation, updates diagnostics, and increments the press counter.
 
 Direct Polar heartbeat uses the blink path.
 
 Direct LSL uses the press path by default.
 
-Both routes converge on `BigRedButtonBlinkController.PulseOnce()` for the visual
-button pulse. This lets a new agent change the visual behavior in one place
-without coupling the visual effect to a specific data source.
+Blink routes converge on `BigRedButtonBlinkController.PulseOnce()` for the
+visual button pulse. Button-press routes keep animation/counting separate by
+default, so a press no longer creates a blink unless a caller explicitly asks
+for the blink route.
 
 ## Validation checklist for a new environment
 
