@@ -1,9 +1,10 @@
 # Quest And Polar Workflow
 
 This project uses a Quest-first runtime layout with an in-scene button,
-controller-driven HUD, and a Polar H10-compatible BLE connection stack.
+controller-driven HUD, direct Polar H10-compatible BLE support, direct LSL,
+direct OSC, and Manifold-facing contract DTOs.
 
-## Scene layout
+## Scene Layout
 
 `Assets/Scenes/SampleScene.unity` contains these key objects:
 
@@ -15,41 +16,39 @@ controller-driven HUD, and a Polar H10-compatible BLE connection stack.
 - `VR Runtime/Biofeedback Connection Hub`
 - `VR Runtime/Polar H10 Breathing Source`
 
-The important detail is that the BLE / Polar graph is now scene-authored and
-serialized, not rebuilt from scratch on every connect attempt.
+The BLE / Polar graph is scene-authored and serialized, not rebuilt from
+scratch on every connect attempt.
 
-## Why the scene-authored Polar graph matters
+## Why The Scene-Authored Polar Graph Matters
 
 The Polar and BLE adapters depend on native / Java callbacks that target Unity
 objects by name and lifecycle timing:
 
-- `BleAdapter` renames its GameObject to `BleAdapter` in `Awake()`
+- `BleAdapter` renames its GameObject to `BleAdapter` in `Awake()`.
 - `PolarPmdAdapter` renames its GameObject to `PolarPmdAdapter` and detaches it
-  from the scene hierarchy in `Awake()`
+  from the scene hierarchy in `Awake()`.
 
-When the project tried to rebuild the whole BLE / Polar graph dynamically, it
-could create duplicate runtime objects after those adapters renamed or detached
-themselves. That made the connection flow unreliable.
+The stable graph avoids duplicate runtime objects after those adapters rename
+or detach themselves.
 
 The fix is:
 
-- keep a stable `Biofeedback Connection Hub`
-- keep a stable `Polar H10 Breathing Source`
-- preserve serialized references on `PolarH10RuntimeManager`
-- let the runtime manager configure the existing graph instead of inventing a
-  new one
+- keep a stable `Biofeedback Connection Hub`;
+- keep a stable `Polar H10 Breathing Source`;
+- preserve serialized references on `PolarH10RuntimeManager`;
+- let the runtime manager configure the existing graph.
 
-## Permission model
+## Permission Model
 
 Manifest entries alone are not enough for Quest / Android BLE access.
 
-This project now follows a split that keeps permission handling, BLE readiness,
-Polar discovery, and app-level status coordination separate:
+This project keeps permission handling, BLE readiness, Polar discovery, and
+app-level status coordination separate:
 
-- `BluetoothPermissionsBootstrap` owns runtime permission requests
-- `BleCentral` only probes runtime readiness
-- `PolarUnifiedModule` handles Polar connection / scan behavior
-- `PolarH10RuntimeManager` coordinates app-level startup and HUD status
+- `BluetoothPermissionsBootstrap` owns runtime permission requests.
+- `BleCentral` only probes runtime readiness.
+- `PolarUnifiedModule` handles Polar connection / scan behavior.
+- `PolarH10RuntimeManager` coordinates app-level startup and HUD status.
 
 For Quest / Android 12+ BLE work, request:
 
@@ -57,10 +56,10 @@ For Quest / Android 12+ BLE work, request:
 - `android.permission.BLUETOOTH_CONNECT`
 - `android.permission.ACCESS_FINE_LOCATION`
 
-Even on Android 12+ / 14, location permission is still requested because some
-BLE stacks still behave as if scan access is location-gated.
+Location permission is still requested because some BLE stacks still behave as
+if scan access is location-gated.
 
-## HUD and commands
+## HUD And Commands
 
 The HUD is controlled from `QuestVrInputManager` and `QuestVrOverlayHud`.
 
@@ -78,54 +77,51 @@ Current useful terminal commands:
 - `polar_connect`
 - `polar_scan`
 - `polar_clear_saved_device`
-- `broker_status`
-- `broker_connect`
-- `broker_subscribe`
-- `broker_polar_hr_start`
-- `broker_polar_pmd_start`
-- `broker_polar_stop`
-- `broker_drive_button`
-- `broker_open_ui`
-- `broker_close_ui`
+- `questionnaire_open`
 - `center_button`
 - `press_button`
+- `blink_button`
+- `stop_blink`
 - `toggle_hud`
 - `status`
 
-## Button behavior
+## Button Behavior
 
 - The imported button lives in the scene as a normal imported asset.
 - `QuestVrButtonPressCounterCanvas` shows the accepted press count above the
   physical button for headset checks where the HUD is hidden.
 - `PolarHeartbeatButtonDriver` listens to processed heartbeat samples.
-- When Polar tracking is connected and confidence is high enough, accepted beat
-  events trigger the button press animation.
-- Broker drive pulses use the same button press method, so the visible counter,
-  HUD press count, and button animation remain comparable across direct and
-  broker-routed paths.
+- Accepted Polar heartbeat pulses call
+  `QuestVrInputManager.TriggerButtonBlinkFromRuntime()`, so heartbeat feedback
+  blinks the button without counting as a button press.
+- Direct LSL and direct OSC can drive
+  `QuestVrInputManager.TriggerButtonPressFromRuntime()`, so accepted threshold
+  crossings play the press animation and increment the visible counter.
 - `BigRedButtonDirectPolarDiagnosticReceiver` records direct Unity Polar HR/RR
   notifications and decoded PMD ACC/ECG frames in the diagnostic route table.
-- `RustyXrBrokerBioSignalReceiver` records Gargoyle `bio:polar_hr_rr`,
-  `bio:polar_acc`, `bio:polar_ecg`, and `bio:breath` stream events without
-  owning Unity's direct BLE connection.
+- `BigRedButtonDirectLslDriveReceiver` records app-owned LSL threshold input.
+- `BigRedButtonDirectOscDriveReceiver` records app-owned OSC threshold input.
 
-Treat Polar PMD as single-owner during live sensor tests. The direct Unity PMD
-path and the broker-owned PMD path are both instrumented for comparison, but
-they should not both attempt to own the same H10 PMD stream unless that is the
-specific contention test.
+Direct OSC defaults:
 
-## Build workflow
+```text
+listen port: 9001
+drive address: /brb/manifold/drive/button
+ack address: /brb/manifold/drive/ack
+```
+
+## Build Workflow
 
 Use:
 
 - `Tools > Big Red Button > Build Quest APK`
 
-This runs `QuestVrApkBuilder`, reinstalls the Quest scene layout, configures the
-Android build target, and writes the APK to:
+This runs `QuestVrApkBuilder`, reinstalls the Quest scene layout, configures
+the Android build target, and writes the APK to:
 
 - `Builds/Android/TheBigRedButtonInstitute.apk`
 
-## Useful verification commands
+## Useful Verification Commands
 
 On a connected headset, these commands are useful when debugging BLE:
 
@@ -135,21 +131,21 @@ adb logcat -d
 adb shell am start -W -n org.thebigredbuttoninstitute.app/com.unity3d.player.UnityPlayerGameActivity -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -c com.oculus.intent.category.VR
 ```
 
-`dumpsys package` is especially useful to distinguish:
+`dumpsys package` helps distinguish missing permissions from connection startup
+problems.
 
-- permissions are granted, but connection startup is broken
-- permissions are missing, so scan / connect never had a chance
-
-## Current implementation files
+## Current Implementation Files
 
 - `Assets/Scripts/Biofeedback/PolarH10RuntimeManager.cs`
 - `Assets/Scripts/Biofeedback/PolarHeartbeatButtonDriver.cs`
 - `Assets/Scripts/Diagnostics/BigRedButtonDirectPolarDiagnosticReceiver.cs`
-- `Assets/Scripts/RustyXrBroker/RustyXrBrokerBioSignalReceiver.cs`
+- `Assets/Scripts/Diagnostics/BigRedButtonDirectLslDriveReceiver.cs`
+- `Assets/Scripts/Diagnostics/BigRedButtonDirectOscDriveReceiver.cs`
+- `Assets/Scripts/Diagnostics/BigRedButtonDriveSignal.cs`
+- `Assets/Scripts/Morphospace/Manifold/ManifoldProtocol.cs`
 - `Assets/Scripts/VR/QuestVrInputManager.cs`
 - `Assets/Scripts/VR/QuestVrButtonPressCounterCanvas.cs`
 - `Assets/Scripts/VR/QuestVrOverlayHud.cs`
-- `Assets/Scripts/RustyXrBroker/`
 - `Assets/Editor/PolarH10SceneInstaller.cs`
 - `Assets/Editor/QuestVrSceneInstaller.cs`
 - `Assets/Editor/QuestVrApkBuilder.cs`

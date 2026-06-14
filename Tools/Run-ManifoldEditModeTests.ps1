@@ -1,8 +1,8 @@
 param(
-    [string]$UnityPath = 'C:\Program Files\Unity\Hub\Editor\6000.3.8f1\Editor\Unity.exe',
+    [string]$UnityPath = 'S:\Work\tools\Unity\Editors\6000.3.16f1\Editor\Unity.exe',
     [string]$ProjectPath = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path,
-    [string]$LogFile = (Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..')).Path 'Temp\unity-broker-editmode.log'),
-    [string]$ResultsFile = (Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..')).Path 'Temp\unity-broker-editmode-results.xml')
+    [string]$LogFile = (Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..')).Path 'Temp\unity-manifold-editmode.log'),
+    [string]$ResultsFile = (Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..')).Path 'Temp\unity-manifold-editmode-results.xml')
 )
 
 $ErrorActionPreference = 'Stop'
@@ -20,7 +20,7 @@ $arguments = @(
     '-projectPath', $ProjectPath,
     '-runTests',
     '-testPlatform', 'EditMode',
-    '-testFilter', 'TheBigRedButtonInstitute.RustyXrBroker.Tests.RustyXrBrokerProtocolTests',
+    '-testFilter', 'TheBigRedButtonInstitute.Morphospace.Manifold.Tests.ManifoldProtocolTests',
     '-testResults', $ResultsFile,
     '-logFile', $LogFile
 )
@@ -54,7 +54,7 @@ if (!(Test-Path -LiteralPath $ResultsFile))
 
 [xml]$results = Get-Content -LiteralPath $ResultsFile
 $run = $results.'test-run'
-Write-Host "Broker edit-mode tests: result=$($run.result) total=$($run.total) passed=$($run.passed) failed=$($run.failed) skipped=$($run.skipped)"
+Write-Host "Manifold edit-mode tests: result=$($run.result) total=$($run.total) passed=$($run.passed) failed=$($run.failed) skipped=$($run.skipped)"
 
 if ($exitCode -ne 0)
 {

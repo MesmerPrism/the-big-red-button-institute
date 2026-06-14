@@ -162,7 +162,7 @@ namespace TheBigRedButtonInstitute.Diagnostics
             bool acceptedPulse)
         {
             using var stream = new System.IO.MemoryStream();
-            WritePaddedString(stream, string.IsNullOrWhiteSpace(address) ? "/rusty-xr/drive/ack" : address);
+            WritePaddedString(stream, string.IsNullOrWhiteSpace(address) ? BigRedButtonDriveSignal.DefaultOscAcknowledgementAddress : address);
             WritePaddedString(stream, acceptedPulse ? ",isssfT" : ",isssfF");
             WriteInt32BigEndian(stream, ClampInt32(sequenceId));
             WritePaddedString(stream, clientSendTimeUnixNs > 0 ? clientSendTimeUnixNs.ToString(CultureInfo.InvariantCulture) : string.Empty);

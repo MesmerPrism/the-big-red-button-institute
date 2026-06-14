@@ -11,13 +11,7 @@ namespace TheBigRedButtonInstitute.Diagnostics
         DirectUnityBlePolarHeartRate = 11,
         DirectUnityBlePolarPmd = 12,
         DirectUnityOsc = 20,
-        DirectUnityLsl = 30,
-        BrokerWebSocketOsc = 40,
-        BrokerWebSocketLsl = 50,
-        BrokerWebSocketSynthetic = 60,
-        BrokerWebSocketPolarHeartRate = 70,
-        BrokerWebSocketPolarPmd = 71,
-        BrokerWebSocketBreath = 72
+        DirectUnityLsl = 30
     }
 
     public readonly struct BigRedButtonDiagnosticSample
@@ -26,14 +20,14 @@ namespace TheBigRedButtonInstitute.Diagnostics
             long sequenceId,
             float value01,
             long sourceTimeUnixNs,
-            long brokerTimeUnixNs,
+            long authorityTimeUnixNs,
             long unityTimeUnixNs,
             string sourceLabel)
         {
             SequenceId = sequenceId;
             Value01 = value01;
             SourceTimeUnixNs = sourceTimeUnixNs;
-            BrokerTimeUnixNs = brokerTimeUnixNs;
+            AuthorityTimeUnixNs = authorityTimeUnixNs;
             UnityTimeUnixNs = unityTimeUnixNs;
             SourceLabel = sourceLabel ?? string.Empty;
         }
@@ -41,7 +35,7 @@ namespace TheBigRedButtonInstitute.Diagnostics
         public long SequenceId { get; }
         public float Value01 { get; }
         public long SourceTimeUnixNs { get; }
-        public long BrokerTimeUnixNs { get; }
+        public long AuthorityTimeUnixNs { get; }
         public long UnityTimeUnixNs { get; }
         public string SourceLabel { get; }
     }
@@ -49,9 +43,9 @@ namespace TheBigRedButtonInstitute.Diagnostics
     public sealed class BigRedButtonDiagnosticRouteStats
     {
         double _sourceLatencyTotalMs;
-        double _brokerLatencyTotalMs;
+        double _authorityLatencyTotalMs;
         int _sourceLatencySamples;
-        int _brokerLatencySamples;
+        int _authorityLatencySamples;
         bool _hasLastSequence;
 
         public BigRedButtonDiagnosticRouteStats(BigRedButtonDiagnosticRouteId routeId)
@@ -69,8 +63,8 @@ namespace TheBigRedButtonInstitute.Diagnostics
         public long LastUnityTimeUnixNs { get; private set; }
         public double LastSourceToUnityLatencyMs { get; private set; }
         public double AverageSourceToUnityLatencyMs => _sourceLatencySamples > 0 ? _sourceLatencyTotalMs / _sourceLatencySamples : 0d;
-        public double LastBrokerToUnityLatencyMs { get; private set; }
-        public double AverageBrokerToUnityLatencyMs => _brokerLatencySamples > 0 ? _brokerLatencyTotalMs / _brokerLatencySamples : 0d;
+        public double LastAuthorityToUnityLatencyMs { get; private set; }
+        public double AverageAuthorityToUnityLatencyMs => _authorityLatencySamples > 0 ? _authorityLatencyTotalMs / _authorityLatencySamples : 0d;
 
         public void RecordSample(BigRedButtonDiagnosticSample sample, bool acceptedPulse)
         {
@@ -113,11 +107,11 @@ namespace TheBigRedButtonInstitute.Diagnostics
                 _sourceLatencySamples++;
             }
 
-            if (sample.BrokerTimeUnixNs > 0 && unityTimeUnixNs >= sample.BrokerTimeUnixNs)
+            if (sample.AuthorityTimeUnixNs > 0 && unityTimeUnixNs >= sample.AuthorityTimeUnixNs)
             {
-                LastBrokerToUnityLatencyMs = NanosecondsToMilliseconds(unityTimeUnixNs - sample.BrokerTimeUnixNs);
-                _brokerLatencyTotalMs += LastBrokerToUnityLatencyMs;
-                _brokerLatencySamples++;
+                LastAuthorityToUnityLatencyMs = NanosecondsToMilliseconds(unityTimeUnixNs - sample.AuthorityTimeUnixNs);
+                _authorityLatencyTotalMs += LastAuthorityToUnityLatencyMs;
+                _authorityLatencySamples++;
             }
         }
 
@@ -131,11 +125,11 @@ namespace TheBigRedButtonInstitute.Diagnostics
             LastValue01 = 0f;
             LastUnityTimeUnixNs = 0;
             LastSourceToUnityLatencyMs = 0d;
-            LastBrokerToUnityLatencyMs = 0d;
+            LastAuthorityToUnityLatencyMs = 0d;
             _sourceLatencyTotalMs = 0d;
-            _brokerLatencyTotalMs = 0d;
+            _authorityLatencyTotalMs = 0d;
             _sourceLatencySamples = 0;
-            _brokerLatencySamples = 0;
+            _authorityLatencySamples = 0;
             _hasLastSequence = false;
         }
 
@@ -231,12 +225,6 @@ namespace TheBigRedButtonInstitute.Diagnostics
                 BigRedButtonDiagnosticRouteId.DirectUnityBlePolarPmd => "direct BLE/Polar PMD",
                 BigRedButtonDiagnosticRouteId.DirectUnityOsc => "direct OSC",
                 BigRedButtonDiagnosticRouteId.DirectUnityLsl => "direct LSL",
-                BigRedButtonDiagnosticRouteId.BrokerWebSocketOsc => "broker OSC/WebSocket",
-                BigRedButtonDiagnosticRouteId.BrokerWebSocketLsl => "broker LSL/WebSocket",
-                BigRedButtonDiagnosticRouteId.BrokerWebSocketSynthetic => "broker synthetic/WebSocket",
-                BigRedButtonDiagnosticRouteId.BrokerWebSocketPolarHeartRate => "broker Polar HR/WebSocket",
-                BigRedButtonDiagnosticRouteId.BrokerWebSocketPolarPmd => "broker Polar PMD/WebSocket",
-                BigRedButtonDiagnosticRouteId.BrokerWebSocketBreath => "broker breath/WebSocket",
                 _ => routeId.ToString()
             };
         }

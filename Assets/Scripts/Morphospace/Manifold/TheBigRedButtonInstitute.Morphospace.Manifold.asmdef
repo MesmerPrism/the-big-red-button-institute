@@ -1,6 +1,6 @@
 {
-    "name": "TheBigRedButtonInstitute.RustyXrBroker",
-    "rootNamespace": "TheBigRedButtonInstitute.RustyXrBroker",
+    "name": "TheBigRedButtonInstitute.Morphospace.Manifold",
+    "rootNamespace": "TheBigRedButtonInstitute.Morphospace.Manifold",
     "references": [],
     "includePlatforms": [],
     "excludePlatforms": [],

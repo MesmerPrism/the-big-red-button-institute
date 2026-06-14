@@ -7,7 +7,6 @@ using UnityEngine.SceneManagement;
 using TheBigRedButtonInstitute.Biofeedback;
 using TheBigRedButtonInstitute.Diagnostics;
 using TheBigRedButtonInstitute.Questionnaire;
-using TheBigRedButtonInstitute.RustyXrBroker;
 using TheBigRedButtonInstitute.VR;
 
 namespace TheBigRedButtonInstitute.Editor
@@ -24,7 +23,6 @@ namespace TheBigRedButtonInstitute.Editor
         const string HudName = "VR Overlay HUD";
         const string LegacyGeneratedCounterCanvasName = "Button Press Counter Canvas";
         const string SessionKey = "TheBigRedButtonInstitute.QuestVrInstalled.v2";
-        const bool EnableBrokerRuntimeByDefault = false;
         static readonly Vector3 RigPosition = new(0f, 1.65f, -1.7f);
 
         [MenuItem("Tools/Big Red Button/Install Quest VR Runtime")]
@@ -80,15 +78,11 @@ namespace TheBigRedButtonInstitute.Editor
 
             var polarRuntimeManager = PolarH10SceneInstaller.InstallIntoScene(scene, runtimeRoot, headTransform);
             var polarHeartbeatButtonDriver = EnsurePolarHeartbeatButtonDriver(runtimeRoot);
-            var brokerRuntime = EnableBrokerRuntimeByDefault
-                ? EnsureRustyXrBrokerRuntime(runtimeRoot, inputManager, headTransform)
-                : DisableRustyXrBrokerRuntime(runtimeRoot);
             var diagnosticRuntime = EnsureDiagnosticComparisonRuntime(
                 runtimeRoot,
                 inputManager,
                 polarRuntimeManager,
-                polarHeartbeatButtonDriver,
-                brokerRuntime);
+                polarHeartbeatButtonDriver);
             var questionnaireLauncher = EnsureQuestionnaireLauncher(runtimeRoot);
 
             hud.ApplyOverlayPresentationPreset();
@@ -97,10 +91,6 @@ namespace TheBigRedButtonInstitute.Editor
             hud.EnsureSetupInEditor();
             inputManager.ConfigureReferences(hud, headTransform, button != null ? button.transform : null, tester);
             inputManager.ConfigurePolarReferences(polarRuntimeManager, polarHeartbeatButtonDriver);
-            inputManager.ConfigureBrokerReferences(
-                brokerRuntime?.Client,
-                brokerRuntime?.ButtonDriver,
-                brokerRuntime?.ButtonBridge);
             inputManager.ConfigureDiagnosticReferences(diagnosticRuntime);
             inputManager.ConfigureQuestionnaireReferences(questionnaireLauncher);
             polarHeartbeatButtonDriver.ConfigureReferences(polarRuntimeManager, inputManager, blinkController);
@@ -376,8 +366,6 @@ namespace TheBigRedButtonInstitute.Editor
             serializedInputManager.FindProperty("buttonDistanceFromHead").floatValue = 0.48f;
             serializedInputManager.FindProperty("buttonVerticalOffset").floatValue = -0.32f;
             serializedInputManager.FindProperty("minimumButtonHeight").floatValue = 0.54f;
-            serializedInputManager.FindProperty("enableBrokerControls").boolValue = false;
-            serializedInputManager.FindProperty("allowBrokerOpenUiLaunchExtra").boolValue = false;
             serializedInputManager.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(inputManager);
         }
@@ -917,147 +905,11 @@ namespace TheBigRedButtonInstitute.Editor
                    runtimeRoot.AddComponent<QuestQuestionnairePanelLauncher>();
         }
 
-        readonly struct BrokerRuntimeComponents
-        {
-            public BrokerRuntimeComponents(
-                RustyXrBrokerClient client,
-                RustyXrBrokerEventRouter router,
-                RustyXrBrokerDriveSignalReceiver driveReceiver,
-                RustyXrBrokerBioSignalReceiver bioSignalReceiver,
-                RustyXrBrokerScreenGazeReceiver screenGazeReceiver,
-                RustyXrBrokerScreenGazeVisualizer screenGazeVisualizer,
-                RustyXrBrokerButtonDriver buttonDriver,
-                QuestVrRustyXrBrokerButtonBridge buttonBridge)
-            {
-                Client = client;
-                Router = router;
-                DriveReceiver = driveReceiver;
-                BioSignalReceiver = bioSignalReceiver;
-                ScreenGazeReceiver = screenGazeReceiver;
-                ScreenGazeVisualizer = screenGazeVisualizer;
-                ButtonDriver = buttonDriver;
-                ButtonBridge = buttonBridge;
-            }
-
-            public RustyXrBrokerClient Client { get; }
-            public RustyXrBrokerEventRouter Router { get; }
-            public RustyXrBrokerDriveSignalReceiver DriveReceiver { get; }
-            public RustyXrBrokerBioSignalReceiver BioSignalReceiver { get; }
-            public RustyXrBrokerScreenGazeReceiver ScreenGazeReceiver { get; }
-            public RustyXrBrokerScreenGazeVisualizer ScreenGazeVisualizer { get; }
-            public RustyXrBrokerButtonDriver ButtonDriver { get; }
-            public QuestVrRustyXrBrokerButtonBridge ButtonBridge { get; }
-        }
-
-        static BrokerRuntimeComponents? EnsureRustyXrBrokerRuntime(
-            GameObject runtimeRoot,
-            QuestVrInputManager inputManager,
-            Transform headTransform)
-        {
-            var client = runtimeRoot.GetComponent<RustyXrBrokerClient>() ?? runtimeRoot.AddComponent<RustyXrBrokerClient>();
-            client.ConfigureIdentity("org.thebigredbuttoninstitute.app", "The Big Red Button Institute", "0.1.0");
-            client.ConfigureDefaultStreams(
-                RustyXrBrokerDriveSignal.DefaultStream,
-                RustyXrBrokerScreenGazeReceiver.DefaultStream,
-                RustyXrBrokerBioSignalReceiver.PolarHeartRateStream,
-                RustyXrBrokerBioSignalReceiver.PolarAccStream,
-                RustyXrBrokerBioSignalReceiver.PolarEcgStream,
-                RustyXrBrokerBioSignalReceiver.BreathStream);
-
-            var driveReceiver = runtimeRoot.GetComponent<RustyXrBrokerDriveSignalReceiver>() ?? runtimeRoot.AddComponent<RustyXrBrokerDriveSignalReceiver>();
-            driveReceiver.StreamId = RustyXrBrokerDriveSignal.DefaultStream;
-
-            var bioSignalReceiver = runtimeRoot.GetComponent<RustyXrBrokerBioSignalReceiver>() ?? runtimeRoot.AddComponent<RustyXrBrokerBioSignalReceiver>();
-            bioSignalReceiver.ConfigureStreams(
-                RustyXrBrokerBioSignalReceiver.PolarHeartRateStream,
-                RustyXrBrokerBioSignalReceiver.PolarAccStream,
-                RustyXrBrokerBioSignalReceiver.PolarEcgStream,
-                RustyXrBrokerBioSignalReceiver.BreathStream);
-
-            var screenGazeReceiver = runtimeRoot.GetComponent<RustyXrBrokerScreenGazeReceiver>() ?? runtimeRoot.AddComponent<RustyXrBrokerScreenGazeReceiver>();
-            screenGazeReceiver.StreamId = RustyXrBrokerScreenGazeReceiver.DefaultStream;
-
-            var screenGazeVisualizer = runtimeRoot.GetComponent<RustyXrBrokerScreenGazeVisualizer>() ?? runtimeRoot.AddComponent<RustyXrBrokerScreenGazeVisualizer>();
-            screenGazeVisualizer.ConfigureReferences(screenGazeReceiver, headTransform);
-
-            var router = runtimeRoot.GetComponent<RustyXrBrokerEventRouter>() ?? runtimeRoot.AddComponent<RustyXrBrokerEventRouter>();
-            router.ConfigureReferences(client, driveReceiver);
-            router.ConfigureScreenGazeReferences(screenGazeReceiver);
-            router.ConfigureBioSignalReferences(bioSignalReceiver);
-
-            var buttonDriver = runtimeRoot.GetComponent<RustyXrBrokerButtonDriver>() ?? runtimeRoot.AddComponent<RustyXrBrokerButtonDriver>();
-            buttonDriver.ConfigureReferences(driveReceiver);
-
-            var buttonBridge = runtimeRoot.GetComponent<QuestVrRustyXrBrokerButtonBridge>() ?? runtimeRoot.AddComponent<QuestVrRustyXrBrokerButtonBridge>();
-            buttonBridge.ConfigureReferences(buttonDriver, inputManager);
-
-            EditorUtility.SetDirty(client);
-            EditorUtility.SetDirty(driveReceiver);
-            EditorUtility.SetDirty(bioSignalReceiver);
-            EditorUtility.SetDirty(screenGazeReceiver);
-            EditorUtility.SetDirty(screenGazeVisualizer);
-            EditorUtility.SetDirty(router);
-            EditorUtility.SetDirty(buttonDriver);
-            EditorUtility.SetDirty(buttonBridge);
-            return new BrokerRuntimeComponents(
-                client,
-                router,
-                driveReceiver,
-                bioSignalReceiver,
-                screenGazeReceiver,
-                screenGazeVisualizer,
-                buttonDriver,
-                buttonBridge);
-        }
-
-        static BrokerRuntimeComponents? DisableRustyXrBrokerRuntime(GameObject runtimeRoot)
-        {
-            RemoveBrokerScreenGazeMarker(runtimeRoot);
-            DestroyComponentIfPresent<RustyXrBrokerScreenGazeVisualizer>(runtimeRoot);
-            DestroyComponentIfPresent<RustyXrBrokerScreenGazeReceiver>(runtimeRoot);
-            DestroyComponentIfPresent<QuestVrRustyXrBrokerButtonBridge>(runtimeRoot);
-            DestroyComponentIfPresent<RustyXrBrokerButtonDriver>(runtimeRoot);
-            DestroyComponentIfPresent<RustyXrBrokerBioSignalReceiver>(runtimeRoot);
-            DestroyComponentIfPresent<RustyXrBrokerDriveSignalReceiver>(runtimeRoot);
-            DestroyComponentIfPresent<RustyXrBrokerEventRouter>(runtimeRoot);
-            DestroyComponentIfPresent<RustyXrBrokerClient>(runtimeRoot);
-            return null;
-        }
-
-        static void RemoveBrokerScreenGazeMarker(GameObject runtimeRoot)
-        {
-            if (runtimeRoot == null)
-            {
-                return;
-            }
-
-            var marker = runtimeRoot.transform.Find("Broker Screen Gaze Marker");
-            if (marker != null)
-            {
-                UnityEngine.Object.DestroyImmediate(marker.gameObject);
-            }
-        }
-
-        static void DestroyComponentIfPresent<T>(GameObject gameObject) where T : Component
-        {
-            if (gameObject == null)
-            {
-                return;
-            }
-
-            var component = gameObject.GetComponent<T>();
-            if (component != null)
-            {
-                UnityEngine.Object.DestroyImmediate(component);
-            }
-        }
-
         static BigRedButtonDiagnosticComparisonController EnsureDiagnosticComparisonRuntime(
             GameObject runtimeRoot,
             QuestVrInputManager inputManager,
             PolarH10RuntimeManager polarRuntimeManager,
-            PolarHeartbeatButtonDriver polarHeartbeatButtonDriver,
-            BrokerRuntimeComponents? brokerRuntime)
+            PolarHeartbeatButtonDriver polarHeartbeatButtonDriver)
         {
             var comparison = runtimeRoot.GetComponent<BigRedButtonDiagnosticComparisonController>() ??
                              runtimeRoot.AddComponent<BigRedButtonDiagnosticComparisonController>();
@@ -1074,9 +926,6 @@ namespace TheBigRedButtonInstitute.Editor
             comparison.ConfigureReferences(
                 inputManager,
                 polarHeartbeatButtonDriver,
-                brokerRuntime?.ButtonDriver,
-                brokerRuntime?.DriveReceiver,
-                brokerRuntime?.BioSignalReceiver,
                 directPolar,
                 directOsc,
                 directLsl);

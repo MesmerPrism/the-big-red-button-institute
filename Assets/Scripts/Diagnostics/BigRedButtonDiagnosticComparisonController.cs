@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using TheBigRedButtonInstitute.Biofeedback;
-using TheBigRedButtonInstitute.RustyXrBroker;
 using TheBigRedButtonInstitute.VR;
 using UnityEngine;
 
@@ -15,18 +14,12 @@ namespace TheBigRedButtonInstitute.Diagnostics
 
         [SerializeField] QuestVrInputManager inputManager;
         [SerializeField] PolarHeartbeatButtonDriver polarHeartbeatButtonDriver;
-        [SerializeField] RustyXrBrokerButtonDriver brokerButtonDriver;
-        [SerializeField] RustyXrBrokerDriveSignalReceiver brokerDriveReceiver;
-        [SerializeField] RustyXrBrokerBioSignalReceiver brokerBioSignalReceiver;
         [SerializeField] BigRedButtonDirectPolarDiagnosticReceiver directPolarReceiver;
         [SerializeField] BigRedButtonDirectOscDriveReceiver directOscReceiver;
         [SerializeField] BigRedButtonDirectLslDriveReceiver directLslReceiver;
         [SerializeField] bool autoResolveReferences = true;
-        [SerializeField] bool enableBrokerRoutes = false;
 
         long _polarSequence;
-        bool _brokerSubscribed;
-        bool _brokerBioSubscribed;
         bool _polarSubscribed;
 
         public BigRedButtonDiagnosticRouteTable Routes => _routes;
@@ -53,18 +46,12 @@ namespace TheBigRedButtonInstitute.Diagnostics
         public void ConfigureReferences(
             QuestVrInputManager manager,
             PolarHeartbeatButtonDriver polarDriver,
-            RustyXrBrokerButtonDriver brokerDriver,
-            RustyXrBrokerDriveSignalReceiver brokerReceiver,
-            RustyXrBrokerBioSignalReceiver brokerBioReceiver,
             BigRedButtonDirectPolarDiagnosticReceiver polarReceiver,
             BigRedButtonDirectOscDriveReceiver oscReceiver,
             BigRedButtonDirectLslDriveReceiver lslReceiver)
         {
             inputManager = manager;
             polarHeartbeatButtonDriver = polarDriver;
-            brokerButtonDriver = brokerDriver;
-            brokerDriveReceiver = brokerReceiver;
-            brokerBioSignalReceiver = brokerBioReceiver;
             directPolarReceiver = polarReceiver;
             directOscReceiver = oscReceiver;
             directLslReceiver = lslReceiver;
@@ -87,15 +74,6 @@ namespace TheBigRedButtonInstitute.Diagnostics
             AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.DirectUnityBlePolarHeartRate);
             AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.DirectUnityBlePolarPmd);
             AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.DirectUnityLsl);
-            if (enableBrokerRoutes)
-            {
-                AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.BrokerWebSocketOsc);
-                AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.BrokerWebSocketLsl);
-                AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.BrokerWebSocketPolarHeartRate);
-                AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.BrokerWebSocketPolarPmd);
-                AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.BrokerWebSocketBreath);
-                AppendRouteLine(lines, BigRedButtonDiagnosticRouteId.BrokerWebSocketSynthetic);
-            }
             return lines;
         }
 
@@ -107,18 +85,6 @@ namespace TheBigRedButtonInstitute.Diagnostics
 
         void Subscribe()
         {
-            if (enableBrokerRoutes && !_brokerSubscribed && brokerButtonDriver != null)
-            {
-                brokerButtonDriver.DrivePulseRequested += HandleBrokerDrivePulseRequested;
-                _brokerSubscribed = true;
-            }
-
-            if (enableBrokerRoutes && !_brokerBioSubscribed && brokerBioSignalReceiver != null)
-            {
-                brokerBioSignalReceiver.BioSignalReceived += HandleBrokerBioSignalReceived;
-                _brokerBioSubscribed = true;
-            }
-
             if (!_polarSubscribed && polarHeartbeatButtonDriver != null)
             {
                 polarHeartbeatButtonDriver.HeartbeatPulseAccepted += HandlePolarHeartbeatPulseAccepted;
@@ -128,59 +94,12 @@ namespace TheBigRedButtonInstitute.Diagnostics
 
         void Unsubscribe()
         {
-            if (_brokerSubscribed && brokerButtonDriver != null)
-            {
-                brokerButtonDriver.DrivePulseRequested -= HandleBrokerDrivePulseRequested;
-            }
-
-            if (_brokerBioSubscribed && brokerBioSignalReceiver != null)
-            {
-                brokerBioSignalReceiver.BioSignalReceived -= HandleBrokerBioSignalReceived;
-            }
-
             if (_polarSubscribed && polarHeartbeatButtonDriver != null)
             {
                 polarHeartbeatButtonDriver.HeartbeatPulseAccepted -= HandlePolarHeartbeatPulseAccepted;
             }
 
-            _brokerSubscribed = false;
-            _brokerBioSubscribed = false;
             _polarSubscribed = false;
-        }
-
-        void HandleBrokerDrivePulseRequested(float value01)
-        {
-            var sequence = brokerDriveReceiver != null ? brokerDriveReceiver.LastSequenceId : 0L;
-            var brokerTime = brokerDriveReceiver != null ? brokerDriveReceiver.LastBrokerTimeUnixNs : 0L;
-            var route = brokerDriveReceiver != null &&
-                        string.Equals(brokerDriveReceiver.LastStreamId, RustyXrBrokerDriveSignal.DefaultStream, StringComparison.Ordinal)
-                ? BigRedButtonDiagnosticRouteId.BrokerWebSocketOsc
-                : BigRedButtonDiagnosticRouteId.BrokerWebSocketSynthetic;
-
-            RecordRouteSample(
-                route,
-                new BigRedButtonDiagnosticSample(
-                    sequence,
-                    value01,
-                    0L,
-                    brokerTime,
-                    UnixTimeNanoseconds(DateTimeOffset.UtcNow),
-                    brokerDriveReceiver != null ? brokerDriveReceiver.LastStreamId : "broker"),
-                acceptedPulse: true);
-        }
-
-        void HandleBrokerBioSignalReceived(RustyXrBrokerBioSignalSample sample)
-        {
-            RecordRouteSample(
-                ClassifyBrokerBioRoute(sample.StreamId),
-                new BigRedButtonDiagnosticSample(
-                    sample.SequenceId,
-                    sample.Value01,
-                    sample.SourceTimeUnixNs,
-                    sample.BrokerTimeUnixNs,
-                    UnixTimeNanoseconds(DateTimeOffset.UtcNow),
-                    string.IsNullOrWhiteSpace(sample.SourceLabel) ? sample.StreamId : sample.SourceLabel),
-                acceptedPulse: false);
         }
 
         void HandlePolarHeartbeatPulseAccepted(float bpm)
@@ -195,23 +114,6 @@ namespace TheBigRedButtonInstitute.Diagnostics
                     UnixTimeNanoseconds(DateTimeOffset.UtcNow),
                     "polar-heartbeat"),
                 acceptedPulse: true);
-        }
-
-        static BigRedButtonDiagnosticRouteId ClassifyBrokerBioRoute(string streamId)
-        {
-            if (RustyXrBrokerBioSignalReceiver.IsPolarHeartRateStream(streamId))
-            {
-                return BigRedButtonDiagnosticRouteId.BrokerWebSocketPolarHeartRate;
-            }
-
-            if (RustyXrBrokerBioSignalReceiver.IsPolarPmdStream(streamId))
-            {
-                return BigRedButtonDiagnosticRouteId.BrokerWebSocketPolarPmd;
-            }
-
-            return RustyXrBrokerBioSignalReceiver.IsBreathStream(streamId)
-                ? BigRedButtonDiagnosticRouteId.BrokerWebSocketBreath
-                : BigRedButtonDiagnosticRouteId.BrokerWebSocketSynthetic;
         }
 
         void AppendRouteLine(List<string> lines, BigRedButtonDiagnosticRouteId routeId)
@@ -256,31 +158,6 @@ namespace TheBigRedButtonInstitute.Diagnostics
             if (polarHeartbeatButtonDriver == null || forceRefresh)
             {
                 polarHeartbeatButtonDriver = GetComponent<PolarHeartbeatButtonDriver>() ?? FindAnyObjectByType<PolarHeartbeatButtonDriver>();
-            }
-
-            if (!enableBrokerRoutes)
-            {
-                brokerButtonDriver = null;
-                brokerDriveReceiver = null;
-                brokerBioSignalReceiver = null;
-            }
-            else if (brokerButtonDriver == null || forceRefresh)
-            {
-                brokerButtonDriver = GetComponent<RustyXrBrokerButtonDriver>() ?? FindAnyObjectByType<RustyXrBrokerButtonDriver>();
-            }
-
-            if (enableBrokerRoutes && (brokerDriveReceiver == null || forceRefresh))
-            {
-                brokerDriveReceiver = GetComponent<RustyXrBrokerDriveSignalReceiver>() ?? FindAnyObjectByType<RustyXrBrokerDriveSignalReceiver>();
-            }
-
-            if (enableBrokerRoutes && (brokerBioSignalReceiver == null || forceRefresh))
-            {
-                brokerBioSignalReceiver = GetComponent<RustyXrBrokerBioSignalReceiver>() ?? FindAnyObjectByType<RustyXrBrokerBioSignalReceiver>();
-                if (brokerBioSignalReceiver == null && Application.isPlaying)
-                {
-                    brokerBioSignalReceiver = gameObject.AddComponent<RustyXrBrokerBioSignalReceiver>();
-                }
             }
 
             if (directPolarReceiver == null || forceRefresh)

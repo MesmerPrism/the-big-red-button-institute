@@ -8,7 +8,7 @@ namespace TheBigRedButtonInstitute.CameraProjection
     /// <summary>
     /// Owns Quest passthrough camera access and a small blur layer for BRB camera-projection examples.
     /// It deliberately excludes the downstream colorama/distortion stack so the scene can compare the
-    /// camera-feed projection contract against Rusty XR implementations.
+    /// camera-feed projection contract against Morphospace implementations.
     /// </summary>
     [DisallowMultipleComponent]
     [DefaultExecutionOrder(10)]

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using System.Threading;
-using TheBigRedButtonInstitute.RustyXrBroker;
 using TheBigRedButtonInstitute.VR;
 using UnityEngine;
 
@@ -428,7 +427,7 @@ namespace TheBigRedButtonInstitute.Diagnostics
 
             var sequence = sample.SequenceId > 0 ? sample.SequenceId : ++_localSequence;
             var nowSeconds = Time.unscaledTimeAsDouble;
-            var shouldTrigger = RustyXrBrokerButtonDriver.ShouldTrigger(
+            var shouldTrigger = BigRedButtonDriveSignal.ShouldTrigger(
                 _previousValue01,
                 value,
                 triggerThreshold01,

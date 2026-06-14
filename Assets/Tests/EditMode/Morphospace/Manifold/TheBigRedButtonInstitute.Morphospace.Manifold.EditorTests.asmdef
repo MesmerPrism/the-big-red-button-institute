@@ -1,8 +1,8 @@
 {
-    "name": "TheBigRedButtonInstitute.RustyXrBroker.EditorTests",
-    "rootNamespace": "TheBigRedButtonInstitute.RustyXrBroker.Tests",
+    "name": "TheBigRedButtonInstitute.Morphospace.Manifold.EditorTests",
+    "rootNamespace": "TheBigRedButtonInstitute.Morphospace.Manifold.Tests",
     "references": [
-        "TheBigRedButtonInstitute.RustyXrBroker"
+        "TheBigRedButtonInstitute.Morphospace.Manifold"
     ],
     "includePlatforms": [
         "Editor"

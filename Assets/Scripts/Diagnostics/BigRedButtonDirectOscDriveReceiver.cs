@@ -3,7 +3,6 @@ using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
-using TheBigRedButtonInstitute.RustyXrBroker;
 using TheBigRedButtonInstitute.VR;
 using UnityEngine;
 
@@ -21,9 +20,9 @@ namespace TheBigRedButtonInstitute.Diagnostics
         [SerializeField] bool autoResolveReferences = true;
         [SerializeField] bool startOnEnable = true;
         [SerializeField, Min(1)] int listenPort = 9001;
-        [SerializeField] string acceptedAddress = RustyXrBrokerDriveSignal.DefaultAddress;
+        [SerializeField] string acceptedAddress = BigRedButtonDriveSignal.DefaultOscDriveAddress;
         [SerializeField] bool sendAcknowledgements = true;
-        [SerializeField] string acknowledgementAddress = "/rusty-xr/drive/ack";
+        [SerializeField] string acknowledgementAddress = BigRedButtonDriveSignal.DefaultOscAcknowledgementAddress;
         [SerializeField, Range(0f, 1f)] float triggerThreshold01 = 0.5f;
         [SerializeField, Min(0f)] float minimumTriggerIntervalSeconds = 0.25f;
         [SerializeField] bool triggerOnRisingEdgeOnly = true;
@@ -40,7 +39,7 @@ namespace TheBigRedButtonInstitute.Diagnostics
         string _lastError = string.Empty;
 
         public int ListenPort => listenPort;
-        public string AcceptedAddress => string.IsNullOrWhiteSpace(acceptedAddress) ? RustyXrBrokerDriveSignal.DefaultAddress : acceptedAddress;
+        public string AcceptedAddress => string.IsNullOrWhiteSpace(acceptedAddress) ? BigRedButtonDriveSignal.DefaultOscDriveAddress : acceptedAddress;
         public long ReceivedPackets => _receivedPackets;
         public long RejectedPackets => _rejectedPackets;
         public string LastState => string.IsNullOrWhiteSpace(_lastState) ? "idle" : _lastState;
@@ -193,7 +192,7 @@ namespace TheBigRedButtonInstitute.Diagnostics
             var value = Mathf.Clamp01(message.Value01);
             var sequence = message.SequenceId > 0 ? message.SequenceId : ++_localSequence;
             var nowSeconds = Time.unscaledTimeAsDouble;
-            var shouldTrigger = RustyXrBrokerButtonDriver.ShouldTrigger(
+            var shouldTrigger = BigRedButtonDriveSignal.ShouldTrigger(
                 _previousValue01,
                 value,
                 triggerThreshold01,

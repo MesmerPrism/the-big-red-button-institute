@@ -1107,9 +1107,6 @@ MonoBehaviour:
   manualPressController: {fileID: 700491452}
   polarRuntimeManager: {fileID: 699112041}
   polarHeartbeatButtonDriver: {fileID: 699112042}
-  brokerClient: {fileID: 0}
-  brokerButtonDriver: {fileID: 0}
-  brokerButtonBridge: {fileID: 0}
   diagnosticComparisonController: {fileID: 699112049}
   questionnaireLauncher: {fileID: 699112054}
   autoResolveReferences: 1
@@ -1123,8 +1120,6 @@ MonoBehaviour:
   targetButtonHeight: 0.36
   defaultTimedBlinkSeconds: 5
   buttonRotationOffsetEuler: {x: 0, y: 0, z: 0}
-  enableBrokerControls: 0
-  allowBrokerOpenUiLaunchExtra: 0
   enableHudPageFlickNavigation: 1
   hudPageFlickThreshold: 0.7
   hudPageFlickRearmThreshold: 0.25
@@ -1301,14 +1296,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TheBigRedButtonInstitute.Diagnostics.BigRedButtonDiagnosticComparisonController
   inputManager: {fileID: 699112039}
   polarHeartbeatButtonDriver: {fileID: 699112042}
-  brokerButtonDriver: {fileID: 0}
-  brokerDriveReceiver: {fileID: 0}
-  brokerBioSignalReceiver: {fileID: 0}
   directPolarReceiver: {fileID: 699112055}
   directOscReceiver: {fileID: 699112050}
   directLslReceiver: {fileID: 699112053}
   autoResolveReferences: 1
-  enableBrokerRoutes: 0
 --- !u!114 &699112050
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1326,9 +1317,9 @@ MonoBehaviour:
   autoResolveReferences: 1
   startOnEnable: 1
   listenPort: 9001
-  acceptedAddress: /rusty-xr/drive/radius
+  acceptedAddress: /brb/manifold/drive/button
   sendAcknowledgements: 1
-  acknowledgementAddress: /rusty-xr/drive/ack
+  acknowledgementAddress: /brb/manifold/drive/ack
   triggerThreshold01: 0.5
   minimumTriggerIntervalSeconds: 0.25
   triggerOnRisingEdgeOnly: 1
