@@ -3,11 +3,23 @@
 Unity 6 / URP / Meta Quest example centered on a large red button, a VR HUD,
 split-app questionnaire validation, and Rusty Morphospace Manifold contracts.
 
-This branch is the active Unity example for showing how a Quest app can keep
-scene behavior local while treating Morphospace Manifold as the authority for
-typed commands, stream descriptors, leases, acknowledgements, and safe
-rejections. The previous Rusty XR broker example is parked on
-`codex/legacy-rusty-xr-broker-example`.
+The maintained `main` branch is the active Unity example for showing how a
+Quest app can keep scene behavior local while treating Morphospace Manifold as
+the authority for typed commands, stream descriptors, leases,
+acknowledgements, and safe rejections. The previous Rusty XR broker example is
+parked on `codex/legacy-rusty-xr-broker-example`.
+
+## Branch Map
+
+- `main`: maintained Rusty Morphospace / Manifold Unity example.
+- `legacy/rusty-xr-diagnostics-main`: preserved Rusty XR diagnostics line that
+  used to be the default branch before Manifold was promoted.
+- `codex/legacy-rusty-xr-broker-example`: preserved older Rusty XR broker
+  adapter example.
+- `legacy-rusty-xr-diagnostics-main-2026-06-15`: immutable tag for the old
+  Rusty XR diagnostics default-branch tip.
+- `legacy-rusty-xr-broker-example-2026-06-15`: immutable tag for the old Rusty
+  XR broker adapter example.
 
 ## Current State
 
