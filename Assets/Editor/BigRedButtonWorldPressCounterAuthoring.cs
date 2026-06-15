@@ -18,7 +18,7 @@ namespace TheBigRedButtonInstitute.Editor
         const string TextName = "CountText";
         const string CounterFontMaterialPath = "Assets/Settings/BigRedButtonCounterText.mat";
         const string TmpOverlayShaderName = "TextMeshPro/Distance Field Overlay";
-        static readonly Vector3 CounterLocalPosition = new(0f, 0.3274f, -0.009f);
+        static readonly Vector3 CounterLocalPosition = new(0f, BigRedButtonRuntimeLayoutConfig.DefaultCounterCanvasLocalY, -0.009f);
         static readonly int FaceDilateId = Shader.PropertyToID("_FaceDilate");
         static readonly int OutlineWidthId = Shader.PropertyToID("_OutlineWidth");
         static readonly int OutlineSoftnessId = Shader.PropertyToID("_OutlineSoftness");

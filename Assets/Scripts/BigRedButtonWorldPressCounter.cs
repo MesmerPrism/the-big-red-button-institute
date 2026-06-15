@@ -1,4 +1,5 @@
 using TMPro;
+using TheBigRedButtonInstitute.IndirectParticles;
 using TheBigRedButtonInstitute.Biofeedback;
 using TheBigRedButtonInstitute.VR;
 using UnityEngine;
@@ -24,6 +25,23 @@ namespace TheBigRedButtonInstitute
         [SerializeField] bool blinkWhilePolarConnected = true;
         [SerializeField, Min(0.1f)] float polarConnectedBlinkHz = 2.4f;
 
+        [Header("Particle Digits")]
+        [SerializeField] bool useParticleDigits = true;
+        [SerializeField] bool hideTextWhenParticleDigitsReady = true;
+        [SerializeField] BrbParticleCoordinateSet[] particleDigitCoordinateSets = new BrbParticleCoordinateSet[10];
+        [SerializeField] bool useProceduralParticleDigitFallback = true;
+        [SerializeField, Min(32)] int particleFallbackPointsPerDigit = 10000;
+        [SerializeField, Min(0.0001f)] float particleDigitSize = 5f;
+        [SerializeField, Range(0f, 1f)] float particleDigitRadialClip = 0.9f;
+        [SerializeField, Range(0f, 0.5f)] float particleDigitSpacing = 0.12f;
+        [SerializeField, Range(0.1f, 1f)] float particleDigitCoordinateFill = 0.94f;
+        [SerializeField] bool particleDigitUseTexture = true;
+        [SerializeField] Texture2D particleDigitTexture;
+        [SerializeField] bool particleDigitTextureUsesLuminanceAlpha;
+        [SerializeField] bool particleDigitMorphChanges = true;
+        [SerializeField, Min(0f)] float particleDigitMorphDuration = 0.35f;
+        [SerializeField] BigRedButtonParticlePressCounterDisplay particleDigits;
+
         int _lastDisplayedCount = int.MinValue;
         float _lastCountChangeTime = float.NegativeInfinity;
         Vector3 _baseDisplayTextScale = Vector3.one;
@@ -45,11 +63,25 @@ namespace TheBigRedButtonInstitute
             UpdatePresentation();
         }
 
+        void OnDisable()
+        {
+            if (displayText != null)
+            {
+                displayText.enabled = true;
+            }
+        }
+
         void OnValidate()
         {
             pulseScale = Mathf.Clamp(pulseScale, 1f, 1.4f);
             countPulseDuration = Mathf.Max(0.01f, countPulseDuration);
             polarConnectedBlinkHz = Mathf.Max(0.1f, polarConnectedBlinkHz);
+            particleFallbackPointsPerDigit = Mathf.Max(32, particleFallbackPointsPerDigit);
+            particleDigitSize = Mathf.Max(0.0001f, particleDigitSize);
+            particleDigitRadialClip = Mathf.Clamp01(particleDigitRadialClip);
+            particleDigitSpacing = Mathf.Clamp(particleDigitSpacing, 0f, 0.5f);
+            particleDigitCoordinateFill = Mathf.Clamp(particleDigitCoordinateFill, 0.1f, 1f);
+            particleDigitMorphDuration = Mathf.Max(0f, particleDigitMorphDuration);
             RefreshImmediately();
             UpdateFacing();
             UpdatePresentation();
@@ -102,6 +134,37 @@ namespace TheBigRedButtonInstitute
                 _hasBaseDisplayTextScale = false;
             }
 
+            if (useParticleDigits && (particleDigits == null || forceRefresh))
+            {
+                particleDigits = GetComponent<BigRedButtonParticlePressCounterDisplay>();
+                if (particleDigits == null && Application.isPlaying)
+                {
+                    particleDigits = gameObject.AddComponent<BigRedButtonParticlePressCounterDisplay>();
+                }
+            }
+
+            if (particleDigits != null && displayText != null)
+            {
+                particleDigits.Configure(displayText);
+                particleDigits.SetDigitCoordinateSets(particleDigitCoordinateSets);
+                particleDigits.SetProceduralFallbackDigits(
+                    useProceduralParticleDigitFallback,
+                    particleFallbackPointsPerDigit);
+                particleDigits.SetDigitLayout(
+                    particleDigitSpacing,
+                    particleDigitCoordinateFill);
+                particleDigits.SetParticleVisuals(
+                    particleDigitSize,
+                    particleDigitRadialClip);
+                particleDigits.SetParticleTexture(
+                    particleDigitTexture,
+                    particleDigitUseTexture,
+                    particleDigitTextureUsesLuminanceAlpha);
+                particleDigits.SetDigitMorphOptions(
+                    particleDigitMorphChanges,
+                    particleDigitMorphDuration);
+            }
+
             if (targetCamera == null || forceRefresh)
             {
                 targetCamera = Camera.main ?? FindAnyObjectByType<Camera>();
@@ -132,8 +195,13 @@ namespace TheBigRedButtonInstitute
             }
 
             var hadDisplayedCount = _lastDisplayedCount != int.MinValue;
-            displayText.text = count.ToString("N0");
+            var countText = count.ToString("N0");
+            displayText.text = countText;
             _lastDisplayedCount = count;
+            if (particleDigits != null)
+            {
+                particleDigits.SetNumberText(countText);
+            }
 
             if (pulseOnChange && hadDisplayedCount && Application.isPlaying)
             {
@@ -175,8 +243,22 @@ namespace TheBigRedButtonInstitute
             var connectedBlinkAmount = ResolvePolarConnectedBlinkAmount();
             var colorAmount = Mathf.Max(pulseAmount, connectedBlinkAmount);
 
-            displayText.color = Color.Lerp(baseColor, pulseColor, colorAmount);
-            displayText.transform.localScale = _baseDisplayTextScale * Mathf.Lerp(1f, pulseScale, pulseAmount);
+            var displayColor = Color.Lerp(baseColor, pulseColor, colorAmount);
+            var displayScale = Mathf.Lerp(1f, pulseScale, pulseAmount);
+
+            displayText.color = displayColor;
+            displayText.transform.localScale = _baseDisplayTextScale * displayScale;
+
+            if (useParticleDigits && particleDigits != null)
+            {
+                particleDigits.SetPresentation(displayColor, displayScale);
+                particleDigits.SetNumberText(displayText.text);
+                displayText.enabled = !hideTextWhenParticleDigitsReady || !particleDigits.IsRendering;
+            }
+            else
+            {
+                displayText.enabled = true;
+            }
         }
 
         void CaptureBaseDisplayTextScale()

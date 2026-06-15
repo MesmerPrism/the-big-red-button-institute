@@ -214,77 +214,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 448229256}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &161253005
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 161253006}
-  - component: {fileID: 161253008}
-  - component: {fileID: 161253007}
-  m_Layer: 0
-  m_Name: Right Controller Shell Interactor
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &161253006
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 161253005}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1345342562}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &161253007
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 161253005}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1b53f491f88c4daab41b1d732dd5516d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::TheBigRedButtonInstitute.VR.QuestVrTouchPlusControllerOnly
-  autoResolveFromParentAnchor: 1
-  controllerVisualName: Right Controller Visual
-  touchPlusModelRootName: MetaQuestTouchPlus_Right
---- !u!114 &161253008
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 161253005}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d2f5886ffb5c46d8ab8bc281f5bdbd64, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::TheBigRedButtonInstitute.BigRedButtonPressInteractor
-  interactionMode: 1
-  interactionRadius: 0.05
-  bodyPadding: 0
-  bodyRenderers: []
-  bodyColliders: []
-  autoResolveBodyRenderersFromParent: 1
-  parentRendererRootName: Right Controller Visual/MetaQuestTouchPlus_Right
-  trackingValid: 1
-  generatedMeshCollidersOnly: 1
-  disableLegacyHandPhysicsCapsules: 1
-  enableRuntimeDebugVisuals: 0
 --- !u!137 &256577513 stripped
 SkinnedMeshRenderer:
   m_CorrespondingSourceObject: {fileID: -8779325000484960244, guid: b42ef9650a701cd44bffa87a48edcd70, type: 3}
@@ -489,184 +418,6 @@ Transform:
   - {fileID: 2095418218}
   m_Father: {fileID: 623804951}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!43 &490807043
-Mesh:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name: button Collider Snapshot
-  serializedVersion: 12
-  m_SubMeshes:
-  - serializedVersion: 2
-    firstByte: 0
-    indexCount: 360
-    topology: 0
-    baseVertex: 0
-    firstVertex: 0
-    vertexCount: 87
-    localAABB:
-      m_Center: {x: 0, y: 0.014592329, z: 0.00275505}
-      m_Extent: {x: 0.0049236896, y: 0.0055780797, z: 0.00597202}
-  m_Shapes:
-    vertices: []
-    shapes: []
-    channels: []
-    fullWeights: []
-  m_BindPose: []
-  m_BoneNameHashes: 
-  m_RootBoneNameHash: 0
-  m_BonesAABB: []
-  m_VariableBoneCountWeights:
-    m_Data: 
-  m_MeshCompression: 0
-  m_IsReadable: 1
-  m_KeepVertices: 1
-  m_KeepIndices: 1
-  m_IndexFormat: 0
-  m_IndexBuffer: 00000200010000000100030004000600050004000800070005000800040005000a00090006000a0005000b000d000c000b000e000d000c000f000b000c00110010000f00130012000f000c00100012000e000b0012000b000f0013000f00100013001500140014001500160014000e00120014001200130015001300170015001900180016001a0014001600150018001a0016001b001a000e0014001c001a001b001c000e001a001b00160018001d001c001b001d001e001c001e000e001c001f002100200020000a002200200022001f0021002400230021001f00250021002700260023002000210023000a00200024002900280028002300240028000a00230029002400260029002a00280029002c002b002a00090028002a002b00070009000a002800070008002a0007002d0004002b002a0029002b002f002e002d0007002e00100017001300110030001000110031003000170010003000170019001500190017003200180034003300180035003400180033001b00180019003600330037001b0037001d001b0025002700210027002500380026002400210026003a00390026002c002900260027003b002c0039002f002e0007002b002e003c002d002f002b002c003000320017003200360019003600350018003d00370033003d003300340038003b0027003b003a00260039002c0026003e0040003f003e0042004100410043003e0042003e003f00430041004400430040003e003f00460045003f00470042003f0040004600450047003f0046004000480046004800490049004500460048004b004a00480040004b004a004b004c004a00490048004a004c004d004b0040004c004d004c004e004c0040004e004e0040004f004e004f0050004e0051004d00500053005200500051004e004f0040005300530050004f00530055005400530040005500540052005300550040005600550056004400440054005500440056004300560040004300
-  m_VertexData:
-    serializedVersion: 3
-    m_VertexCount: 87
-    m_Channels:
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 3
-    - stream: 0
-      offset: 12
-      format: 0
-      dimension: 3
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    - stream: 1
-      offset: 0
-      format: 0
-      dimension: 2
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    m_DataSize: 2792
-    _typelessdata: bcad33bd86507d3eb2f641bd0b41d03657c771c13d1417c1499b1bbdb8fc5f3e8a4cc7ba0b41d03657c771c13d1417c1bcadb3bc33b3683e790178bc0b41d03657c771c13d1417c1499b9bbd9be36b3e1ad5a4bc0a41d03657c771c13c1417c143c12aa3acd8813edeca6abd9d944ea6438bb3406e4c87c1bcadb3bc33b3683e790178bc9b2612374dc771c14c1417c1737613a39be36b3e1ad5a4bc44d8a13457c771c13d1417c1bcad33bdb3b0af3ea7994c3cb68c0ec1c3d60241de6251c1bcad33bd86507d3eb2f641bdc1820dc1bb7fc940051162c1499b1bbdb8fc5f3e8a4cc7bafe475a362dc771c1811417c15357f8a2d215543e89eb8b3c6f82abb334c771c1771417c1bcadb33c33b3683e790178bc6af8fcb651c771c1471417c143c12aa3acd8813edeca6abd9d944ea6438bb3406e4c87c1737613a39be36b3e1ad5a4bc44d8a13457c771c13d1417c15357f8a2d215543e89eb8b3c6f82abb334c771c1771417c1bcad333d86507d3eb2f641bd84860a4181348c40981e6fc1bcad333db3b0af3ea7994c3cb78c0e41c2d60241dd6251c1c8547aa21ce1b23ec220253b25d513a66014174141c771c1499b1b3db8fc5f3e8a4cc7bac2e499b63dc771c1681417c1499b9b3d9be36b3e1ad5a4bcecee6f4156eb823ff51e19c1bcad333dd215543e89eb8b3c0c780fb62fc771c17d1417c1d4adb33dd215543e89eb8b3c91868a41ca2b64c0c1930ec0499b9b3d09483c3e16565e3df1ee6f41477302c11faaa340499b9b3d37faa63e5eb2223d42e776418b1497405cc7f1c0499b9b3d742c8f3e99b9e93d46e776417c1497c055c7f140d4adb33d59139b3e70899d3dc28c8e4128d20eb6d06ce636499b1b3def2e483eed25123d09a235b737c771c1701417c1bcad333d12db2a3e1cf1a63d98860a412a3038c1a9d42741bcadb33c73783f3e18ec493db6d9d6b63bc771c1691417c1162c9ba2417a243e4c5bbb3dd179a12580db4bc1084f4741c0c1c9a209483c3e16565e3df85885a639c771c16d1417c1162c9ba2417a243e4c5bbb3dd179a12580db4bc1084f4741bcadb3bc73783f3e18ec493d1e6cc9363ac771c16a1417c1bcad33bd12db2a3e1cf1a63d98860ac12a3038c1a9d42741c0c1c9a209483c3e16565e3df85885a639c771c16d1417c1499b1bbdef2e483eed25123d3deb2e3735c771c1741417c1499b9bbd09483c3e16565e3defee6fc1497302c11eaaa34030b0f4218f45833ee1f41a3e07e6a933631417c140c77141499b9bbd742c8f3e99b9e93d45e776c1801497c057c7f140bcad33bdf875863ed4bf103ec88c0ec1bcd602c1d7625141bcad33bdd215543e89eb8b3c0d780f362fc771c17c1417c1d4adb3bdd215543e89eb8b3c91868ac1cf2b64c0c0930ec0499b9bbd9be36b3e1ad5a4bca01a75c1116a3740f6360ac1499b9bbd37faa63e5eb2223d42e776c18c1497405cc7f1c0d4adb3bd59139b3e70899d3dc28c8ec1b4f466b64626f736c8547aa21ce1b23ec220253b25d513a66014174141c771c1bcad33bd991db33ede8b883ceced02c1bac95741f59104c1499b9bbd1d67aa3e12d2333db2c662c134ff244184264dc0bcad333d991db33ede8b883ceeed0241bfc95741ee9104c1b01a5ca2024eb63e898cdb3b4080f2a4f7606a41675222c1499b9b3d1d67aa3e12d2333db2c6624136ff24416c264dc0bcad333df875863ed4bf103ec98c0e41bbd602c1d7625141bcad333ddfe2893eb607153ed2ed02415575c4bf6d107c41499b9b3d5a99923e5c49f23da5c662417bded13f0ac82a41d4adb33d39809e3e3219a63de4ed8241f03abf40c2fc6e4030b0f4218f45833ee1f41a3e07e6a933631417c140c771413092182276b2863ec23c1f3e01cab73481972cc067e88c41d4adb3bd39809e3e3219a63de5ed82c1eb3abf40c2fc6e40499b9bbd5a99923e5c49f23da3c662c14dded13f0bc82a41bcad33bddfe2893eb607153ecded02c18975c4bf70107c41b01a5ca2024eb63e898cdb3b4080f2a4f7606a41675222c13092182276b2863ec23c1f3e01cab73481972cc067e88c4168bb23bdc81cb53e1ea6dd3cc02006c0b1e284416e2cc340d4cc29a2bd04b83e1c3d933cee6f60262044874149efb3400000c098cb53a23e95a9af3d0f0ffdaa3dc7714167141741499b9bbd1d67aa3e12d2333db2c662c134ff244184264dc0bcad33bd991db33ede8b883ceced02c1bac95741f59104c1d7cb8dbd412cad3edd78543d845068c064c37c41a8ceec40d4adb3bd39809e3e3219a63de5ed82c1eb3abf40c2fc6e40bcad333d991db33ede8b883ceeed0241bfc95741ee9104c168bb233dc81cb53e1ea6dd3cc0200640b0e28441792cc340b01a5ca2024eb63e898cdb3b4080f2a4f7606a41675222c1d7cb8d3d412cad3edd78543d8250684062c37c41b3ceec40499b9b3d1d67aa3e12d2333db2c6624136ff24416c264dc0d4adb33d39809e3e3219a63de4ed8241f03abf40c2fc6e4080bba33dcb53a23e95a9af3d8d20864078fe6a4123d71241d7cb8d3d4f7b973ebd16f53d225068408f395941f6462f41499b9b3d5a99923e5c49f23da5c662417bded13f0ac82a4168bb233dc98a8f3ec6f4133e972006409a374c4100184441a8cc2922d9a28c3ef2411d3e2c021bb4c574474193b64b413092182276b2863ec23c1f3e01cab73481972cc067e88c41bcad333ddfe2893eb607153ed2ed02415575c4bf6d107c41bcad33bddfe2893eb607153ecded02c18975c4bf70107c4168bb23bdc98a8f3ec6f4133e8a2006c09a374c4100184441499b9bbd5a99923e5c49f23da3c662c14dded13f0bc82a41d7cb8dbd4f7b973ebd16f53d195068c090395941f6462f4180bba3bdcb53a23e95a9af3d902086c078fe6a4124d71241000000000000000076fa353fe8133d3f3baa323fb01d4c3f0a642e3ffbca473f21223d3fa390443f61fa2a3f7f34383f0a642e3ffbca473f276b283f14cb453fbe69523f8d252c3f76fa353fe8133d3f3baa323fb01d4c3f276b283fa015543fa9fb443f8426793ee76e4b3f8066983ec500413f8815863edb183b3f6c49573ecfbc503ffc59843e6841703f7a72853eff3c6d3fa8fd9e3e4243473f8054633e0ea4533faca8613ed36b473f706e4c3e4755533f7c773b3e8c9e4f3fac31183e6135723ff805543e03606c3ff0b0c93df418713f38261b3ea33e453f38e9363e7c5f483fe832f53df2ea403fa8d4253e33503d3f004ecf3dd5eb3a3f88201e3e6c7a383f93a96a3f1633323fe7ab5c3fc9e73d3f39b4603f52292e3f7460613fca8b343fab3e573fa2ed403fb5fa563f813d5a3f855f6e3f1e895f3f5ef2533f056a5d3fb1a3613f71c6343fbe85513ff1bc403fa06d4d3f21223d3fa390443f700b5a3f3c15383f85995e3f39b7453f7b15493f960a223fa29c543f20982b3f20425c3f7cf3373f917b723f8815863e137c6f3fa8ca9f3e925a743f7464553ec498643f00ec553de2c9663f10a74c3d3e966e3fe06bc83d0745733f84de1b3ed9245b3fc059583c467b5c3f18cd6e3f00c5603f1cec453f32ad613fbe50543f12a35f3f3bfc613f50534b3f9e3f213f20605d3f00d7233c1286513fc4601e3f13ba473f2bbf183f1822573f0248093f399c5d3f3f74213ff8a7503f3f74213fd4d25c3f315b1e3f24d4683f1efa1a3fedf53e3f22c20f3fe90e423fcff80e3ffc6f453f1efa1a3f6809423f0cac033fedf53e3fe2cd023f0d70453fec2bef3eefaa473f1ac0f33e5c71513fc669e83ef8a7503fac37e23e1fbe5c3fa25ee83e1e8a663fd4a1f33e35d4683fec2bef3e499c5d3fac37e23e554e6f3ff2cd023f48356c3f4697033f554e6f3f33c20f3fda3a6c3f08e40e3f4299663f08b0183f
-  m_CompressedMesh:
-    m_Vertices:
-      m_NumItems: 0
-      m_Range: 0
-      m_Start: 0
-      m_Data: 
-      m_BitSize: 0
-    m_UV:
-      m_NumItems: 0
-      m_Range: 0
-      m_Start: 0
-      m_Data: 
-      m_BitSize: 0
-    m_Normals:
-      m_NumItems: 0
-      m_Range: 0
-      m_Start: 0
-      m_Data: 
-      m_BitSize: 0
-    m_Tangents:
-      m_NumItems: 0
-      m_Range: 0
-      m_Start: 0
-      m_Data: 
-      m_BitSize: 0
-    m_Weights:
-      m_NumItems: 0
-      m_Data: 
-      m_BitSize: 0
-    m_NormalSigns:
-      m_NumItems: 0
-      m_Data: 
-      m_BitSize: 0
-    m_TangentSigns:
-      m_NumItems: 0
-      m_Data: 
-      m_BitSize: 0
-    m_FloatColors:
-      m_NumItems: 0
-      m_Range: 0
-      m_Start: 0
-      m_Data: 
-      m_BitSize: 0
-    m_BoneIndices:
-      m_NumItems: 0
-      m_Data: 
-      m_BitSize: 0
-    m_Triangles:
-      m_NumItems: 0
-      m_Data: 
-      m_BitSize: 0
-    m_UVInfo: 0
-  m_LocalAABB:
-    m_Center: {x: 0, y: 0.26207992, z: 0.051426366}
-    m_Extent: {x: 0.087733895, y: 0.101458274, z: 0.108749464}
-  m_MeshUsageFlags: 0
-  m_CookingOptions: 18
-  m_BakedConvexCollisionMesh: 
-  m_BakedTriangleCollisionMesh: 
-  'm_MeshMetrics[0]': 1
-  'm_MeshMetrics[1]': 1
-  m_MeshOptimizationFlags: 1
-  m_StreamData:
-    serializedVersion: 2
-    offset: 0
-    size: 0
-    path: 
-  m_MeshLodInfo:
-    serializedVersion: 2
-    m_LodSelectionCurve:
-      serializedVersion: 1
-      m_LodSlope: 0
-      m_LodBias: 0
-    m_NumLevels: 1
-    m_SubMeshes:
-    - serializedVersion: 2
-      m_Levels:
-      - serializedVersion: 1
-        m_IndexStart: 0
-        m_IndexCount: 0
 --- !u!1 &532482027
 GameObject:
   m_ObjectHideFlags: 0
@@ -1120,6 +871,14 @@ MonoBehaviour:
   targetButtonHeight: 0.36
   defaultTimedBlinkSeconds: 5
   buttonRotationOffsetEuler: {x: 0, y: 0, z: 0}
+  loadRuntimeLayoutConfigOnEnable: 1
+  writeRuntimeLayoutDefaultsIfMissing: 1
+  runtimeLayoutDefaultsRelativePath: runtime_config/brb_layout_defaults.json
+  runtimeLayoutOverrideRelativePath: runtime_config/brb_layout_runtime.json
+  recenterButtonAfterLayoutReload: 1
+  useAbsoluteButtonWorldY: 0
+  absoluteButtonWorldY: 1.33
+  logRuntimeLayoutConfig: 1
   enableHudPageFlickNavigation: 1
   hudPageFlickThreshold: 0.7
   hudPageFlickRearmThreshold: 0.25
@@ -1181,6 +940,12 @@ MonoBehaviour:
   - command: stop_blink
     description: stop the timed button blink
     action: 20
+  - command: reload_layout
+    description: reload runtime layout config files
+    action: 21
+  - command: layout_status
+    description: log active runtime layout config paths and values
+    action: 22
 --- !u!4 &699112040
 Transform:
   m_ObjectHideFlags: 0
@@ -1962,7 +1727,7 @@ Transform:
   m_GameObject: {fileID: 787221108}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -1, z: -0, w: 0}
-  m_LocalPosition: {x: 0, y: 0.3274, z: -0.009}
+  m_LocalPosition: {x: 0, y: 0.0315, z: -0.009}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1993,6 +1758,31 @@ MonoBehaviour:
   countPulseDuration: 0.18
   blinkWhilePolarConnected: 1
   polarConnectedBlinkHz: 2.4
+  useParticleDigits: 1
+  hideTextWhenParticleDigitsReady: 1
+  particleDigitCoordinateSets:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  useProceduralParticleDigitFallback: 1
+  particleFallbackPointsPerDigit: 10000
+  particleDigitSize: 5
+  particleDigitRadialClip: 0.9
+  particleDigitSpacing: 0.12
+  particleDigitCoordinateFill: 0.94
+  particleDigitUseTexture: 1
+  particleDigitTexture: {fileID: 0}
+  particleDigitTextureUsesLuminanceAlpha: 0
+  particleDigitMorphChanges: 1
+  particleDigitMorphDuration: 0.35
+  particleDigits: {fileID: 0}
 --- !u!1 &795546522
 GameObject:
   m_ObjectHideFlags: 0
@@ -2205,7 +1995,7 @@ Transform:
   m_Children:
   - {fileID: 1616515096}
   - {fileID: 1941538902}
-  - {fileID: 1044477623}
+  - {fileID: 2013051055}
   m_Father: {fileID: 920101078}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &887912685
@@ -2323,6 +2113,184 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!43 &902752339
+Mesh:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: button Collider Snapshot
+  serializedVersion: 12
+  m_SubMeshes:
+  - serializedVersion: 2
+    firstByte: 0
+    indexCount: 360
+    topology: 0
+    baseVertex: 0
+    firstVertex: 0
+    vertexCount: 87
+    localAABB:
+      m_Center: {x: 0, y: 0.014592329, z: 0.00275505}
+      m_Extent: {x: 0.0049236896, y: 0.0055780797, z: 0.00597202}
+  m_Shapes:
+    vertices: []
+    shapes: []
+    channels: []
+    fullWeights: []
+  m_BindPose: []
+  m_BoneNameHashes: 
+  m_RootBoneNameHash: 0
+  m_BonesAABB: []
+  m_VariableBoneCountWeights:
+    m_Data: 
+  m_MeshCompression: 0
+  m_IsReadable: 1
+  m_KeepVertices: 1
+  m_KeepIndices: 1
+  m_IndexFormat: 0
+  m_IndexBuffer: 00000200010000000100030004000600050004000800070005000800040005000a00090006000a0005000b000d000c000b000e000d000c000f000b000c00110010000f00130012000f000c00100012000e000b0012000b000f0013000f00100013001500140014001500160014000e00120014001200130015001300170015001900180016001a0014001600150018001a0016001b001a000e0014001c001a001b001c000e001a001b00160018001d001c001b001d001e001c001e000e001c001f002100200020000a002200200022001f0021002400230021001f00250021002700260023002000210023000a00200024002900280028002300240028000a00230029002400260029002a00280029002c002b002a00090028002a002b00070009000a002800070008002a0007002d0004002b002a0029002b002f002e002d0007002e00100017001300110030001000110031003000170010003000170019001500190017003200180034003300180035003400180033001b00180019003600330037001b0037001d001b0025002700210027002500380026002400210026003a00390026002c002900260027003b002c0039002f002e0007002b002e003c002d002f002b002c003000320017003200360019003600350018003d00370033003d003300340038003b0027003b003a00260039002c0026003e0040003f003e0042004100410043003e0042003e003f00430041004400430040003e003f00460045003f00470042003f0040004600450047003f0046004000480046004800490049004500460048004b004a00480040004b004a004b004c004a00490048004a004c004d004b0040004c004d004c004e004c0040004e004e0040004f004e004f0050004e0051004d00500053005200500051004e004f0040005300530050004f00530055005400530040005500540052005300550040005600550056004400440054005500440056004300560040004300
+  m_VertexData:
+    serializedVersion: 3
+    m_VertexCount: 87
+    m_Channels:
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 3
+    - stream: 0
+      offset: 12
+      format: 0
+      dimension: 3
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 1
+      offset: 0
+      format: 0
+      dimension: 2
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    m_DataSize: 2792
+    _typelessdata: bcad33bd86507d3eb2f641bd0b41d03657c771c13d1417c1499b1bbdb8fc5f3e8a4cc7ba0b41d03657c771c13d1417c1bcadb3bc33b3683e790178bc0b41d03657c771c13d1417c1499b9bbd9be36b3e1ad5a4bc0a41d03657c771c13c1417c143c12aa3acd8813edeca6abd9d944ea6438bb3406e4c87c1bcadb3bc33b3683e790178bc9b2612374dc771c14c1417c1737613a39be36b3e1ad5a4bc44d8a13457c771c13d1417c1bcad33bdb3b0af3ea7994c3cb68c0ec1c3d60241de6251c1bcad33bd86507d3eb2f641bdc1820dc1bb7fc940051162c1499b1bbdb8fc5f3e8a4cc7bafe475a362dc771c1811417c15357f8a2d215543e89eb8b3c6f82abb334c771c1771417c1bcadb33c33b3683e790178bc6af8fcb651c771c1471417c143c12aa3acd8813edeca6abd9d944ea6438bb3406e4c87c1737613a39be36b3e1ad5a4bc44d8a13457c771c13d1417c15357f8a2d215543e89eb8b3c6f82abb334c771c1771417c1bcad333d86507d3eb2f641bd84860a4181348c40981e6fc1bcad333db3b0af3ea7994c3cb78c0e41c2d60241dd6251c1c8547aa21ce1b23ec220253b25d513a66014174141c771c1499b1b3db8fc5f3e8a4cc7bac2e499b63dc771c1681417c1499b9b3d9be36b3e1ad5a4bcecee6f4156eb823ff51e19c1bcad333dd215543e89eb8b3c0c780fb62fc771c17d1417c1d4adb33dd215543e89eb8b3c91868a41ca2b64c0c1930ec0499b9b3d09483c3e16565e3df1ee6f41477302c11faaa340499b9b3d37faa63e5eb2223d42e776418b1497405cc7f1c0499b9b3d742c8f3e99b9e93d46e776417c1497c055c7f140d4adb33d59139b3e70899d3dc28c8e4128d20eb6d06ce636499b1b3def2e483eed25123d09a235b737c771c1701417c1bcad333d12db2a3e1cf1a63d98860a412a3038c1a9d42741bcadb33c73783f3e18ec493db6d9d6b63bc771c1691417c1162c9ba2417a243e4c5bbb3dd179a12580db4bc1084f4741c0c1c9a209483c3e16565e3df85885a639c771c16d1417c1162c9ba2417a243e4c5bbb3dd179a12580db4bc1084f4741bcadb3bc73783f3e18ec493d1e6cc9363ac771c16a1417c1bcad33bd12db2a3e1cf1a63d98860ac12a3038c1a9d42741c0c1c9a209483c3e16565e3df85885a639c771c16d1417c1499b1bbdef2e483eed25123d3deb2e3735c771c1741417c1499b9bbd09483c3e16565e3defee6fc1497302c11eaaa34030b0f4218f45833ee1f41a3e07e6a933631417c140c77141499b9bbd742c8f3e99b9e93d45e776c1801497c057c7f140bcad33bdf875863ed4bf103ec88c0ec1bcd602c1d7625141bcad33bdd215543e89eb8b3c0d780f362fc771c17c1417c1d4adb3bdd215543e89eb8b3c91868ac1cf2b64c0c0930ec0499b9bbd9be36b3e1ad5a4bca01a75c1116a3740f6360ac1499b9bbd37faa63e5eb2223d42e776c18c1497405cc7f1c0d4adb3bd59139b3e70899d3dc28c8ec1b4f466b64626f736c8547aa21ce1b23ec220253b25d513a66014174141c771c1bcad33bd991db33ede8b883ceced02c1bac95741f59104c1499b9bbd1d67aa3e12d2333db2c662c134ff244184264dc0bcad333d991db33ede8b883ceeed0241bfc95741ee9104c1b01a5ca2024eb63e898cdb3b4080f2a4f7606a41675222c1499b9b3d1d67aa3e12d2333db2c6624136ff24416c264dc0bcad333df875863ed4bf103ec98c0e41bbd602c1d7625141bcad333ddfe2893eb607153ed2ed02415575c4bf6d107c41499b9b3d5a99923e5c49f23da5c662417bded13f0ac82a41d4adb33d39809e3e3219a63de4ed8241f03abf40c2fc6e4030b0f4218f45833ee1f41a3e07e6a933631417c140c771413092182276b2863ec23c1f3e01cab73481972cc067e88c41d4adb3bd39809e3e3219a63de5ed82c1eb3abf40c2fc6e40499b9bbd5a99923e5c49f23da3c662c14dded13f0bc82a41bcad33bddfe2893eb607153ecded02c18975c4bf70107c41b01a5ca2024eb63e898cdb3b4080f2a4f7606a41675222c13092182276b2863ec23c1f3e01cab73481972cc067e88c4168bb23bdc81cb53e1ea6dd3cc02006c0b1e284416e2cc340d4cc29a2bd04b83e1c3d933cee6f60262044874149efb3400000c098cb53a23e95a9af3d0f0ffdaa3dc7714167141741499b9bbd1d67aa3e12d2333db2c662c134ff244184264dc0bcad33bd991db33ede8b883ceced02c1bac95741f59104c1d7cb8dbd412cad3edd78543d845068c064c37c41a8ceec40d4adb3bd39809e3e3219a63de5ed82c1eb3abf40c2fc6e40bcad333d991db33ede8b883ceeed0241bfc95741ee9104c168bb233dc81cb53e1ea6dd3cc0200640b0e28441792cc340b01a5ca2024eb63e898cdb3b4080f2a4f7606a41675222c1d7cb8d3d412cad3edd78543d8250684062c37c41b3ceec40499b9b3d1d67aa3e12d2333db2c6624136ff24416c264dc0d4adb33d39809e3e3219a63de4ed8241f03abf40c2fc6e4080bba33dcb53a23e95a9af3d8d20864078fe6a4123d71241d7cb8d3d4f7b973ebd16f53d225068408f395941f6462f41499b9b3d5a99923e5c49f23da5c662417bded13f0ac82a4168bb233dc98a8f3ec6f4133e972006409a374c4100184441a8cc2922d9a28c3ef2411d3e2c021bb4c574474193b64b413092182276b2863ec23c1f3e01cab73481972cc067e88c41bcad333ddfe2893eb607153ed2ed02415575c4bf6d107c41bcad33bddfe2893eb607153ecded02c18975c4bf70107c4168bb23bdc98a8f3ec6f4133e8a2006c09a374c4100184441499b9bbd5a99923e5c49f23da3c662c14dded13f0bc82a41d7cb8dbd4f7b973ebd16f53d195068c090395941f6462f4180bba3bdcb53a23e95a9af3d902086c078fe6a4124d71241000000000000000076fa353fe8133d3f3baa323fb01d4c3f0a642e3ffbca473f21223d3fa390443f61fa2a3f7f34383f0a642e3ffbca473f276b283f14cb453fbe69523f8d252c3f76fa353fe8133d3f3baa323fb01d4c3f276b283fa015543fa9fb443f8426793ee76e4b3f8066983ec500413f8815863edb183b3f6c49573ecfbc503ffc59843e6841703f7a72853eff3c6d3fa8fd9e3e4243473f8054633e0ea4533faca8613ed36b473f706e4c3e4755533f7c773b3e8c9e4f3fac31183e6135723ff805543e03606c3ff0b0c93df418713f38261b3ea33e453f38e9363e7c5f483fe832f53df2ea403fa8d4253e33503d3f004ecf3dd5eb3a3f88201e3e6c7a383f93a96a3f1633323fe7ab5c3fc9e73d3f39b4603f52292e3f7460613fca8b343fab3e573fa2ed403fb5fa563f813d5a3f855f6e3f1e895f3f5ef2533f056a5d3fb1a3613f71c6343fbe85513ff1bc403fa06d4d3f21223d3fa390443f700b5a3f3c15383f85995e3f39b7453f7b15493f960a223fa29c543f20982b3f20425c3f7cf3373f917b723f8815863e137c6f3fa8ca9f3e925a743f7464553ec498643f00ec553de2c9663f10a74c3d3e966e3fe06bc83d0745733f84de1b3ed9245b3fc059583c467b5c3f18cd6e3f00c5603f1cec453f32ad613fbe50543f12a35f3f3bfc613f50534b3f9e3f213f20605d3f00d7233c1286513fc4601e3f13ba473f2bbf183f1822573f0248093f399c5d3f3f74213ff8a7503f3f74213fd4d25c3f315b1e3f24d4683f1efa1a3fedf53e3f22c20f3fe90e423fcff80e3ffc6f453f1efa1a3f6809423f0cac033fedf53e3fe2cd023f0d70453fec2bef3eefaa473f1ac0f33e5c71513fc669e83ef8a7503fac37e23e1fbe5c3fa25ee83e1e8a663fd4a1f33e35d4683fec2bef3e499c5d3fac37e23e554e6f3ff2cd023f48356c3f4697033f554e6f3f33c20f3fda3a6c3f08e40e3f4299663f08b0183f
+  m_CompressedMesh:
+    m_Vertices:
+      m_NumItems: 0
+      m_Range: 0
+      m_Start: 0
+      m_Data: 
+      m_BitSize: 0
+    m_UV:
+      m_NumItems: 0
+      m_Range: 0
+      m_Start: 0
+      m_Data: 
+      m_BitSize: 0
+    m_Normals:
+      m_NumItems: 0
+      m_Range: 0
+      m_Start: 0
+      m_Data: 
+      m_BitSize: 0
+    m_Tangents:
+      m_NumItems: 0
+      m_Range: 0
+      m_Start: 0
+      m_Data: 
+      m_BitSize: 0
+    m_Weights:
+      m_NumItems: 0
+      m_Data: 
+      m_BitSize: 0
+    m_NormalSigns:
+      m_NumItems: 0
+      m_Data: 
+      m_BitSize: 0
+    m_TangentSigns:
+      m_NumItems: 0
+      m_Data: 
+      m_BitSize: 0
+    m_FloatColors:
+      m_NumItems: 0
+      m_Range: 0
+      m_Start: 0
+      m_Data: 
+      m_BitSize: 0
+    m_BoneIndices:
+      m_NumItems: 0
+      m_Data: 
+      m_BitSize: 0
+    m_Triangles:
+      m_NumItems: 0
+      m_Data: 
+      m_BitSize: 0
+    m_UVInfo: 0
+  m_LocalAABB:
+    m_Center: {x: 0, y: 0.26207992, z: 0.051426366}
+    m_Extent: {x: 0.087733895, y: 0.101458274, z: 0.108749464}
+  m_MeshUsageFlags: 0
+  m_CookingOptions: 18
+  m_BakedConvexCollisionMesh: 
+  m_BakedTriangleCollisionMesh: 
+  'm_MeshMetrics[0]': 1
+  'm_MeshMetrics[1]': 1
+  m_MeshOptimizationFlags: 1
+  m_StreamData:
+    serializedVersion: 2
+    offset: 0
+    size: 0
+    path: 
+  m_MeshLodInfo:
+    serializedVersion: 2
+    m_LodSelectionCurve:
+      serializedVersion: 1
+      m_LodSlope: 0
+      m_LodBias: 0
+    m_NumLevels: 1
+    m_SubMeshes:
+    - serializedVersion: 2
+      m_Levels:
+      - serializedVersion: 1
+        m_IndexStart: 0
+        m_IndexCount: 0
 --- !u!1 &920101077
 GameObject:
   m_ObjectHideFlags: 0
@@ -2740,77 +2708,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 75e31682cb3b32a40884e5b0f6b7ca18, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TheBigRedButtonInstitute.Biofeedback.Transport.BLE.Polar.PolarPmdAdapter
---- !u!1 &1044477622
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1044477623}
-  - component: {fileID: 1044477625}
-  - component: {fileID: 1044477624}
-  m_Layer: 0
-  m_Name: Left Controller Shell Interactor
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1044477623
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1044477622}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 853220154}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1044477624
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1044477622}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1b53f491f88c4daab41b1d732dd5516d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::TheBigRedButtonInstitute.VR.QuestVrTouchPlusControllerOnly
-  autoResolveFromParentAnchor: 1
-  controllerVisualName: Left Controller Visual
-  touchPlusModelRootName: MetaQuestTouchPlus_Left
---- !u!114 &1044477625
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1044477622}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d2f5886ffb5c46d8ab8bc281f5bdbd64, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::TheBigRedButtonInstitute.BigRedButtonPressInteractor
-  interactionMode: 1
-  interactionRadius: 0.05
-  bodyPadding: 0
-  bodyRenderers: []
-  bodyColliders: []
-  autoResolveBodyRenderersFromParent: 1
-  parentRendererRootName: Left Controller Visual/MetaQuestTouchPlus_Left
-  trackingValid: 1
-  generatedMeshCollidersOnly: 1
-  disableLegacyHandPhysicsCapsules: 1
-  enableRuntimeDebugVisuals: 0
 --- !u!1 &1096924348
 GameObject:
   m_ObjectHideFlags: 0
@@ -2919,6 +2816,77 @@ Transform:
   m_Children: []
   m_Father: {fileID: 920101078}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1164754865
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1164754866}
+  - component: {fileID: 1164754868}
+  - component: {fileID: 1164754867}
+  m_Layer: 0
+  m_Name: Right Controller Shell Interactor
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1164754866
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1164754865}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1345342562}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1164754867
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1164754865}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1b53f491f88c4daab41b1d732dd5516d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TheBigRedButtonInstitute.VR.QuestVrTouchPlusControllerOnly
+  autoResolveFromParentAnchor: 1
+  controllerVisualName: Right Controller Visual
+  touchPlusModelRootName: MetaQuestTouchPlus_Right
+--- !u!114 &1164754868
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1164754865}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2f5886ffb5c46d8ab8bc281f5bdbd64, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TheBigRedButtonInstitute.BigRedButtonPressInteractor
+  interactionMode: 1
+  interactionRadius: 0.05
+  bodyPadding: 0
+  bodyRenderers: []
+  bodyColliders: []
+  autoResolveBodyRenderersFromParent: 1
+  parentRendererRootName: Right Controller Visual/MetaQuestTouchPlus_Right
+  trackingValid: 1
+  generatedMeshCollidersOnly: 1
+  disableLegacyHandPhysicsCapsules: 1
+  enableRuntimeDebugVisuals: 0
 --- !u!1 &1200498635
 GameObject:
   m_ObjectHideFlags: 0
@@ -3001,7 +2969,7 @@ MonoBehaviour:
   m_text: '<b><size=118%><color=#8FE6FF>=== BIG RED BUTTON ===</color></size></b>
 
     <size=78%><color=#7FA6B8>[
-    21:40:42 UTC ]</color></size>
+    12:47:02 UTC ]</color></size>
 
     <size=82%><color=#AFC0CF>Page:</color> <color=#C7FFA2>Dashboard</color></size>
 
@@ -3237,7 +3205,7 @@ Transform:
   m_Children:
   - {fileID: 31420507}
   - {fileID: 1574726468}
-  - {fileID: 161253006}
+  - {fileID: 1164754866}
   m_Father: {fileID: 444464803}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1547244644
@@ -3293,7 +3261,7 @@ MeshCollider:
   serializedVersion: 5
   m_Convex: 1
   m_CookingOptions: 18
-  m_Mesh: {fileID: 490807043}
+  m_Mesh: {fileID: 902752339}
 --- !u!1 &1561502109
 GameObject:
   m_ObjectHideFlags: 0
@@ -3525,7 +3493,7 @@ MonoBehaviour:
   isTrigger: 0
   surfaceInflation: 0
   cookingOptions: 18
-  serializedSnapshotMesh: {fileID: 490807043}
+  serializedSnapshotMesh: {fileID: 902752339}
 --- !u!1 &1616515095
 GameObject:
   m_ObjectHideFlags: 0
@@ -4254,6 +4222,77 @@ Transform:
   m_Children: []
   m_Father: {fileID: 448229256}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &2013051054
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2013051055}
+  - component: {fileID: 2013051057}
+  - component: {fileID: 2013051056}
+  m_Layer: 0
+  m_Name: Left Controller Shell Interactor
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2013051055
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2013051054}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 853220154}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2013051056
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2013051054}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1b53f491f88c4daab41b1d732dd5516d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TheBigRedButtonInstitute.VR.QuestVrTouchPlusControllerOnly
+  autoResolveFromParentAnchor: 1
+  controllerVisualName: Left Controller Visual
+  touchPlusModelRootName: MetaQuestTouchPlus_Left
+--- !u!114 &2013051057
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2013051054}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2f5886ffb5c46d8ab8bc281f5bdbd64, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TheBigRedButtonInstitute.BigRedButtonPressInteractor
+  interactionMode: 1
+  interactionRadius: 0.05
+  bodyPadding: 0
+  bodyRenderers: []
+  bodyColliders: []
+  autoResolveBodyRenderersFromParent: 1
+  parentRendererRootName: Left Controller Visual/MetaQuestTouchPlus_Left
+  trackingValid: 1
+  generatedMeshCollidersOnly: 1
+  disableLegacyHandPhysicsCapsules: 1
+  enableRuntimeDebugVisuals: 0
 --- !u!1 &2040359893
 GameObject:
   m_ObjectHideFlags: 0

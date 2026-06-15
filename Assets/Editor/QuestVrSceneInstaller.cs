@@ -363,9 +363,10 @@ namespace TheBigRedButtonInstitute.Editor
             serializedInputManager.FindProperty("keepButtonInFrontOfHead").boolValue = true;
             serializedInputManager.FindProperty("enableSimultaneousHandsAndControllers").boolValue = true;
             serializedInputManager.FindProperty("startupPlacementDelay").floatValue = 0.2f;
-            serializedInputManager.FindProperty("buttonDistanceFromHead").floatValue = 0.48f;
-            serializedInputManager.FindProperty("buttonVerticalOffset").floatValue = -0.32f;
-            serializedInputManager.FindProperty("minimumButtonHeight").floatValue = 0.54f;
+            serializedInputManager.FindProperty("buttonDistanceFromHead").floatValue = BigRedButtonRuntimeLayoutConfig.DefaultButtonDistanceFromHeadMeters;
+            serializedInputManager.FindProperty("buttonVerticalOffset").floatValue = BigRedButtonRuntimeLayoutConfig.DefaultButtonVerticalOffsetFromHeadMeters;
+            serializedInputManager.FindProperty("minimumButtonHeight").floatValue = BigRedButtonRuntimeLayoutConfig.DefaultMinimumButtonWorldY;
+            serializedInputManager.FindProperty("targetButtonHeight").floatValue = BigRedButtonRuntimeLayoutConfig.DefaultButtonHeightMeters;
             serializedInputManager.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(inputManager);
         }

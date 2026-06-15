@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Text;
 using TheBigRedButtonInstitute.Biofeedback;
 using TheBigRedButtonInstitute.Diagnostics;
@@ -58,7 +59,9 @@ namespace TheBigRedButtonInstitute.VR
             PolarRequestPermissions = 8,
             QuestionnaireOpen = 18,
             BlinkButton = 19,
-            StopButtonBlink = 20
+            StopButtonBlink = 20,
+            ReloadLayout = 21,
+            LayoutStatus = 22
         }
 
         public enum VrControllerButtonId
@@ -160,6 +163,18 @@ namespace TheBigRedButtonInstitute.VR
         [SerializeField, Min(0.1f)] float defaultTimedBlinkSeconds = DefaultTimedBlinkSeconds;
         [SerializeField] Vector3 buttonRotationOffsetEuler;
 
+        [Header("Runtime Layout Config")]
+        [SerializeField] bool loadRuntimeLayoutConfigOnEnable = true;
+        [SerializeField] bool writeRuntimeLayoutDefaultsIfMissing = true;
+        [Tooltip("Default layout config path relative to Application.persistentDataPath. Absolute paths are also supported.")]
+        [SerializeField] string runtimeLayoutDefaultsRelativePath = BigRedButtonRuntimeLayoutConfig.DefaultsRelativePath;
+        [Tooltip("Optional active layout override path relative to Application.persistentDataPath. Absolute paths are also supported.")]
+        [SerializeField] string runtimeLayoutOverrideRelativePath = BigRedButtonRuntimeLayoutConfig.RuntimeOverrideRelativePath;
+        [SerializeField] bool recenterButtonAfterLayoutReload = true;
+        [SerializeField] bool useAbsoluteButtonWorldY;
+        [SerializeField] float absoluteButtonWorldY = BigRedButtonRuntimeLayoutConfig.DefaultAbsoluteButtonWorldY;
+        [SerializeField] bool logRuntimeLayoutConfig = true;
+
         [Header("HUD Page Flick")]
         [SerializeField] bool enableHudPageFlickNavigation = true;
         [SerializeField, Range(0.3f, 0.95f)] float hudPageFlickThreshold = 0.7f;
@@ -190,6 +205,9 @@ namespace TheBigRedButtonInstitute.VR
         double _runtimeCommandIntervalSeconds = DefaultRuntimeCommandIntervalSeconds;
         bool _timedButtonBlinkActive;
         double _buttonBlinkStopTime;
+        BigRedButtonRuntimeLayoutConfig _activeRuntimeLayoutConfig;
+        string _lastRuntimeLayoutStatus = "runtime layout not loaded";
+        string _lastRuntimeLayoutSource = "inspector";
 
         public IReadOnlyList<ActionBinding> Bindings => bindings;
         public IReadOnlyList<TerminalCommand> Commands => commands;
@@ -207,6 +225,10 @@ namespace TheBigRedButtonInstitute.VR
         {
             EnsureConfiguration();
             ResolveReferences(forceRefresh: true);
+            if (loadRuntimeLayoutConfigOnEnable)
+            {
+                ReloadRuntimeLayoutConfigFromDisk(recenterButton: false, reportToHud: false);
+            }
             hud?.ConfigureReferences(this, headTransform);
             EnsureReasonableButtonScale();
             TryConfigureSimultaneousHandsAndControllers();
@@ -215,6 +237,10 @@ namespace TheBigRedButtonInstitute.VR
         void OnEnable()
         {
             ResolveReferences(forceRefresh: false);
+            if (loadRuntimeLayoutConfigOnEnable)
+            {
+                ReloadRuntimeLayoutConfigFromDisk(recenterButton: false, reportToHud: false);
+            }
             hud?.ConfigureReferences(this, headTransform);
             hud?.RefreshImmediately();
             ArmStartupPlacement();
@@ -243,6 +269,7 @@ namespace TheBigRedButtonInstitute.VR
             buttonBlinkController = button != null ? button.GetComponent<BigRedButtonBlinkController>() : null;
             manualPressController = button != null ? button.GetComponent<BigRedButtonManualPressController>() : null;
             EnsureConfiguration();
+            ApplyRuntimeLayoutConfig(_activeRuntimeLayoutConfig, recenterButton: false);
             hud?.ConfigureReferences(this, headTransform);
             ArmStartupPlacement();
         }
@@ -607,6 +634,12 @@ namespace TheBigRedButtonInstitute.VR
                     Debug.Log($"[QuestVrInputManager] {snapshot}", this);
                     hud?.SetTransientMessage($"status: {snapshot}");
                     break;
+                case VrTerminalCommandId.ReloadLayout:
+                    ReloadRuntimeLayoutConfigFromDisk(recenterButtonAfterLayoutReload, reportToHud: true);
+                    break;
+                case VrTerminalCommandId.LayoutStatus:
+                    LogRuntimeLayoutStatus(reportToHud: true);
+                    break;
                 case VrTerminalCommandId.PolarConnect:
                     if (polarRuntimeManager == null)
                     {
@@ -814,6 +847,17 @@ namespace TheBigRedButtonInstitute.VR
                     Debug.Log($"[QuestVrInputManager] CLI status: {snapshot}", this);
                     hud?.SetTransientMessage($"status: {snapshot}");
                     return true;
+                case "reload_layout":
+                case "layout_reload":
+                case "runtime_layout_reload":
+                case "reload_runtime_layout":
+                    ReloadRuntimeLayoutConfigFromDisk(recenterButtonAfterLayoutReload, reportToHud: true);
+                    Debug.Log($"[QuestVrInputManager] CLI layout reload: {_lastRuntimeLayoutStatus}", this);
+                    return true;
+                case "layout_status":
+                case "runtime_layout_status":
+                    LogRuntimeLayoutStatus(reportToHud: true);
+                    return true;
                 case "questionnaire_open":
                 case "questionnaire_initial":
                 case "initial":
@@ -1018,6 +1062,9 @@ namespace TheBigRedButtonInstitute.VR
                 summary.Append(Vector3.Distance(headTransform.position, buttonTransform.position).ToString("0.00"));
                 summary.Append("m");
             }
+
+            summary.Append(" / layout ");
+            summary.Append(DescribeRuntimeLayoutCompact());
 
             if (polarRuntimeManager != null)
             {
@@ -1399,6 +1446,8 @@ namespace TheBigRedButtonInstitute.VR
                 new() { command = "press_button", description = "play the imported press animation once", action = VrTerminalCommandId.PressButton },
                 new() { command = "blink_button", description = "blink the button for the default timed interval", action = VrTerminalCommandId.BlinkButton },
                 new() { command = "stop_blink", description = "stop the timed button blink", action = VrTerminalCommandId.StopButtonBlink },
+                new() { command = "reload_layout", description = "reload runtime layout config files", action = VrTerminalCommandId.ReloadLayout },
+                new() { command = "layout_status", description = "log active runtime layout config paths and values", action = VrTerminalCommandId.LayoutStatus },
                 new() { command = "toggle_hud", description = "show or hide the overlay", action = VrTerminalCommandId.ToggleHud },
                 new() { command = "status", description = "log the button and Polar sensor status snapshot", action = VrTerminalCommandId.StatusSnapshot }
             };
@@ -1609,9 +1658,246 @@ namespace TheBigRedButtonInstitute.VR
             horizontalForward.Normalize();
 
             targetPosition = headTransform.position + horizontalForward * buttonDistanceFromHead;
-            targetPosition.y = Mathf.Max(minimumButtonHeight, headTransform.position.y + buttonVerticalOffset);
+            targetPosition.y = useAbsoluteButtonWorldY
+                ? absoluteButtonWorldY
+                : Mathf.Max(minimumButtonHeight, headTransform.position.y + buttonVerticalOffset);
             targetRotation = Quaternion.LookRotation(-horizontalForward, Vector3.up) * Quaternion.Euler(buttonRotationOffsetEuler);
             return true;
+        }
+
+        bool ReloadRuntimeLayoutConfigFromDisk(bool recenterButton, bool reportToHud)
+        {
+            if (!Application.isPlaying)
+            {
+                return false;
+            }
+
+            var config = CaptureCurrentRuntimeLayoutConfig();
+            var defaultsPath = ResolveRuntimeLayoutPath(runtimeLayoutDefaultsRelativePath, BigRedButtonRuntimeLayoutConfig.DefaultsRelativePath);
+            var overridePath = ResolveRuntimeLayoutPath(runtimeLayoutOverrideRelativePath, BigRedButtonRuntimeLayoutConfig.RuntimeOverrideRelativePath);
+            var source = "inspector";
+            var loadedAnyFile = false;
+
+            if (writeRuntimeLayoutDefaultsIfMissing)
+            {
+                TryWriteDefaultRuntimeLayoutConfig(defaultsPath, config);
+            }
+
+            if (TryReadRuntimeLayoutConfig(defaultsPath, config, out var defaultsConfig, out var defaultsError))
+            {
+                config = defaultsConfig;
+                source = defaultsPath;
+                loadedAnyFile = true;
+            }
+            else if (!string.IsNullOrWhiteSpace(defaultsError) && logRuntimeLayoutConfig)
+            {
+                Debug.LogWarning($"[BRBRuntimeLayout] Default config not loaded from '{defaultsPath}': {defaultsError}", this);
+            }
+
+            if (TryReadRuntimeLayoutConfig(overridePath, config, out var overrideConfig, out var overrideError))
+            {
+                config = overrideConfig;
+                source = overridePath;
+                loadedAnyFile = true;
+            }
+            else if (!string.IsNullOrWhiteSpace(overrideError) && logRuntimeLayoutConfig)
+            {
+                Debug.LogWarning($"[BRBRuntimeLayout] Runtime override not loaded from '{overridePath}': {overrideError}", this);
+            }
+
+            ApplyRuntimeLayoutConfig(config, recenterButton);
+            _lastRuntimeLayoutSource = source;
+            _lastRuntimeLayoutStatus =
+                $"{(loadedAnyFile ? "loaded" : "using inspector defaults")} source={source} " +
+                $"defaults={defaultsPath} override={overridePath} {config.ToCompactString()}";
+
+            if (logRuntimeLayoutConfig)
+            {
+                Debug.Log($"[BRBRuntimeLayout] {_lastRuntimeLayoutStatus}", this);
+            }
+
+            if (reportToHud)
+            {
+                hud?.SetTransientMessage($"layout: {DescribeRuntimeLayoutCompact()}");
+            }
+
+            return true;
+        }
+
+        BigRedButtonRuntimeLayoutConfig CaptureCurrentRuntimeLayoutConfig()
+        {
+            var config = new BigRedButtonRuntimeLayoutConfig
+            {
+                counter_canvas_local_y_m = ResolveCounterCanvasLocalY(),
+                button_height_m = targetButtonHeight,
+                button_distance_from_head_m = buttonDistanceFromHead,
+                button_vertical_offset_from_head_m = buttonVerticalOffset,
+                minimum_button_world_y_m = minimumButtonHeight,
+                use_absolute_button_world_y = useAbsoluteButtonWorldY,
+                absolute_button_world_y_m = absoluteButtonWorldY,
+                place_button_on_startup = placeButtonOnStartup,
+                keep_button_in_front_of_head = keepButtonInFrontOfHead
+            };
+            config.Normalize();
+            return config;
+        }
+
+        void ApplyRuntimeLayoutConfig(BigRedButtonRuntimeLayoutConfig config, bool recenterButton)
+        {
+            if (config == null)
+            {
+                return;
+            }
+
+            config.Normalize();
+            _activeRuntimeLayoutConfig = config.Clone();
+            targetButtonHeight = config.button_height_m;
+            buttonDistanceFromHead = config.button_distance_from_head_m;
+            buttonVerticalOffset = config.button_vertical_offset_from_head_m;
+            minimumButtonHeight = config.minimum_button_world_y_m;
+            useAbsoluteButtonWorldY = config.use_absolute_button_world_y;
+            absoluteButtonWorldY = config.absolute_button_world_y_m;
+            placeButtonOnStartup = config.place_button_on_startup;
+            keepButtonInFrontOfHead = config.keep_button_in_front_of_head;
+
+            ApplyCounterCanvasLocalY(config.counter_canvas_local_y_m);
+            EnsureReasonableButtonScale();
+
+            if (recenterButton && Application.isPlaying)
+            {
+                CenterButtonInFrontOfHead(reportToHud: false);
+            }
+
+            hud?.RefreshImmediately();
+        }
+
+        bool TryWriteDefaultRuntimeLayoutConfig(string path, BigRedButtonRuntimeLayoutConfig config)
+        {
+            if (string.IsNullOrWhiteSpace(path) || File.Exists(path))
+            {
+                return false;
+            }
+
+            try
+            {
+                var directory = Path.GetDirectoryName(path);
+                if (!string.IsNullOrWhiteSpace(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+
+                File.WriteAllText(path, BigRedButtonRuntimeLayoutConfig.ToJson(config), Encoding.UTF8);
+                if (logRuntimeLayoutConfig)
+                {
+                    Debug.Log($"[BRBRuntimeLayout] Wrote default layout config '{path}'.", this);
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[BRBRuntimeLayout] Failed to write default layout config '{path}': {ex.Message}", this);
+                return false;
+            }
+        }
+
+        static bool TryReadRuntimeLayoutConfig(
+            string path,
+            BigRedButtonRuntimeLayoutConfig fallback,
+            out BigRedButtonRuntimeLayoutConfig config,
+            out string error)
+        {
+            config = null;
+            error = string.Empty;
+
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            {
+                return false;
+            }
+
+            try
+            {
+                var json = File.ReadAllText(path);
+                if (!BigRedButtonRuntimeLayoutConfig.TryFromJson(json, fallback, out config, out error))
+                {
+                    return false;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+                return false;
+            }
+        }
+
+        string ResolveRuntimeLayoutPath(string configuredPath, string fallbackRelativePath)
+        {
+            var path = string.IsNullOrWhiteSpace(configuredPath) ? fallbackRelativePath : configuredPath.Trim();
+            if (Path.IsPathRooted(path))
+            {
+                return path;
+            }
+
+            var normalized = path
+                .Replace('/', Path.DirectorySeparatorChar)
+                .Replace('\\', Path.DirectorySeparatorChar);
+            return Path.Combine(Application.persistentDataPath, normalized);
+        }
+
+        float ResolveCounterCanvasLocalY()
+        {
+            var counterTransform = ResolveCounterTransform();
+            return counterTransform != null
+                ? counterTransform.localPosition.y
+                : BigRedButtonRuntimeLayoutConfig.DefaultCounterCanvasLocalY;
+        }
+
+        void ApplyCounterCanvasLocalY(float localY)
+        {
+            var counterTransform = ResolveCounterTransform();
+            if (counterTransform == null)
+            {
+                return;
+            }
+
+            var localPosition = counterTransform.localPosition;
+            localPosition.y = localY;
+            counterTransform.localPosition = localPosition;
+        }
+
+        Transform ResolveCounterTransform()
+        {
+            if (buttonTransform != null)
+            {
+                var counter = buttonTransform.Find("Button Press Counter");
+                if (counter != null)
+                {
+                    return counter;
+                }
+            }
+
+            var worldCounter = FindAnyObjectByType<BigRedButtonWorldPressCounter>();
+            return worldCounter != null ? worldCounter.transform : null;
+        }
+
+        string DescribeRuntimeLayoutCompact()
+        {
+            var config = _activeRuntimeLayoutConfig ?? CaptureCurrentRuntimeLayoutConfig();
+            return config.ToCompactString();
+        }
+
+        void LogRuntimeLayoutStatus(bool reportToHud)
+        {
+            var message = string.IsNullOrWhiteSpace(_lastRuntimeLayoutStatus)
+                ? $"source={_lastRuntimeLayoutSource} {DescribeRuntimeLayoutCompact()}"
+                : _lastRuntimeLayoutStatus;
+            Debug.Log($"[BRBRuntimeLayout] {message}", this);
+            if (reportToHud)
+            {
+                hud?.SetTransientMessage($"layout: {DescribeRuntimeLayoutCompact()}");
+            }
         }
 
         void ResolveReferences(bool forceRefresh)

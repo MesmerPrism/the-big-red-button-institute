@@ -101,6 +101,8 @@ git diff --check
 - `Documentation/New-Agent-Integration-Brief.md`
 - `Documentation/Quest-Polar-Workflow.md`
 - `Documentation/Quest-Questionnaire-Panel-Integration.md`
+- `Documentation/Morphospace-Coordinate-Particles.md`
+- `Documentation/Quest-Runtime-Layout-Config.md`
 - `THIRD_PARTY_NOTICES.md`
 
 ## License
